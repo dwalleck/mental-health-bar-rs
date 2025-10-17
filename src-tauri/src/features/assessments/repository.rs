@@ -1,0 +1,220 @@
+// Assessment repository - database access layer
+use super::models::{AssessmentType, AssessmentResponse, AssessmentError};
+use crate::db::Database;
+use chrono::Utc;
+use std::sync::{Arc, Mutex};
+
+pub struct AssessmentRepository {
+    db: Arc<Database>,
+}
+
+impl AssessmentRepository {
+    pub fn new(db: Arc<Database>) -> Self {
+        Self { db }
+    }
+
+    /// Save a completed assessment
+    pub fn save_assessment(
+        &self,
+        assessment_type_id: i32,
+        responses: &[i32],
+        total_score: i32,
+        severity_level: &str,
+        notes: Option<String>,
+    ) -> Result<i32, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().unwrap();
+
+        let responses_json = serde_json::to_string(responses).unwrap();
+
+        conn.execute(
+            "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
+             VALUES (?, ?, ?, ?, ?)",
+            &[
+                &assessment_type_id as &dyn duckdb::ToSql,
+                &responses_json as &dyn duckdb::ToSql,
+                &total_score as &dyn duckdb::ToSql,
+                &severity_level as &dyn duckdb::ToSql,
+                &notes as &dyn duckdb::ToSql,
+            ],
+        )?;
+
+        let id: i32 = conn.query_row("SELECT CAST(last_insert_rowid() AS INTEGER)", [], |row| row.get(0))?;
+
+        Ok(id)
+    }
+
+    /// Get all assessment types
+    pub fn get_assessment_types(&self) -> Result<Vec<AssessmentType>, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
+             FROM assessment_types
+             ORDER BY id"
+        )?;
+
+        let types = stmt
+            .query_map([], |row| {
+                Ok(AssessmentType {
+                    id: row.get(0)?,
+                    code: row.get(1)?,
+                    name: row.get(2)?,
+                    description: row.get(3)?,
+                    question_count: row.get(4)?,
+                    min_score: row.get(5)?,
+                    max_score: row.get(6)?,
+                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).unwrap(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(types)
+    }
+
+    /// Get assessment type by code
+    pub fn get_assessment_type_by_code(&self, code: &str) -> Result<AssessmentType, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().unwrap();
+
+        let result = conn.query_row(
+            "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
+             FROM assessment_types
+             WHERE code = ?",
+            [code],
+            |row| {
+                Ok(AssessmentType {
+                    id: row.get(0)?,
+                    code: row.get(1)?,
+                    name: row.get(2)?,
+                    description: row.get(3)?,
+                    question_count: row.get(4)?,
+                    min_score: row.get(5)?,
+                    max_score: row.get(6)?,
+                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).unwrap(),
+                })
+            },
+        );
+
+        match result {
+            Ok(assessment_type) => Ok(assessment_type),
+            Err(_) => Err(AssessmentError::InvalidType(code.to_string())),
+        }
+    }
+
+    /// Get assessment history with optional date filtering
+    pub fn get_assessment_history(
+        &self,
+        assessment_type_code: Option<String>,
+        from_date: Option<String>,
+        to_date: Option<String>,
+        limit: Option<i32>,
+    ) -> Result<Vec<AssessmentResponse>, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().unwrap();
+
+        let mut query = String::from(
+            "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
+                    ar.completed_at, ar.notes,
+                    at.id, at.code, at.name, at.description, at.question_count, at.min_score, at.max_score, at.thresholds
+             FROM assessment_responses ar
+             JOIN assessment_types at ON ar.assessment_type_id = at.id
+             WHERE 1=1"
+        );
+
+        if assessment_type_code.is_some() {
+            query.push_str(" AND at.code = ?");
+        }
+        if from_date.is_some() {
+            query.push_str(" AND ar.completed_at >= ?");
+        }
+        if to_date.is_some() {
+            query.push_str(" AND ar.completed_at <= ?");
+        }
+
+        query.push_str(" ORDER BY ar.completed_at DESC");
+
+        if let Some(lim) = limit {
+            query.push_str(&format!(" LIMIT {}", lim));
+        }
+
+        let mut stmt = conn.prepare(&query)?;
+
+        // Build params dynamically
+        let mut param_index = 0;
+        let params: Vec<&dyn duckdb::ToSql> = vec![];
+
+        let responses = stmt
+            .query_map([], |row| {
+                let responses_json: String = row.get(2)?;
+                let responses: Vec<i32> = serde_json::from_str(&responses_json).unwrap();
+
+                Ok(AssessmentResponse {
+                    id: row.get(0)?,
+                    assessment_type: AssessmentType {
+                        id: row.get(7)?,
+                        code: row.get(8)?,
+                        name: row.get(9)?,
+                        description: row.get(10)?,
+                        question_count: row.get(11)?,
+                        min_score: row.get(12)?,
+                        max_score: row.get(13)?,
+                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?).unwrap(),
+                    },
+                    responses,
+                    total_score: row.get(3)?,
+                    severity_level: row.get(4)?,
+                    completed_at: row.get(5)?,
+                    notes: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(responses)
+    }
+
+    /// Get a single assessment response by ID
+    pub fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().unwrap();
+
+        let result = conn.query_row(
+            "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
+                    ar.completed_at, ar.notes,
+                    at.id, at.code, at.name, at.description, at.question_count, at.min_score, at.max_score, at.thresholds
+             FROM assessment_responses ar
+             JOIN assessment_types at ON ar.assessment_type_id = at.id
+             WHERE ar.id = ?",
+            [id],
+            |row| {
+                let responses_json: String = row.get(2)?;
+                let responses: Vec<i32> = serde_json::from_str(&responses_json).unwrap();
+
+                Ok(AssessmentResponse {
+                    id: row.get(0)?,
+                    assessment_type: AssessmentType {
+                        id: row.get(7)?,
+                        code: row.get(8)?,
+                        name: row.get(9)?,
+                        description: row.get(10)?,
+                        question_count: row.get(11)?,
+                        min_score: row.get(12)?,
+                        max_score: row.get(13)?,
+                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?).unwrap(),
+                    },
+                    responses,
+                    total_score: row.get(3)?,
+                    severity_level: row.get(4)?,
+                    completed_at: row.get(5)?,
+                    notes: row.get(6)?,
+                })
+            },
+        );
+
+        match result {
+            Ok(response) => Ok(response),
+            Err(_) => Err(AssessmentError::NotFound(id)),
+        }
+    }
+}
