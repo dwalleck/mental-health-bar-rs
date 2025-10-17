@@ -70,7 +70,7 @@ jobs:
 
       - name: Run integration tests
         working-directory: src-tauri
-        run: cargo test --test '*' --verbose || true
+        run: cargo test --test '*' --verbose
 
   # T205: Frontend tests
   frontend-tests:

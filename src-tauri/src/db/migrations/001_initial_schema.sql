@@ -1,9 +1,17 @@
 -- Migration 001: Initial Schema
 -- Mental Health Assessment and Tracking Application
 
+-- Create sequences for auto-incrementing IDs
+CREATE SEQUENCE assessment_types_id_seq START 1;
+CREATE SEQUENCE assessment_responses_id_seq START 1;
+CREATE SEQUENCE activities_id_seq START 1;
+CREATE SEQUENCE mood_checkins_id_seq START 1;
+CREATE SEQUENCE mood_checkin_activities_id_seq START 1;
+CREATE SEQUENCE assessment_schedules_id_seq START 1;
+
 -- Assessment Types (PHQ-9, GAD-7, CES-D, OASIS)
 CREATE TABLE assessment_types (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('assessment_types_id_seq'),
     code VARCHAR(10) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -16,7 +24,7 @@ CREATE TABLE assessment_types (
 
 -- Assessment Responses
 CREATE TABLE assessment_responses (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('assessment_responses_id_seq'),
     assessment_type_id INTEGER NOT NULL,
     responses JSON NOT NULL,
     total_score INTEGER NOT NULL,
@@ -31,7 +39,7 @@ CREATE INDEX idx_assessment_responses_type_date ON assessment_responses(assessme
 
 -- Activities (user-defined for mood tracking)
 CREATE TABLE activities (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('activities_id_seq'),
     name VARCHAR(100) NOT NULL UNIQUE,
     color VARCHAR(7),
     icon VARCHAR(50),
@@ -43,7 +51,7 @@ CREATE INDEX idx_activities_deleted_at ON activities(deleted_at);
 
 -- Mood Check-Ins
 CREATE TABLE mood_checkins (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('mood_checkins_id_seq'),
     mood_rating INTEGER NOT NULL CHECK (mood_rating BETWEEN 1 AND 5),
     notes TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -54,7 +62,7 @@ CREATE INDEX idx_mood_checkins_date ON mood_checkins(DATE(created_at));
 
 -- Mood Check-In Activities (junction table)
 CREATE TABLE mood_checkin_activities (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('mood_checkin_activities_id_seq'),
     mood_checkin_id INTEGER NOT NULL,
     activity_id INTEGER NOT NULL,
     FOREIGN KEY (mood_checkin_id) REFERENCES mood_checkins(id),
@@ -67,7 +75,7 @@ CREATE INDEX idx_mood_checkin_activities_activity ON mood_checkin_activities(act
 
 -- Assessment Schedules
 CREATE TABLE assessment_schedules (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('assessment_schedules_id_seq'),
     assessment_type_id INTEGER NOT NULL,
     frequency VARCHAR(20) NOT NULL CHECK (frequency IN ('daily', 'weekly', 'biweekly', 'monthly')),
     time_of_day TIME NOT NULL,

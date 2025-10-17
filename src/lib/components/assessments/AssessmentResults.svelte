@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { invoke } from '@tauri-apps/api/core';
 	import type { AssessmentResponse } from '$lib/bindings';
 	import Card from '$lib/components/ui/Card.svelte';
@@ -118,10 +119,10 @@
 			</div>
 
 			<div class="mt-6 flex gap-3">
-				<Button variant="primary" fullWidth on:click={() => (window.location.href = '/assessments')}>
+				<Button variant="primary" fullWidth on:click={() => goto('/assessments')}>
 					Take Another Assessment
 				</Button>
-				<Button variant="secondary" fullWidth on:click={() => (window.location.href = '/charts')}>
+				<Button variant="secondary" fullWidth on:click={() => goto('/charts')}>
 					View Trends
 				</Button>
 			</div>

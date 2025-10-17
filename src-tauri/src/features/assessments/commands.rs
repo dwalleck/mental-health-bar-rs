@@ -12,33 +12,40 @@ pub async fn submit_assessment(
     request: SubmitAssessmentRequest,
     state: State<'_, AppState>,
 ) -> Result<AssessmentResponse, String> {
+    // Validate notes field length
+    if let Some(ref notes) = request.notes {
+        if notes.len() > 10_000 {
+            return Err("Notes exceed maximum length of 10,000 characters".to_string());
+        }
+    }
+
     let repo = AssessmentRepository::new(state.db.clone());
 
     // Get assessment type
     let assessment_type = repo
         .get_assessment_type_by_code(&request.assessment_type_code)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to retrieve assessment type '{}': {}", request.assessment_type_code, e))?;
 
     // Calculate score based on type
     let (total_score, severity_level) = match assessment_type.code.as_str() {
         "PHQ9" => {
             let score = calculate_phq9_score(&request.responses)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Failed to calculate PHQ-9 score: {}", e))?;
             (score, get_phq9_severity(score).to_string())
         }
         "GAD7" => {
             let score = calculate_gad7_score(&request.responses)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Failed to calculate GAD-7 score: {}", e))?;
             (score, get_gad7_severity(score).to_string())
         }
         "CESD" => {
             let score = calculate_cesd_score(&request.responses)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Failed to calculate CES-D score: {}", e))?;
             (score, get_cesd_severity(score).to_string())
         }
         "OASIS" => {
             let score = calculate_oasis_score(&request.responses)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Failed to calculate OASIS score: {}", e))?;
             (score, get_oasis_severity(score).to_string())
         }
         _ => return Err(format!("Unknown assessment type: {}", assessment_type.code)),
@@ -53,11 +60,11 @@ pub async fn submit_assessment(
             &severity_level,
             request.notes,
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to save assessment to database: {}", e))?;
 
     // Return the complete response
     repo.get_assessment_response(id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("Failed to retrieve saved assessment: {}", e))
 }
 
 /// Delete an assessment response
@@ -68,10 +75,11 @@ pub async fn delete_assessment(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let conn = state.db.get_connection();
-    let conn = conn.lock().unwrap();
+    let conn = conn.lock()
+        .map_err(|_| format!("Failed to acquire database lock for deletion"))?;
 
     conn.execute("DELETE FROM assessment_responses WHERE id = ?", [id])
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to delete assessment {}: {}", id, e))?;
 
     Ok(())
 }

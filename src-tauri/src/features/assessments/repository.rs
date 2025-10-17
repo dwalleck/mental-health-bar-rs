@@ -28,9 +28,10 @@ impl AssessmentRepository {
         let responses_json = serde_json::to_string(responses)
             .map_err(|e| AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e)))?;
 
-        conn.execute(
+        let id: i32 = conn.query_row(
             "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
-             VALUES (?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?)
+             RETURNING id",
             [
                 &assessment_type_id as &dyn duckdb::ToSql,
                 &responses_json as &dyn duckdb::ToSql,
@@ -38,9 +39,8 @@ impl AssessmentRepository {
                 &severity_level as &dyn duckdb::ToSql,
                 &notes as &dyn duckdb::ToSql,
             ],
+            |row| row.get(0)
         )?;
-
-        let id: i32 = conn.query_row("SELECT CAST(last_insert_rowid() AS INTEGER)", [], |row| row.get(0))?;
 
         Ok(id)
     }

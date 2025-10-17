@@ -106,4 +106,9 @@ impl Database {
         info!("Permission checking not supported on this platform");
         Ok(())
     }
+
+    /// Run database migrations - exposed for testing
+    pub fn run_migrations(&self) -> Result<()> {
+        migrations::run_migrations(self)
+    }
 }

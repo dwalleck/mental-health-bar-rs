@@ -13,7 +13,7 @@ pub async fn get_assessment_types(
 ) -> Result<Vec<AssessmentType>, String> {
     let repo = AssessmentRepository::new(state.db.clone());
     repo.get_assessment_types()
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("Failed to retrieve assessment types: {}", e))
 }
 
 /// Get questions for a specific assessment type
@@ -45,7 +45,7 @@ pub async fn get_assessment_history(
 ) -> Result<Vec<AssessmentResponse>, String> {
     let repo = AssessmentRepository::new(state.db.clone());
     repo.get_assessment_history(assessment_type_code, from_date, to_date, limit)
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("Failed to retrieve assessment history: {}", e))
 }
 
 /// Get a single assessment response by ID
@@ -57,7 +57,7 @@ pub async fn get_assessment_response(
 ) -> Result<AssessmentResponse, String> {
     let repo = AssessmentRepository::new(state.db.clone());
     repo.get_assessment_response(id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("Failed to retrieve assessment {}: {}", id, e))
 }
 
 /// Get the most recent assessment for a specific type
@@ -69,8 +69,8 @@ pub async fn get_latest_assessment(
 ) -> Result<Option<AssessmentResponse>, String> {
     let repo = AssessmentRepository::new(state.db.clone());
     let history = repo
-        .get_assessment_history(Some(assessment_type_code), None, None, Some(1))
-        .map_err(|e| e.to_string())?;
+        .get_assessment_history(Some(assessment_type_code.clone()), None, None, Some(1))
+        .map_err(|e| format!("Failed to retrieve latest assessment for '{}': {}", assessment_type_code, e))?;
 
     Ok(history.into_iter().next())
 }

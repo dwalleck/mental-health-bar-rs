@@ -3,9 +3,9 @@ use tauri::{Manager, State};
 use tauri_specta::{collect_commands, Builder};
 
 mod config;
-mod db;
+pub mod db;
 mod errors;
-mod features;
+pub mod features;
 
 // Re-export for easier access
 pub use config::AppConfig;

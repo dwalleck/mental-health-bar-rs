@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { invoke } from '@tauri-apps/api/core';
-	import type { AssessmentQuestion, SubmitAssessmentRequest } from '$lib/bindings';
+	import type { AssessmentQuestion, AssessmentResponse, SubmitAssessmentRequest } from '$lib/bindings';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 
@@ -44,10 +45,10 @@
 				notes: notes || null
 			};
 
-			const result = await invoke('submit_assessment', { request });
+			const result = await invoke<AssessmentResponse>('submit_assessment', { request });
 
 			// Navigate to results
-			window.location.href = `/assessments/${assessmentCode}/result/${result.id}`;
+			await goto(`/assessments/${assessmentCode}/result/${result.id}`);
 		} catch (e) {
 			error = String(e);
 		} finally {
