@@ -36,6 +36,7 @@ CREATE TABLE assessment_responses (
 
 CREATE INDEX idx_assessment_responses_completed_at ON assessment_responses(completed_at);
 CREATE INDEX idx_assessment_responses_type_date ON assessment_responses(assessment_type_id, completed_at);
+CREATE INDEX idx_assessment_responses_severity ON assessment_responses(severity_level);
 
 -- Activities (user-defined for mood tracking)
 CREATE TABLE activities (

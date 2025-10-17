@@ -29,6 +29,11 @@
 	});
 
 	async function handleSubmit() {
+		// Prevent double-submission
+		if (submitting) {
+			return;
+		}
+
 		// Validate all questions answered
 		if (responses.some((r) => r === -1)) {
 			error = 'Please answer all questions';

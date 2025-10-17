@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use duckdb::{Connection, params};
+use duckdb::Connection;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn};

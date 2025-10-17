@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, State};
+use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
 mod config;
@@ -54,17 +54,29 @@ pub fn run() {
 
             // Initialize database
             let app_data_dir = app.path().app_data_dir()
-                .expect("Failed to get app data directory");
+                .map_err(|e| {
+                    eprintln!("Failed to get app data directory: {}", e);
+                    e
+                })?;
             let db = Database::new(app_data_dir)
-                .expect("Failed to initialize database");
+                .map_err(|e| {
+                    eprintln!("Failed to initialize database: {}", e);
+                    e
+                })?;
 
             // Check database permissions
             db.check_permissions()
-                .expect("Failed to check database permissions");
+                .map_err(|e| {
+                    eprintln!("Database permission check failed: {}", e);
+                    e
+                })?;
 
             // Load configuration
             let config = AppConfig::load()
-                .expect("Failed to load configuration");
+                .map_err(|e| {
+                    eprintln!("Failed to load configuration: {}", e);
+                    e
+                })?;
 
             // Setup managed state
             app.manage(AppState {

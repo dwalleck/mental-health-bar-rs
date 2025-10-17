@@ -1,7 +1,14 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
+
+/// Severity level constants
+pub const SEVERITY_MINIMAL: &str = "minimal";
+pub const SEVERITY_MILD: &str = "mild";
+pub const SEVERITY_MODERATE: &str = "moderate";
+pub const SEVERITY_MODERATELY_SEVERE: &str = "moderately_severe";
+pub const SEVERITY_SEVERE: &str = "severe";
+pub const SEVERITY_UNKNOWN: &str = "unknown";
 
 /// Assessment error types
 #[derive(Error, Debug)]
@@ -17,6 +24,9 @@ pub enum AssessmentError {
 
     #[error("Assessment not found: {0}")]
     NotFound(i32),
+
+    #[error("Database lock poisoned")]
+    LockPoisoned,
 
     #[error("Database error: {0}")]
     Database(#[from] duckdb::Error),
@@ -91,12 +101,12 @@ pub fn calculate_phq9_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 /// Get PHQ-9 severity level
 pub fn get_phq9_severity(score: i32) -> &'static str {
     match score {
-        0..=4 => "minimal",
-        5..=9 => "mild",
-        10..=14 => "moderate",
-        15..=19 => "moderately_severe",
-        20..=27 => "severe",
-        _ => "unknown",
+        0..=4 => SEVERITY_MINIMAL,
+        5..=9 => SEVERITY_MILD,
+        10..=14 => SEVERITY_MODERATE,
+        15..=19 => SEVERITY_MODERATELY_SEVERE,
+        20..=27 => SEVERITY_SEVERE,
+        _ => SEVERITY_UNKNOWN,
     }
 }
 
@@ -125,11 +135,11 @@ pub fn calculate_gad7_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 /// Get GAD-7 severity level
 pub fn get_gad7_severity(score: i32) -> &'static str {
     match score {
-        0..=4 => "minimal",
-        5..=9 => "mild",
-        10..=14 => "moderate",
-        15..=21 => "severe",
-        _ => "unknown",
+        0..=4 => SEVERITY_MINIMAL,
+        5..=9 => SEVERITY_MILD,
+        10..=14 => SEVERITY_MODERATE,
+        15..=21 => SEVERITY_SEVERE,
+        _ => SEVERITY_UNKNOWN,
     }
 }
 
@@ -158,11 +168,11 @@ pub fn calculate_cesd_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 /// Get CES-D severity level
 pub fn get_cesd_severity(score: i32) -> &'static str {
     match score {
-        0..=15 => "minimal",
-        16..=21 => "mild",
-        22..=36 => "moderate",
-        37..=60 => "severe",
-        _ => "unknown",
+        0..=15 => SEVERITY_MINIMAL,
+        16..=21 => SEVERITY_MILD,
+        22..=36 => SEVERITY_MODERATE,
+        37..=60 => SEVERITY_SEVERE,
+        _ => SEVERITY_UNKNOWN,
     }
 }
 
@@ -191,10 +201,10 @@ pub fn calculate_oasis_score(responses: &[i32]) -> Result<i32, AssessmentError> 
 /// Get OASIS severity level
 pub fn get_oasis_severity(score: i32) -> &'static str {
     match score {
-        0..=7 => "minimal",
-        8..=14 => "moderate",
-        15..=20 => "severe",
-        _ => "unknown",
+        0..=7 => SEVERITY_MINIMAL,
+        8..=14 => SEVERITY_MODERATE,
+        15..=20 => SEVERITY_SEVERE,
+        _ => SEVERITY_UNKNOWN,
     }
 }
 

@@ -23,7 +23,7 @@ impl AssessmentRepository {
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock()
-            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
+            .map_err(|_| AssessmentError::LockPoisoned)?;
 
         let responses_json = serde_json::to_string(responses)
             .map_err(|e| AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e)))?;
@@ -49,7 +49,7 @@ impl AssessmentRepository {
     pub fn get_assessment_types(&self) -> Result<Vec<AssessmentType>, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock()
-            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
+            .map_err(|_| AssessmentError::LockPoisoned)?;
 
         let mut stmt = conn.prepare(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -80,7 +80,7 @@ impl AssessmentRepository {
     pub fn get_assessment_type_by_code(&self, code: &str) -> Result<AssessmentType, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock()
-            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
+            .map_err(|_| AssessmentError::LockPoisoned)?;
 
         let result = conn.query_row(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -118,7 +118,7 @@ impl AssessmentRepository {
     ) -> Result<Vec<AssessmentResponse>, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock()
-            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
+            .map_err(|_| AssessmentError::LockPoisoned)?;
 
         let mut query = String::from(
             "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
@@ -142,7 +142,9 @@ impl AssessmentRepository {
         query.push_str(" ORDER BY ar.completed_at DESC");
 
         if let Some(lim) = limit {
-            query.push_str(&format!(" LIMIT {}", lim));
+            // Enforce reasonable bounds to prevent excessive queries
+            let safe_limit = lim.max(1).min(1000);
+            query.push_str(&format!(" LIMIT {}", safe_limit));
         }
 
         let mut stmt = conn.prepare(&query)?;
@@ -194,7 +196,7 @@ impl AssessmentRepository {
     pub fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock()
-            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
+            .map_err(|_| AssessmentError::LockPoisoned)?;
 
         let result = conn.query_row(
             "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,

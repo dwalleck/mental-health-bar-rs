@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use duckdb::params;
 use tracing::info;
 
 use super::Database;

@@ -3,7 +3,6 @@ use tauri::State;
 use crate::AppState;
 use super::models::*;
 use super::repository::AssessmentRepository;
-use super::content;
 
 /// Submit a completed assessment
 #[tauri::command]
@@ -17,6 +16,11 @@ pub async fn submit_assessment(
         if notes.len() > 10_000 {
             return Err("Notes exceed maximum length of 10,000 characters".to_string());
         }
+    }
+
+    // Validate assessment type code format (alphanumeric only)
+    if !request.assessment_type_code.chars().all(|c| c.is_alphanumeric()) {
+        return Err("Assessment type code must contain only alphanumeric characters".to_string());
     }
 
     let repo = AssessmentRepository::new(state.db.clone());
