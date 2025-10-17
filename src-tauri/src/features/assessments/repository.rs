@@ -1,8 +1,7 @@
 // Assessment repository - database access layer
 use super::models::{AssessmentType, AssessmentResponse, AssessmentError};
 use crate::db::Database;
-use chrono::Utc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct AssessmentRepository {
     db: Arc<Database>,
@@ -23,14 +22,16 @@ impl AssessmentRepository {
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().unwrap();
+        let conn = conn.lock()
+            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
 
-        let responses_json = serde_json::to_string(responses).unwrap();
+        let responses_json = serde_json::to_string(responses)
+            .map_err(|e| AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e)))?;
 
         conn.execute(
             "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
              VALUES (?, ?, ?, ?, ?)",
-            &[
+            [
                 &assessment_type_id as &dyn duckdb::ToSql,
                 &responses_json as &dyn duckdb::ToSql,
                 &total_score as &dyn duckdb::ToSql,
@@ -47,7 +48,8 @@ impl AssessmentRepository {
     /// Get all assessment types
     pub fn get_assessment_types(&self) -> Result<Vec<AssessmentType>, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().unwrap();
+        let conn = conn.lock()
+            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
 
         let mut stmt = conn.prepare(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -65,7 +67,8 @@ impl AssessmentRepository {
                     question_count: row.get(4)?,
                     min_score: row.get(5)?,
                     max_score: row.get(6)?,
-                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).unwrap(),
+                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
+                        .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -76,7 +79,8 @@ impl AssessmentRepository {
     /// Get assessment type by code
     pub fn get_assessment_type_by_code(&self, code: &str) -> Result<AssessmentType, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().unwrap();
+        let conn = conn.lock()
+            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
 
         let result = conn.query_row(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -92,7 +96,8 @@ impl AssessmentRepository {
                     question_count: row.get(4)?,
                     min_score: row.get(5)?,
                     max_score: row.get(6)?,
-                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).unwrap(),
+                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
+                        .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
                 })
             },
         );
@@ -112,7 +117,8 @@ impl AssessmentRepository {
         limit: Option<i32>,
     ) -> Result<Vec<AssessmentResponse>, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().unwrap();
+        let conn = conn.lock()
+            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
 
         let mut query = String::from(
             "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
@@ -142,13 +148,22 @@ impl AssessmentRepository {
         let mut stmt = conn.prepare(&query)?;
 
         // Build params dynamically
-        let mut param_index = 0;
-        let params: Vec<&dyn duckdb::ToSql> = vec![];
+        let mut params: Vec<&dyn duckdb::ToSql> = Vec::new();
+        if let Some(code) = &assessment_type_code {
+            params.push(code);
+        }
+        if let Some(from) = &from_date {
+            params.push(from);
+        }
+        if let Some(to) = &to_date {
+            params.push(to);
+        }
 
         let responses = stmt
-            .query_map([], |row| {
+            .query_map(params.as_slice(), |row| {
                 let responses_json: String = row.get(2)?;
-                let responses: Vec<i32> = serde_json::from_str(&responses_json).unwrap();
+                let responses: Vec<i32> = serde_json::from_str(&responses_json)
+                    .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?;
 
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
@@ -160,7 +175,8 @@ impl AssessmentRepository {
                         question_count: row.get(11)?,
                         min_score: row.get(12)?,
                         max_score: row.get(13)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?).unwrap(),
+                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
+                            .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
                     },
                     responses,
                     total_score: row.get(3)?,
@@ -177,7 +193,8 @@ impl AssessmentRepository {
     /// Get a single assessment response by ID
     pub fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().unwrap();
+        let conn = conn.lock()
+            .map_err(|_| AssessmentError::Database(duckdb::Error::InvalidParameterCount(0, 0)))?;
 
         let result = conn.query_row(
             "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
@@ -189,7 +206,8 @@ impl AssessmentRepository {
             [id],
             |row| {
                 let responses_json: String = row.get(2)?;
-                let responses: Vec<i32> = serde_json::from_str(&responses_json).unwrap();
+                let responses: Vec<i32> = serde_json::from_str(&responses_json)
+                    .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?;
 
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
@@ -201,7 +219,8 @@ impl AssessmentRepository {
                         question_count: row.get(11)?,
                         min_score: row.get(12)?,
                         max_score: row.get(13)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?).unwrap(),
+                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
+                            .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
                     },
                     responses,
                     total_score: row.get(3)?,

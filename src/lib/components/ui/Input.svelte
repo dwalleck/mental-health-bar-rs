@@ -6,7 +6,7 @@
 	export let required = false;
 	export let disabled = false;
 	export let error: string | undefined = undefined;
-	export let id: string = `input-${Math.random().toString(36).substr(2, 9)}`;
+	export let id: string = `input-${Math.random().toString(36).substring(2, 11)}`;
 </script>
 
 <div class="w-full">

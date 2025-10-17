@@ -6,7 +6,7 @@
 	export let disabled = false;
 	export let placeholder = 'Select an option';
 	export let error: string | undefined = undefined;
-	export let id: string = `select-${Math.random().toString(36).substr(2, 9)}`;
+	export let id: string = `select-${Math.random().toString(36).substring(2, 11)}`;
 </script>
 
 <div class="w-full">
