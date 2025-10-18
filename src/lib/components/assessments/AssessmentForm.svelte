@@ -86,20 +86,29 @@
 			<p class="text-red-500">Error: {error}</p>
 		</Card>
 	{:else}
-		<div class="mb-4 bg-gray-200 rounded-full h-2">
+		<div
+			class="mb-4 bg-gray-200 rounded-full h-2"
+			role="progressbar"
+			aria-valuenow={Math.round(progressPercent)}
+			aria-valuemin="0"
+			aria-valuemax="100"
+			aria-label="Assessment completion progress"
+		>
 			<div class="bg-blue-600 h-2 rounded-full transition-all" style="width: {progressPercent}%" />
 		</div>
 
 		<form on:submit|preventDefault={handleSubmit} class="space-y-6">
 			{#each questions as question, i}
 				<Card>
-					<h3 class="font-medium text-gray-800 mb-3">
+					<h3 id="question-{i}-label" class="font-medium text-gray-800 mb-3">
 						{question.number}. {question.text}
 					</h3>
-					<div class="space-y-2">
+					<div role="radiogroup" aria-labelledby="question-{i}-label" class="space-y-2">
 						{#each question.options as option, optionIndex}
 							<button
 								type="button"
+								role="radio"
+								aria-checked={responses[i] === optionIndex}
 								class="w-full text-left px-4 py-3 border rounded-lg transition-colors {responses[i] ===
 								optionIndex
 									? 'border-blue-600 bg-blue-50'

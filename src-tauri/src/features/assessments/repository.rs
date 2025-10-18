@@ -2,6 +2,7 @@
 use super::models::{AssessmentType, AssessmentResponse, AssessmentError};
 use crate::db::Database;
 use std::sync::Arc;
+use tracing::error;
 
 pub struct AssessmentRepository {
     db: Arc<Database>,
@@ -28,7 +29,10 @@ impl AssessmentRepository {
         let responses_json = serde_json::to_string(responses)
             .map_err(|e| AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e)))?;
 
-        let id: i32 = conn.query_row(
+        // Begin transaction for data consistency
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        let result = conn.query_row(
             "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
              VALUES (?, ?, ?, ?, ?)
              RETURNING id",
@@ -40,9 +44,19 @@ impl AssessmentRepository {
                 &notes as &dyn duckdb::ToSql,
             ],
             |row| row.get(0)
-        )?;
+        );
 
-        Ok(id)
+        match result {
+            Ok(id) => {
+                conn.execute("COMMIT", [])?;
+                Ok(id)
+            }
+            Err(e) => {
+                // Rollback on error
+                let _ = conn.execute("ROLLBACK", []);
+                Err(AssessmentError::Database(e))
+            }
+        }
     }
 
     /// Get all assessment types
@@ -68,7 +82,10 @@ impl AssessmentRepository {
                     min_score: row.get(5)?,
                     max_score: row.get(6)?,
                     thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
-                        .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
+                        .map_err(|e| {
+                            error!("Failed to deserialize assessment type thresholds: {}", e);
+                            duckdb::Error::InvalidParameterCount(0, 0)
+                        })?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -97,14 +114,20 @@ impl AssessmentRepository {
                     min_score: row.get(5)?,
                     max_score: row.get(6)?,
                     thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
-                        .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
+                        .map_err(|e| {
+                            error!("Failed to deserialize assessment type thresholds: {}", e);
+                            duckdb::Error::InvalidParameterCount(0, 0)
+                        })?,
                 })
             },
         );
 
         match result {
             Ok(assessment_type) => Ok(assessment_type),
-            Err(_) => Err(AssessmentError::InvalidType(code.to_string())),
+            Err(duckdb::Error::QueryReturnedNoRows) => {
+                Err(AssessmentError::InvalidType(code.to_string()))
+            }
+            Err(e) => Err(AssessmentError::Database(e)),
         }
     }
 
@@ -165,7 +188,10 @@ impl AssessmentRepository {
             .query_map(params.as_slice(), |row| {
                 let responses_json: String = row.get(2)?;
                 let responses: Vec<i32> = serde_json::from_str(&responses_json)
-                    .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?;
+                    .map_err(|e| {
+                        error!("Failed to deserialize assessment responses: {}", e);
+                        duckdb::Error::InvalidParameterCount(0, 0)
+                    })?;
 
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
@@ -178,7 +204,10 @@ impl AssessmentRepository {
                         min_score: row.get(12)?,
                         max_score: row.get(13)?,
                         thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
-                            .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
+                            .map_err(|e| {
+                                error!("Failed to deserialize thresholds in assessment history: {}", e);
+                                duckdb::Error::InvalidParameterCount(0, 0)
+                            })?,
                     },
                     responses,
                     total_score: row.get(3)?,
@@ -209,7 +238,10 @@ impl AssessmentRepository {
             |row| {
                 let responses_json: String = row.get(2)?;
                 let responses: Vec<i32> = serde_json::from_str(&responses_json)
-                    .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?;
+                    .map_err(|e| {
+                        error!("Failed to deserialize assessment responses: {}", e);
+                        duckdb::Error::InvalidParameterCount(0, 0)
+                    })?;
 
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
@@ -222,7 +254,10 @@ impl AssessmentRepository {
                         min_score: row.get(12)?,
                         max_score: row.get(13)?,
                         thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
-                            .map_err(|_e| duckdb::Error::InvalidParameterCount(0, 0))?,
+                            .map_err(|e| {
+                                error!("Failed to deserialize thresholds in assessment history: {}", e);
+                                duckdb::Error::InvalidParameterCount(0, 0)
+                            })?,
                     },
                     responses,
                     total_score: row.get(3)?,
@@ -235,7 +270,10 @@ impl AssessmentRepository {
 
         match result {
             Ok(response) => Ok(response),
-            Err(_) => Err(AssessmentError::NotFound(id)),
+            Err(duckdb::Error::QueryReturnedNoRows) => {
+                Err(AssessmentError::NotFound(id))
+            }
+            Err(e) => Err(AssessmentError::Database(e)),
         }
     }
 }
