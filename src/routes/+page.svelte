@@ -1,155 +1,106 @@
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/core'
+	import { onMount } from 'svelte';
+	import { invoke } from '@tauri-apps/api/core';
+	import type { AssessmentType } from '$lib/bindings';
+	import Card from '$lib/components/ui/Card.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
-	let name = $state('')
-	let greetMsg = $state('')
+	let assessmentTypes: AssessmentType[] = [];
+	let recentCount = 0;
 
-	async function greet(event: Event) {
-		event.preventDefault()
-		// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-		greetMsg = await invoke('greet', { name })
-	}
+	onMount(async () => {
+		try {
+			assessmentTypes = await invoke('get_assessment_types');
+			const history = await invoke('get_assessment_history', {
+				assessmentTypeCode: null,
+				fromDate: null,
+				toDate: null,
+				limit: 10
+			});
+			recentCount = history.length;
+		} catch (e) {
+			console.error('Failed to load dashboard data:', e);
+		}
+	});
 </script>
 
-<main class="container">
-	<h1>Welcome to Tauri + Svelte</h1>
-
-	<div class="row">
-		<a href="https://vite.dev" target="_blank">
-			<img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-		</a>
-		<a href="https://tauri.app" target="_blank">
-			<img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-		</a>
-		<a href="https://svelte.dev" target="_blank">
-			<img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
-		</a>
+<div class="space-y-6">
+	<div>
+		<h1 class="text-4xl font-bold text-gray-800 mb-2">Welcome to Mental Health Tracker</h1>
+		<p class="text-lg text-gray-600">
+			Track your mental health journey with evidence-based assessments and visualizations.
+		</p>
 	</div>
-	<p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
 
-	<form class="row" onsubmit={greet}>
-		<input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-		<button type="submit">Greet</button>
-	</form>
-	<p>{greetMsg}</p>
-</main>
+	<div class="grid gap-4 md:grid-cols-3">
+		<Card>
+			<div class="text-center">
+				<div class="text-4xl font-bold text-blue-600">{assessmentTypes.length}</div>
+				<div class="text-sm text-gray-600 mt-1">Available Assessments</div>
+			</div>
+		</Card>
 
-<style>
-	.logo.vite:hover {
-		filter: drop-shadow(0 0 2em #747bff);
-	}
+		<Card>
+			<div class="text-center">
+				<div class="text-4xl font-bold text-green-600">{recentCount}</div>
+				<div class="text-sm text-gray-600 mt-1">Completed Assessments</div>
+			</div>
+		</Card>
 
-	.logo.svelte-kit:hover {
-		filter: drop-shadow(0 0 2em #ff3e00);
-	}
+		<Card>
+			<div class="text-center">
+				<div class="text-4xl font-bold text-purple-600">100%</div>
+				<div class="text-sm text-gray-600 mt-1">Privacy (Local Only)</div>
+			</div>
+		</Card>
+	</div>
 
-	:root {
-		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-		font-size: 16px;
-		line-height: 24px;
-		font-weight: 400;
+	<div class="grid gap-6 md:grid-cols-2">
+		<Card title="Quick Start">
+			<div class="space-y-3">
+				<p class="text-gray-600">Get started with mental health tracking:</p>
+				<ol class="list-decimal list-inside space-y-2 text-gray-700">
+					<li>Choose an assessment (PHQ-9, GAD-7, CES-D, or OASIS)</li>
+					<li>Answer all questions honestly</li>
+					<li>Review your score and severity level</li>
+					<li>Track your progress over time with charts</li>
+				</ol>
+				<Button variant="primary" fullWidth on:click={() => (window.location.href = '/assessments')}>
+					Take Your First Assessment
+				</Button>
+			</div>
+		</Card>
 
-		color: #0f0f0f;
-		background-color: #f6f6f6;
+		<Card title="Available Assessments">
+			<div class="space-y-3">
+				{#each assessmentTypes as assessment}
+					<div class="border-l-4 border-blue-500 pl-3">
+						<div class="font-semibold text-gray-800">{assessment.code}</div>
+						<div class="text-sm text-gray-600">{assessment.name}</div>
+					</div>
+				{/each}
+			</div>
+		</Card>
+	</div>
 
-		font-synthesis: none;
-		text-rendering: optimizeLegibility;
-		-webkit-font-smoothing: antialiased;
-		-moz-osx-font-smoothing: grayscale;
-		-webkit-text-size-adjust: 100%;
-	}
+	<Card>
+		<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+			<h3 class="font-semibold text-blue-800 mb-2">Privacy & Data Security</h3>
+			<p class="text-sm text-blue-700">
+				All your data is stored <strong>locally on your device</strong>. No information is sent to
+				external servers. Your mental health data remains completely private and under your control.
+			</p>
+		</div>
+	</Card>
 
-	.container {
-		margin: 0;
-		padding-top: 10vh;
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		text-align: center;
-	}
-
-	.logo {
-		height: 6em;
-		padding: 1.5em;
-		will-change: filter;
-		transition: 0.75s;
-	}
-
-	.logo.tauri:hover {
-		filter: drop-shadow(0 0 2em #24c8db);
-	}
-
-	.row {
-		display: flex;
-		justify-content: center;
-	}
-
-	a {
-		font-weight: 500;
-		color: #646cff;
-		text-decoration: inherit;
-	}
-
-	a:hover {
-		color: #535bf2;
-	}
-
-	h1 {
-		text-align: center;
-	}
-
-	input,
-	button {
-		border-radius: 8px;
-		border: 1px solid transparent;
-		padding: 0.6em 1.2em;
-		font-size: 1em;
-		font-weight: 500;
-		font-family: inherit;
-		color: #0f0f0f;
-		background-color: #ffffff;
-		transition: border-color 0.25s;
-		box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-	}
-
-	button {
-		cursor: pointer;
-	}
-
-	button:hover {
-		border-color: #396cd8;
-	}
-	button:active {
-		border-color: #396cd8;
-		background-color: #e8e8e8;
-	}
-
-	input,
-	button {
-		outline: none;
-	}
-
-	#greet-input {
-		margin-right: 5px;
-	}
-
-	@media (prefers-color-scheme: dark) {
-		:root {
-			color: #f6f6f6;
-			background-color: #2f2f2f;
-		}
-
-		a:hover {
-			color: #24c8db;
-		}
-
-		input,
-		button {
-			color: #ffffff;
-			background-color: #0f0f0f98;
-		}
-		button:active {
-			background-color: #0f0f0f69;
-		}
-	}
-</style>
+	<Card>
+		<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+			<h3 class="font-semibold text-yellow-800 mb-2">Important Disclaimer</h3>
+			<p class="text-sm text-yellow-700">
+				These assessments are <strong>screening tools</strong>, not diagnostic instruments. They
+				help monitor your mental health over time but cannot replace professional evaluation. If you're
+				experiencing significant distress, please consult with a qualified mental health professional.
+			</p>
+		</div>
+	</Card>
+</div>
