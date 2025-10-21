@@ -78,7 +78,7 @@
 - [X] T026 [P] [US1] Unit test: Response validation (count, range) in src-tauri/src/features/assessments/models.rs
 - [X] T027 [P] [US1] Integration test: submit_assessment command end-to-end in src-tauri/tests/test_assessments.rs
 - [X] T028 [P] [US1] Integration test: get_assessment_history query in src-tauri/tests/test_assessments.rs
-- [X] T029 [P] [US1] Component test: AssessmentForm renders questions correctly in src/lib/components/assessments/AssessmentForm.test.ts (Note: Test written, requires SvelteKit $app module mocking to run)
+- [ ] T029 [P] [US1] Component test: AssessmentForm renders questions correctly (DEFERRED: Requires SvelteKit $app module mocking - will implement with frontend PR)
 
 ### Implementation for User Story 1
 
@@ -141,7 +141,7 @@
 - [X] T069 [P] [US2] Integration test: log_mood command in src-tauri/tests/test_mood.rs
 - [X] T070 [P] [US2] Integration test: get_mood_history query with date filtering in src-tauri/tests/test_mood.rs
 - [X] T071 [P] [US2] Integration test: Mood check-in with multiple activities in src-tauri/tests/test_mood.rs
-- [X] T072 [P] [US2] Component test: MoodScaleInput renders 1-5 buttons in src/lib/components/mood/MoodScaleInput.test.ts
+- [ ] T072 [P] [US2] Component test: MoodScaleInput renders 1-5 buttons (DEFERRED: Component not yet implemented - will add with T086)
 
 ### Implementation for User Story 2
 
