@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { invoke } from '@tauri-apps/api/core';
-	import type { AssessmentType } from '$lib/bindings';
+	import type { AssessmentType, AssessmentResponse } from '$lib/bindings';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 
@@ -12,7 +12,7 @@
 	onMount(async () => {
 		try {
 			assessmentTypes = await invoke('get_assessment_types');
-			const history = await invoke('get_assessment_history', {
+			const history = await invoke<AssessmentResponse[]>('get_assessment_history', {
 				assessmentTypeCode: null,
 				fromDate: null,
 				toDate: null,

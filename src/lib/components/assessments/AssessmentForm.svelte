@@ -94,7 +94,7 @@
 			aria-valuemax="100"
 			aria-label="Assessment completion progress"
 		>
-			<div class="bg-blue-600 h-2 rounded-full transition-all" style="width: {progressPercent}%" />
+			<div class="bg-blue-600 h-2 rounded-full transition-all" style="width: {progressPercent}%"></div>
 		</div>
 
 		<form on:submit|preventDefault={handleSubmit} class="space-y-6">
@@ -124,7 +124,7 @@
 											: 'border-gray-400'}"
 									>
 										{#if responses[i] === optionIndex}
-											<div class="w-2 h-2 bg-white rounded-full" />
+											<div class="w-2 h-2 bg-white rounded-full"></div>
 										{/if}
 									</div>
 									<span class="text-gray-700">{option}</span>
@@ -141,7 +141,7 @@
 					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
 					rows="4"
 					placeholder="Any additional thoughts or context..."
-				/>
+				></textarea>
 			</Card>
 
 			{#if error && questions.length > 0}
