@@ -4,6 +4,9 @@ use crate::AppState;
 use super::models::*;
 use super::repository::AssessmentRepository;
 
+/// Maximum length for assessment notes field
+const MAX_NOTES_LENGTH: usize = 10_000;
+
 /// Submit a completed assessment
 #[tauri::command]
 #[specta::specta]
@@ -13,8 +16,8 @@ pub async fn submit_assessment(
 ) -> Result<AssessmentResponse, String> {
     // Validate notes field length
     if let Some(ref notes) = request.notes {
-        if notes.len() > 10_000 {
-            return Err("Notes exceed maximum length of 10,000 characters".to_string());
+        if notes.len() > MAX_NOTES_LENGTH {
+            return Err(format!("Notes exceed maximum length of {} characters", MAX_NOTES_LENGTH));
         }
     }
 
@@ -78,12 +81,8 @@ pub async fn delete_assessment(
     id: i32,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let conn = state.db.get_connection();
-    let conn = conn.lock()
-        .map_err(|_| format!("Failed to acquire database lock for deletion"))?;
+    let repo = AssessmentRepository::new(state.db.clone());
 
-    conn.execute("DELETE FROM assessment_responses WHERE id = ?", [id])
-        .map_err(|e| format!("Failed to delete assessment {}: {}", id, e))?;
-
-    Ok(())
+    repo.delete_assessment(id)
+        .map_err(|e| format!("Failed to delete assessment {}: {}", id, e))
 }

@@ -4,6 +4,12 @@ use crate::db::Database;
 use std::sync::Arc;
 use tracing::error;
 
+/// Minimum limit for query results
+const MIN_QUERY_LIMIT: i32 = 1;
+
+/// Maximum limit for query results to prevent excessive memory usage
+const MAX_QUERY_LIMIT: i32 = 1000;
+
 pub struct AssessmentRepository {
     db: Arc<Database>,
 }
@@ -84,7 +90,11 @@ impl AssessmentRepository {
                     thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
                         .map_err(|e| {
                             error!("Failed to deserialize assessment type thresholds: {}", e);
-                            duckdb::Error::InvalidParameterCount(0, 0)
+                            duckdb::Error::InvalidColumnType(
+                                7,
+                                "thresholds".to_string(),
+                                duckdb::types::Type::Text
+                            )
                         })?,
                 })
             })?
@@ -116,7 +126,11 @@ impl AssessmentRepository {
                     thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
                         .map_err(|e| {
                             error!("Failed to deserialize assessment type thresholds: {}", e);
-                            duckdb::Error::InvalidParameterCount(0, 0)
+                            duckdb::Error::InvalidColumnType(
+                                7,
+                                "thresholds".to_string(),
+                                duckdb::types::Type::Text
+                            )
                         })?,
                 })
             },
@@ -166,7 +180,7 @@ impl AssessmentRepository {
 
         if let Some(lim) = limit {
             // Enforce reasonable bounds to prevent excessive queries
-            let safe_limit = lim.max(1).min(1000);
+            let safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);
             query.push_str(&format!(" LIMIT {}", safe_limit));
         }
 
@@ -190,7 +204,11 @@ impl AssessmentRepository {
                 let responses: Vec<i32> = serde_json::from_str(&responses_json)
                     .map_err(|e| {
                         error!("Failed to deserialize assessment responses: {}", e);
-                        duckdb::Error::InvalidParameterCount(0, 0)
+                        duckdb::Error::InvalidColumnType(
+                            2,
+                            "responses".to_string(),
+                            duckdb::types::Type::Text
+                        )
                     })?;
 
                 Ok(AssessmentResponse {
@@ -206,7 +224,11 @@ impl AssessmentRepository {
                         thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
                             .map_err(|e| {
                                 error!("Failed to deserialize thresholds in assessment history: {}", e);
-                                duckdb::Error::InvalidParameterCount(0, 0)
+                                duckdb::Error::InvalidColumnType(
+                                    14,
+                                    "thresholds".to_string(),
+                                    duckdb::types::Type::Text
+                                )
                             })?,
                     },
                     responses,
@@ -240,7 +262,11 @@ impl AssessmentRepository {
                 let responses: Vec<i32> = serde_json::from_str(&responses_json)
                     .map_err(|e| {
                         error!("Failed to deserialize assessment responses: {}", e);
-                        duckdb::Error::InvalidParameterCount(0, 0)
+                        duckdb::Error::InvalidColumnType(
+                            2,
+                            "responses".to_string(),
+                            duckdb::types::Type::Text
+                        )
                     })?;
 
                 Ok(AssessmentResponse {
@@ -256,7 +282,11 @@ impl AssessmentRepository {
                         thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
                             .map_err(|e| {
                                 error!("Failed to deserialize thresholds in assessment history: {}", e);
-                                duckdb::Error::InvalidParameterCount(0, 0)
+                                duckdb::Error::InvalidColumnType(
+                                    14,
+                                    "thresholds".to_string(),
+                                    duckdb::types::Type::Text
+                                )
                             })?,
                     },
                     responses,
@@ -275,5 +305,16 @@ impl AssessmentRepository {
             }
             Err(e) => Err(AssessmentError::Database(e)),
         }
+    }
+
+    /// Delete an assessment response
+    pub fn delete_assessment(&self, id: i32) -> Result<(), AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock()
+            .map_err(|_| AssessmentError::LockPoisoned)?;
+
+        conn.execute("DELETE FROM assessment_responses WHERE id = ?", [id])?;
+
+        Ok(())
     }
 }

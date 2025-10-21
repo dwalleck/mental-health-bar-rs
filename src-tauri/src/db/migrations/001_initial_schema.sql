@@ -30,7 +30,7 @@ CREATE TABLE assessment_responses (
     total_score INTEGER NOT NULL,
     severity_level VARCHAR(50),
     completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT,
+    notes TEXT CHECK (length(notes) <= 10000 OR notes IS NULL),
     FOREIGN KEY (assessment_type_id) REFERENCES assessment_types(id)
 );
 

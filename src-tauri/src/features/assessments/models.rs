@@ -28,6 +28,9 @@ pub enum AssessmentError {
     #[error("Database lock poisoned")]
     LockPoisoned,
 
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+
     #[error("Database error: {0}")]
     Database(#[from] duckdb::Error),
 }
