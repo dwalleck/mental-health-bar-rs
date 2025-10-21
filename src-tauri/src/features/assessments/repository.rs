@@ -59,7 +59,9 @@ impl AssessmentRepository {
             }
             Err(e) => {
                 // Rollback on error
-                let _ = conn.execute("ROLLBACK", []);
+                if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                    error!("Failed to rollback transaction: {}", rollback_err);
+                }
                 Err(AssessmentError::Database(e))
             }
         }

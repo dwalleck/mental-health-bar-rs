@@ -7,6 +7,9 @@ use tauri::State;
 /// Maximum length for assessment notes field
 const MAX_NOTES_LENGTH: usize = 10_000;
 
+/// Maximum length for assessment type code
+const MAX_TYPE_CODE_LENGTH: usize = 10;
+
 /// Submit a completed assessment
 #[tauri::command]
 #[specta::specta]
@@ -14,7 +17,7 @@ pub async fn submit_assessment(
     request: SubmitAssessmentRequest,
     state: State<'_, AppState>,
 ) -> Result<AssessmentResponse, String> {
-    // Validate notes field length
+    // Validate notes field length and content
     if let Some(ref notes) = request.notes {
         if notes.len() > MAX_NOTES_LENGTH {
             return Err(format!(
@@ -22,6 +25,24 @@ pub async fn submit_assessment(
                 MAX_NOTES_LENGTH
             ));
         }
+
+        // Validate no control characters except newlines and tabs
+        for ch in notes.chars() {
+            if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
+                return Err(format!(
+                    "Notes contain invalid control character (code {}). Only newlines and tabs are allowed.",
+                    ch as u32
+                ));
+            }
+        }
+    }
+
+    // Validate assessment type code length
+    if request.assessment_type_code.len() > MAX_TYPE_CODE_LENGTH {
+        return Err(format!(
+            "Assessment type code exceeds maximum length of {} characters",
+            MAX_TYPE_CODE_LENGTH
+        ));
     }
 
     // Validate assessment type code format (alphanumeric only)

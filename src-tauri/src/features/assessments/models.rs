@@ -25,7 +25,7 @@ pub enum AssessmentError {
     #[error("Assessment not found: {0}")]
     NotFound(i32),
 
-    #[error("Database lock poisoned")]
+    #[error("Database lock poisoned. This is a critical error. Please restart the application to recover.")]
     LockPoisoned,
 
     #[error("Deserialization error: {0}")]
