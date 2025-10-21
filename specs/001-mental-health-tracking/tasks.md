@@ -53,6 +53,8 @@
 - [X] T018 Generate initial TypeScript bindings by running cargo test generate_types
 - [X] T019 [P] Create base Svelte layout in src/routes/+layout.svelte with navigation sidebar
 - [X] T020 [P] Create reusable UI components in src/lib/components/ui/ (Button, Card, Input, Select)
+- [X] T020a [P] Add HasChildren error variant to AssessmentError in src-tauri/src/features/assessments/models.rs for defensive deletion
+- [X] T020b [P] Create helper functions for counting child records (count_assessment_responses, count_assessment_schedules) in assessment repository
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -74,9 +76,9 @@
 - [X] T024 [P] [US1] Unit test: OASIS scoring algorithm (5 questions, score 0-20) in src-tauri/src/features/assessments/models.rs
 - [X] T025 [P] [US1] Unit test: Severity level calculation for each assessment type in src-tauri/src/features/assessments/models.rs
 - [X] T026 [P] [US1] Unit test: Response validation (count, range) in src-tauri/src/features/assessments/models.rs
-- [ ] T027 [P] [US1] Integration test: submit_assessment command end-to-end in src-tauri/tests/integration/test_assessments.rs
-- [ ] T028 [P] [US1] Integration test: get_assessment_history query in src-tauri/tests/integration/test_assessments.rs
-- [ ] T029 [P] [US1] Component test: AssessmentForm renders questions correctly in tests/unit/AssessmentForm.test.ts
+- [X] T027 [P] [US1] Integration test: submit_assessment command end-to-end in src-tauri/tests/test_assessments.rs
+- [X] T028 [P] [US1] Integration test: get_assessment_history query in src-tauri/tests/test_assessments.rs
+- [X] T029 [P] [US1] Component test: AssessmentForm renders questions correctly in src/lib/components/assessments/AssessmentForm.test.ts (Note: Test written, requires SvelteKit $app module mocking to run)
 
 ### Implementation for User Story 1
 
@@ -118,6 +120,10 @@
 - [X] T065 [US1] Add assessment navigation links to layout sidebar
 - [X] T066 [US1] Add error handling with user-friendly messages using tauri-plugin-dialog
 - [X] T067 [US1] Add logging for assessment submission with tracing::info!
+- [X] T067a [P] [US1] Integration test: Verify assessment_type deletion blocked when responses exist in src-tauri/tests/repository_integration.rs
+- [X] T067b [P] [US1] Integration test: Verify assessment_type deletion blocked when schedules exist in src-tauri/tests/repository_integration.rs
+- [X] T067c [US1] Implement delete_assessment_type with defensive checks (prevent if children exist) in src-tauri/src/features/assessments/repository.rs
+- [X] T067d [US1] Implement delete_assessment_type Tauri command in src-tauri/src/features/assessments/commands.rs with user-friendly error messages
 
 **Checkpoint**: User Story 1 complete - Run all tests, verify PHQ-9/GAD-7/CES-D/OASIS flow works end-to-end
 
@@ -131,25 +137,25 @@
 
 ### Tests for User Story 2 (TDD - Write First, Verify Fail)
 
-- [ ] T068 [P] [US2] Unit test: Mood rating validation (1-5 only) in src-tauri/src/features/mood/models.rs
-- [ ] T069 [P] [US2] Integration test: log_mood command in src-tauri/tests/integration/test_mood.rs
-- [ ] T070 [P] [US2] Integration test: get_mood_history query with date filtering in src-tauri/tests/integration/test_mood.rs
-- [ ] T071 [P] [US2] Integration test: Mood check-in with multiple activities in src-tauri/tests/integration/test_mood.rs
-- [ ] T072 [P] [US2] Component test: MoodScaleInput renders 1-5 buttons in tests/unit/MoodScaleInput.test.ts
+- [X] T068 [P] [US2] Unit test: Mood rating validation (1-5 only) in src-tauri/src/features/mood/models.rs
+- [X] T069 [P] [US2] Integration test: log_mood command in src-tauri/tests/test_mood.rs
+- [X] T070 [P] [US2] Integration test: get_mood_history query with date filtering in src-tauri/tests/test_mood.rs
+- [X] T071 [P] [US2] Integration test: Mood check-in with multiple activities in src-tauri/tests/test_mood.rs
+- [X] T072 [P] [US2] Component test: MoodScaleInput renders 1-5 buttons in src/lib/components/mood/MoodScaleInput.test.ts
 
 ### Implementation for User Story 2
 
-- [ ] T073 [P] [US2] Create MoodCheckin model in src-tauri/src/features/mood/models.rs with specta::Type
-- [ ] T074 [P] [US2] Create LogMoodRequest model in src-tauri/src/features/mood/models.rs
-- [ ] T075 [P] [US2] Create MoodRepository in src-tauri/src/features/mood/repository.rs with create_mood_checkin method
-- [ ] T076 [P] [US2] Implement get_mood_history query in repository with date range and limit
-- [ ] T077 [P] [US2] Implement get_mood_checkin query in repository
-- [ ] T078 [P] [US2] Implement get_mood_stats query in repository (average, distribution, correlations)
-- [ ] T079 [P] [US2] Implement link_activities method in repository for mood_checkin_activities junction table
-- [ ] T080 [US2] Implement log_mood Tauri command in src-tauri/src/features/mood/commands.rs with mood rating validation
-- [ ] T081 [US2] Implement get_mood_history Tauri command in src-tauri/src/features/mood/queries.rs
-- [ ] T082 [US2] Implement get_mood_checkin Tauri command in src-tauri/src/features/mood/queries.rs
-- [ ] T083 [US2] Implement get_mood_stats Tauri command in src-tauri/src/features/mood/queries.rs
+- [X] T073 [P] [US2] Create MoodCheckin model in src-tauri/src/features/mood/models.rs with specta::Type
+- [X] T074 [P] [US2] Create LogMoodRequest model in src-tauri/src/features/mood/models.rs
+- [X] T075 [P] [US2] Create MoodRepository in src-tauri/src/features/mood/repository.rs with create_mood_checkin method
+- [X] T076 [P] [US2] Implement get_mood_history query in repository with date range and limit
+- [X] T077 [P] [US2] Implement get_mood_checkin query in repository
+- [X] T078 [P] [US2] Implement get_mood_stats query in repository (average, distribution, correlations)
+- [X] T079 [P] [US2] Implement link_activities method in repository for mood_checkin_activities junction table (NOTE: Implemented inline in create_mood_checkin, not as separate method)
+- [X] T080 [US2] Implement log_mood Tauri command in src-tauri/src/features/mood/commands.rs with mood rating validation
+- [X] T081 [US2] Implement get_mood_history Tauri command in src-tauri/src/features/mood/queries.rs
+- [X] T082 [US2] Implement get_mood_checkin Tauri command in src-tauri/src/features/mood/queries.rs
+- [X] T083 [US2] Implement get_mood_stats Tauri command in src-tauri/src/features/mood/queries.rs
 - [ ] T084 [US2] Register all mood commands in src-tauri/src/lib.rs invoke_handler
 - [ ] T085 [US2] Regenerate TypeScript bindings
 - [ ] T086 [P] [US2] Create MoodScaleInput component in src/lib/components/mood/MoodScaleInput.svelte with 1-5 buttons and color coding
@@ -160,6 +166,9 @@
 - [ ] T091 [US2] Create /mood/history route in src/routes/mood/history/+page.svelte for viewing past check-ins
 - [ ] T092 [US2] Add mood navigation links to layout sidebar
 - [ ] T093 [US2] Add mood color constants (Very Bad=red, Very Good=green) in src/lib/utils/colors.ts
+- [ ] T093a [P] [US2] Integration test: Deleting mood_checkin cascades to mood_checkin_activities in src-tauri/tests/test_mood.rs
+- [X] T093b [US2] Implement delete_mood_checkin with transactional cascade in src-tauri/src/features/mood/repository.rs
+- [X] T093c [US2] Implement delete_mood_checkin Tauri command in src-tauri/src/features/mood/commands.rs
 
 **Checkpoint**: User Stories 1 AND 2 both work independently - Mood logging functional
 
@@ -346,6 +355,9 @@
 - [ ] T199 [P] Add data deletion confirmation dialog in src/routes/settings/+page.svelte with "type DELETE to confirm" safety check
 - [ ] T200 [P] Add startup check in src-tauri/src/main.rs to verify DuckDB file permissions, log warning if not 0600 (Unix) or equivalent (Windows)
 - [ ] T201 [P] Create security checklist in docs/SECURITY.md documenting: file permissions, no network transmission, local-only storage, GDPR deletion procedure, encryption roadmap (v0.2.0)
+- [ ] T201a [P] Create DATA_MANAGEMENT.md in src-tauri/docs/ documenting deletion policies, cascading behavior, and data retention for users
+- [ ] T201b [P] Integration test: Verify transaction rollback on cascade failure in src-tauri/tests/integration/test_deletion.rs
+- [ ] T201c [P] Integration test: Verify deleted activities display correctly with "(deleted)" badge in historical mood check-ins
 
 ### CI/CD Pipeline Setup
 
@@ -529,18 +541,18 @@ Each increment:
 
 ## Task Summary
 
-**Total Tasks**: 217 (updated from 215 after Lineicons icon picker addition)
+**Total Tasks**: 228 (updated from 217 after cascading delete implementation)
 - **Phase 1 (Setup)**: 7 tasks
-- **Phase 2 (Foundational)**: 14 tasks (BLOCKS all stories) - Added T012b for file permissions
-- **Phase 3 (US1 - Assessments)**: 47 tasks (9 tests + 38 implementation)
-- **Phase 4 (US2 - Mood Check-In)**: 26 tasks (5 tests + 21 implementation)
+- **Phase 2 (Foundational)**: 16 tasks (BLOCKS all stories) - Added T020a/T020b for defensive deletion infrastructure
+- **Phase 3 (US1 - Assessments)**: 51 tasks (11 tests + 40 implementation) - Added T067a-T067d for assessment type deletion
+- **Phase 4 (US2 - Mood Check-In)**: 29 tasks (6 tests + 23 implementation) - Added T093a-T093c for mood checkin cascade deletion
 - **Phase 5 (US3 - Activities)**: 27 tasks (6 tests + 21 implementation) - Added T097b for deleted activity display test, T101a/T101b for Lineicons v5 icon picker
 - **Phase 6 (US4 - Assessment Charts)**: 20 tasks (4 tests + 16 implementation) - Added T132b for empty chart state
 - **Phase 7 (US5 - Mood Charts)**: 16 tasks (3 tests + 13 implementation) - Added T147b for empty mood chart state
 - **Phase 8 (US6 - Scheduling)**: 28 tasks (5 tests + 23 implementation)
-- **Phase 9 (Polish)**: 32 tasks - Added performance benchmarks (T195-T197), security tasks (T198-T201), and CI/CD pipeline setup (T202-T210)
+- **Phase 9 (Polish)**: 35 tasks - Added T201a-T201c for deletion documentation and testing
 
-**Parallel Opportunities**: 103 tasks marked [P] (47% can run in parallel) - T101a and T101b added as parallel tasks
+**Parallel Opportunities**: 110 tasks marked [P] (48% can run in parallel) - Added deletion-related parallel tests
 
 **Independent Test Checkpoints**: 6 (one per user story)
 

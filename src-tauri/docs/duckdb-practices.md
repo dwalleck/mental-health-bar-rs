@@ -205,9 +205,226 @@ When migrating from SQLite:
 - `ON DELETE CASCADE` → Manual deletion required
 - Date/time functions may differ slightly
 
+## Project-Specific Deletion Patterns
+
+This project implements two deletion patterns to work around DuckDB's lack of CASCADE support.
+
+### Pattern 1: Defensive Deletion (Assessment Types)
+
+**When to use**: Reference data that should rarely or never be deleted, where child data is precious.
+
+**Example**: `assessment_types` table (PHQ-9, GAD-7, CES-D, OASIS)
+
+```rust
+// In assessment repository
+pub fn delete_assessment_type(&self, id: i32) -> Result<(), AssessmentError> {
+    let conn = self.db.get_connection();
+    let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+
+    // Count child records
+    let response_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM assessment_responses WHERE assessment_type_id = ?",
+        [id],
+        |row| row.get(0),
+    )?;
+
+    let schedule_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM assessment_schedules WHERE assessment_type_id = ?",
+        [id],
+        |row| row.get(0),
+    )?;
+
+    // Block deletion if children exist
+    if response_count > 0 || schedule_count > 0 {
+        return Err(AssessmentError::HasChildren(
+            format!("Cannot delete assessment type: {} responses and {} schedules exist. Delete or export data first.",
+                    response_count, schedule_count)
+        ));
+    }
+
+    // Safe to delete - no children
+    conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
+    Ok(())
+}
+```
+
+**Benefits**:
+- Prevents accidental data loss
+- Clear error messages guide user actions
+- Fail-safe approach for sensitive mental health data
+
+### Pattern 2: Application-Level Cascade (Mood Check-ins)
+
+**When to use**: Junction tables or dependent data with no independent value.
+
+**Example**: `mood_checkins` → `mood_checkin_activities` (junction table)
+
+```rust
+// In mood repository
+pub fn delete_mood_checkin(&self, id: i32) -> Result<(), MoodError> {
+    let conn = self.db.get_connection();
+    let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+
+    // Begin transaction for atomicity
+    conn.execute("BEGIN TRANSACTION", [])?;
+
+    // Closure for easy error propagation
+    let result = (|| {
+        // Delete children FIRST (junction table)
+        conn.execute(
+            "DELETE FROM mood_checkin_activities WHERE mood_checkin_id = ?",
+            [id]
+        )?;
+
+        // Then delete parent
+        conn.execute("DELETE FROM mood_checkins WHERE id = ?", [id])?;
+
+        Ok(())
+    })();
+
+    // Commit or rollback
+    match result {
+        Ok(()) => {
+            conn.execute("COMMIT", [])?;
+            Ok(())
+        }
+        Err(e) => {
+            // Always attempt rollback on error
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                error!("Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
+    }
+}
+```
+
+**Benefits**:
+- Atomic deletion (both succeed or both fail)
+- Explicit deletion order (children before parents)
+- Transaction ensures consistency
+- Rollback logging for debugging
+
+### Pattern 3: Soft Delete (Already Implemented)
+
+**When to use**: Data referenced by historical records that must be preserved.
+
+**Example**: `activities` table with `deleted_at` column
+
+```rust
+// Soft delete - UPDATE instead of DELETE
+pub fn delete_activity(&self, id: i32) -> Result<(), MoodError> {
+    let conn = self.db.get_connection();
+    let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+
+    conn.execute(
+        "UPDATE activities SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [id]
+    )?;
+
+    Ok(())
+}
+
+// Filter deleted activities in queries (for new mood check-ins)
+pub fn get_active_activities(&self) -> Result<Vec<Activity>, MoodError> {
+    // ...
+    let activities = stmt.query_map([], |row| {
+        // Only return activities where deleted_at IS NULL
+    })?;
+    // ...
+}
+
+// Include deleted activities in historical views
+pub fn get_mood_checkin_with_activities(&self, id: i32) -> Result<MoodCheckin, MoodError> {
+    // JOIN to activities without filtering deleted_at
+    // Show "(deleted)" badge in UI if deleted_at IS NOT NULL
+}
+```
+
+**Benefits**:
+- Preserves audit trail and historical accuracy
+- No risk of orphaned foreign keys
+- Can be "undeleted" if needed
+- Historical views show complete picture
+
+### Testing Deletion Patterns
+
+All deletion patterns must have integration tests:
+
+```rust
+#[test]
+fn test_defensive_deletion_blocks_when_children_exist() {
+    let repo = create_test_repo();
+
+    // Create parent with child
+    let type_id = repo.create_assessment_type(/* ... */).unwrap();
+    repo.submit_assessment(type_id, /* ... */).unwrap();
+
+    // Attempt to delete parent
+    let result = repo.delete_assessment_type(type_id);
+
+    // Should fail with HasChildren error
+    assert!(matches!(result, Err(AssessmentError::HasChildren(_))));
+}
+
+#[test]
+fn test_cascade_deletion_removes_children() {
+    let repo = create_test_repo();
+
+    // Create parent with children
+    let checkin_id = repo.log_mood_checkin(/* ... */).unwrap();
+    repo.link_activity(checkin_id, activity_id).unwrap();
+
+    // Delete parent
+    repo.delete_mood_checkin(checkin_id).unwrap();
+
+    // Verify children deleted
+    let junction_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM mood_checkin_activities WHERE mood_checkin_id = ?",
+        [checkin_id],
+        |row| row.get(0)
+    ).unwrap();
+
+    assert_eq!(junction_count, 0);
+}
+
+#[test]
+fn test_soft_delete_preserves_historical_data() {
+    let repo = create_test_repo();
+
+    // Create activity and link to mood checkin
+    let activity_id = repo.create_activity("Exercise").unwrap();
+    let checkin_id = repo.log_mood_checkin_with_activity(activity_id).unwrap();
+
+    // Soft delete activity
+    repo.delete_activity(activity_id).unwrap();
+
+    // Activity should not appear in "get active activities"
+    let active = repo.get_active_activities().unwrap();
+    assert!(!active.iter().any(|a| a.id == activity_id));
+
+    // But should still appear in historical mood checkin
+    let historical = repo.get_mood_checkin(checkin_id).unwrap();
+    assert!(historical.activities.iter().any(|a| a.id == activity_id));
+}
+```
+
+### Decision Matrix
+
+| Scenario | Pattern | Reason |
+|----------|---------|--------|
+| Seeded reference data (assessment types) | Defensive | Should never be deleted; fail-safe |
+| User historical data (responses, moods) | No deletion allowed | Preserve mental health history |
+| Junction tables (mood_checkin_activities) | Cascade | No independent value |
+| User-created labels/tags (activities) | Soft delete | Preserve historical references |
+| Configuration (schedules) | Defensive or Cascade | Depends on relationship |
+
+**See also**: `/specs/001-mental-health-tracking/plan.md` - Cascading Delete Strategy section for architectural rationale.
+
 ## Resources
 
 - [DuckDB Keywords Documentation](https://duckdb.org/docs/stable/sql/dialect/keywords_and_identifiers)
 - [DuckDB Timestamp Functions](https://duckdb.org/docs/stable/sql/functions/timestamp)
 - [DuckDB Rust Client](https://duckdb.org/docs/stable/clients/rust.html)
 - [duckdb crate docs](https://docs.rs/duckdb/)
+- [Project Cascading Delete Strategy](/specs/001-mental-health-tracking/plan.md#cascading-delete-strategy)

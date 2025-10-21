@@ -170,8 +170,141 @@ tests/                              # Frontend tests
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | DuckDB over SQLite | Analytics performance for time-series charting queries (columnar storage) | SQLite is row-oriented, slower for aggregations across 1+ year of daily data points. DuckDB optimized for OLAP queries. |
+| Defensive Deletion Pattern | DuckDB doesn't enforce ON DELETE CASCADE constraints | Database-level CASCADE not available. Simpler "ignore the problem" rejected because mental health data is sensitive and requires explicit integrity guarantees. |
 
 **Mitigation**: If DuckDB proves unnecessary (performance adequate with SQLite), migration path is straightforward (both are SQL-based embedded databases).
+
+## Cascading Delete Strategy
+
+**Context**: DuckDB accepts `ON DELETE CASCADE` syntax but does not enforce it (as of v1.1.3). This requires explicit handling of referential integrity at the application layer.
+
+**Documentation**: See `src-tauri/docs/duckdb-practices.md` for technical details.
+
+### Approach by Relationship Type
+
+#### 1. Assessment Types → Responses/Schedules (PREVENT)
+**Pattern**: Defensive deletion - block delete if children exist
+
+**Rationale**:
+- Assessment types are seeded reference data (PHQ-9, GAD-7, CES-D, OASIS) that shouldn't be deleted
+- User assessment responses are precious historical mental health data
+- Schedules are user configurations that shouldn't be silently lost
+- Fail-safe principle: prevent accidental data loss rather than cascade
+
+**Implementation**:
+```rust
+// In assessment repository
+pub fn delete_assessment_type(&self, id: i32) -> Result<()> {
+    // Count child records
+    let response_count = self.count_assessment_responses(id)?;
+    let schedule_count = self.count_assessment_schedules(id)?;
+
+    // Block deletion if children exist
+    if response_count > 0 || schedule_count > 0 {
+        return Err(AssessmentError::HasChildren(
+            format!("Cannot delete: {} responses, {} schedules exist",
+                    response_count, schedule_count)
+        ));
+    }
+
+    // Safe to delete
+    conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
+    Ok(())
+}
+```
+
+#### 2. Mood Check-ins → Activities Junction (CASCADE)
+**Pattern**: Application-level cascade with transactions
+
+**Rationale**:
+- Junction table (`mood_checkin_activities`) has no independent value without parent
+- User expectation: deleting a mood entry removes all associated data
+- True cascade scenario
+
+**Implementation**:
+```rust
+// In mood repository
+pub fn delete_mood_checkin(&self, id: i32) -> Result<()> {
+    let conn = self.db.get_connection();
+    let conn = conn.lock()?;
+
+    conn.execute("BEGIN TRANSACTION", [])?;
+
+    match (|| {
+        // Delete children first (junction table)
+        conn.execute("DELETE FROM mood_checkin_activities WHERE mood_checkin_id = ?", [id])?;
+        // Then delete parent
+        conn.execute("DELETE FROM mood_checkins WHERE id = ?", [id])?;
+        Ok(())
+    })() {
+        Ok(()) => {
+            conn.execute("COMMIT", [])?;
+            Ok(())
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                error!("Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
+    }
+}
+```
+
+#### 3. Activities → Junction (SOFT DELETE)
+**Pattern**: Soft delete with `deleted_at` timestamp (already implemented)
+
+**Rationale**:
+- Historical mood check-ins must preserve which activity was selected
+- Soft delete maintains data integrity while hiding deleted activities from new selections
+- Audit trail preserved
+
+**Status**: ✅ Already correctly implemented in schema with `deleted_at` column
+
+### Deletion Hierarchy
+
+```
+┌─────────────────────────────────────────────┐
+│ assessment_types (PREVENT if has children)  │
+│  - PHQ-9, GAD-7, CES-D, OASIS (seeded)     │
+└──┬────────────────────────────┬─────────────┘
+   │                            │
+   ▼                            ▼
+┌──────────────────────┐  ┌────────────────────┐
+│ assessment_responses │  │ assessment_schedules│
+│ (historical data)    │  │ (user configs)      │
+└──────────────────────┘  └────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ mood_checkins (CASCADE to junction)         │
+└──┬──────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────┐
+│ mood_checkin_activities (auto-deleted)       │
+│  - Junction table cleared on parent delete   │
+└──┬───────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────┐
+│ activities (SOFT DELETE with deleted_at)     │
+│  - Never hard-deleted to preserve history    │
+└──────────────────────────────────────────────┘
+```
+
+### Testing Requirements
+
+**Integration tests must verify**:
+1. Assessment type deletion blocked when responses exist
+2. Assessment type deletion blocked when schedules exist
+3. Mood check-in deletion cascades to mood_checkin_activities
+4. Deleted activities still appear in historical mood check-ins
+5. Transaction rollback on cascade failure
+
+**User-facing behavior**:
+- Clear error messages when deletion blocked: "Cannot delete PHQ-9: 15 assessment responses exist. Delete responses first or export data."
+- Confirmation dialogs for cascade deletions: "This will also delete 3 activity associations. Continue?"
+- Soft-deleted activities shown with "(deleted)" badge in historical views
 
 ---
 

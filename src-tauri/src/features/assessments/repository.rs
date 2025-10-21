@@ -316,4 +316,57 @@ impl AssessmentRepository {
 
         Ok(())
     }
+
+    /// Count assessment responses for a given assessment type (for defensive deletion)
+    pub fn count_assessment_responses(&self, assessment_type_id: i32) -> Result<i32, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM assessment_responses WHERE assessment_type_id = ?",
+            [assessment_type_id],
+            |row| row.get(0),
+        )?;
+
+        Ok(count)
+    }
+
+    /// Count assessment schedules for a given assessment type (for defensive deletion)
+    pub fn count_assessment_schedules(&self, assessment_type_id: i32) -> Result<i32, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM assessment_schedules WHERE assessment_type_id = ?",
+            [assessment_type_id],
+            |row| row.get(0),
+        )?;
+
+        Ok(count)
+    }
+
+    /// Delete an assessment type with defensive checks (prevents deletion if children exist)
+    pub fn delete_assessment_type(&self, id: i32) -> Result<(), AssessmentError> {
+        // Count child records
+        let response_count = self.count_assessment_responses(id)?;
+        let schedule_count = self.count_assessment_schedules(id)?;
+
+        // Block deletion if children exist
+        if response_count > 0 || schedule_count > 0 {
+            return Err(AssessmentError::HasChildren(
+                format!(
+                    "{} assessment response(s) and {} schedule(s) exist. Delete or export data first.",
+                    response_count, schedule_count
+                )
+            ));
+        }
+
+        // Safe to delete - no children
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+
+        conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
+
+        Ok(())
+    }
 }

@@ -25,6 +25,9 @@ pub enum AssessmentError {
     #[error("Assessment not found: {0}")]
     NotFound(i32),
 
+    #[error("Cannot delete: {0}")]
+    HasChildren(String),
+
     #[error("Database lock poisoned. This is a critical error. Please restart the application to recover.")]
     LockPoisoned,
 

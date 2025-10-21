@@ -40,3 +40,20 @@ tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]
 tempfile = "3.8"
+
+# Compilation speed optimizations
+[profile.dev]
+opt-level = 0
+debug = 1  # Reduced debug info for faster builds
+incremental = true
+codegen-units = 256  # More parallelism
+
+# Don't generate debug info for dependencies (huge speedup)
+[profile.dev.package."*"]
+opt-level = 0
+debug = 0
+
+# Test profile inherits from dev with minimal changes
+[profile.test]
+inherits = "dev"
+debug = 1
