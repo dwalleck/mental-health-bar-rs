@@ -46,7 +46,7 @@ tempfile = "3.8"
 opt-level = 0
 debug = 1  # Reduced debug info for faster builds
 incremental = true
-codegen-units = 256  # More parallelism
+codegen-units = 16  # Balanced: faster compile time with better runtime performance than default 256
 
 # Don't generate debug info for dependencies (huge speedup)
 [profile.dev.package."*"]

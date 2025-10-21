@@ -6,6 +6,9 @@ use super::models::*;
 use std::sync::Arc;
 use tracing::{info, error};
 
+/// Maximum number of records that can be retrieved in a single query
+const MAX_QUERY_LIMIT: i32 = 1000;
+
 pub struct MoodRepository {
     db: Arc<Database>,
 }
@@ -22,65 +25,84 @@ impl MoodRepository {
         activity_ids: Vec<i64>,
         notes: Option<&str>,
     ) -> Result<MoodCheckin, MoodError> {
-        // Validate mood rating
+        // Validate inputs
         validate_mood_rating(mood_rating)?;
-
-        let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
-
-        // Insert mood check-in and get the ID using RETURNING
-        let (mood_checkin_id, created_at): (i64, String) = conn.query_row(
-            "INSERT INTO mood_checkins (mood_rating, notes) VALUES (?, ?) RETURNING id, CAST(created_at AS VARCHAR)",
-            duckdb::params![mood_rating, notes],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )?;
-
-        info!("Created mood check-in with ID: {}", mood_checkin_id);
-
-        // Link activities
-        for activity_id in &activity_ids {
-            // Verify activity exists
-            let activity_exists: bool = conn
-                .query_row(
-                    "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
-                    [activity_id],
-                    |row| row.get(0),
-                )
-                .unwrap_or(false);
-
-            if !activity_exists {
-                return Err(MoodError::ActivityNotFound(*activity_id));
-            }
-
-            // Insert into junction table (handles duplicates with UNIQUE constraint)
-            let result = conn.execute(
-                "INSERT INTO mood_checkin_activities (mood_checkin_id, activity_id) VALUES (?, ?)",
-                duckdb::params![mood_checkin_id, activity_id],
-            );
-
-            // Ignore duplicate errors (unique constraint violation)
-            if let Err(e) = result {
-                let err_msg = e.to_string();
-                if !err_msg.contains("UNIQUE") && !err_msg.contains("duplicate") {
-                    return Err(MoodError::Database(e));
-                }
-            }
+        if let Some(n) = notes {
+            validate_notes(n)?;
         }
 
-        // Fetch activities for this check-in
-        let activities = self.get_activities_for_checkin_with_conn(&conn, mood_checkin_id)?;
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        // Build and return the created mood check-in
-        Ok(MoodCheckin {
-            id: mood_checkin_id,
-            mood_rating,
-            notes: notes.map(|s| s.to_string()),
-            activities,
-            created_at,
-        })
+        // Begin transaction for atomicity
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        let result = (|| {
+            // Insert mood check-in and get the ID using RETURNING
+            let (mood_checkin_id, created_at): (i64, String) = conn.query_row(
+                "INSERT INTO mood_checkins (mood_rating, notes) VALUES (?, ?) RETURNING id, CAST(created_at AS VARCHAR)",
+                duckdb::params![mood_rating, notes],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+
+            info!("Created mood check-in with ID: {}", mood_checkin_id);
+
+            // Link activities
+            for activity_id in &activity_ids {
+                // Verify activity exists
+                let activity_exists: bool = conn
+                    .query_row(
+                        "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
+                        [activity_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(false);
+
+                if !activity_exists {
+                    return Err(MoodError::ActivityNotFound(*activity_id));
+                }
+
+                // Insert into junction table (handles duplicates with UNIQUE constraint)
+                let result = conn.execute(
+                    "INSERT INTO mood_checkin_activities (mood_checkin_id, activity_id) VALUES (?, ?)",
+                    duckdb::params![mood_checkin_id, activity_id],
+                );
+
+                // Ignore duplicate errors (unique constraint violation)
+                if let Err(e) = result {
+                    let err_msg = e.to_string();
+                    if !err_msg.contains("UNIQUE") && !err_msg.contains("duplicate") {
+                        return Err(MoodError::Database(e));
+                    }
+                }
+            }
+
+            // Fetch activities for this check-in
+            let activities = self.get_activities_for_checkin_with_conn(&conn, mood_checkin_id)?;
+
+            // Build and return the created mood check-in
+            Ok(MoodCheckin {
+                id: mood_checkin_id,
+                mood_rating,
+                notes: notes.map(|s| s.to_string()),
+                activities,
+                created_at,
+            })
+        })();
+
+        match result {
+            Ok(mood_checkin) => {
+                conn.execute("COMMIT", [])?;
+                Ok(mood_checkin)
+            }
+            Err(e) => {
+                // Rollback on error
+                if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                    error!("Failed to rollback transaction: {}", rollback_err);
+                }
+                Err(e)
+            }
+        }
     }
 
     // T076: get_mood_history query
@@ -91,10 +113,7 @@ impl MoodRepository {
         limit: Option<i32>,
     ) -> Result<Vec<MoodCheckin>, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         let mut query = String::from("SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE 1=1");
         let mut params: Vec<&dyn duckdb::ToSql> = Vec::new();
@@ -110,8 +129,10 @@ impl MoodRepository {
 
         query.push_str(" ORDER BY created_at DESC");
 
+        // Apply limit with bounds checking
         if let Some(lim) = limit {
-            query.push_str(&format!(" LIMIT {}", lim));
+            let safe_limit = lim.min(MAX_QUERY_LIMIT).max(1);
+            query.push_str(&format!(" LIMIT {}", safe_limit));
         }
 
         let mut stmt = conn.prepare(&query)?;
@@ -145,10 +166,7 @@ impl MoodRepository {
     // T077: get_mood_checkin query
     pub fn get_mood_checkin(&self, id: i64) -> Result<MoodCheckin, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         let mood_result = conn.query_row(
             "SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE id = ?",
@@ -218,10 +236,7 @@ impl MoodRepository {
         to_date: Option<String>,
     ) -> Result<MoodStats, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         let mut query = String::from("SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1");
 
@@ -298,10 +313,7 @@ impl MoodRepository {
         to_date: Option<String>,
     ) -> Result<Vec<ActivityCorrelation>, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         let mut query = String::from(
             "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR),
@@ -377,10 +389,7 @@ impl MoodRepository {
         }
 
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         // Check for duplicate name (among non-deleted activities)
         let name_exists: bool = conn
@@ -396,7 +405,7 @@ impl MoodRepository {
         }
 
         // Insert activity and get all fields using RETURNING
-        let (id, name, color_result, icon_result, created_at): (i64, String, Option<String>, Option<String>, String) = conn.query_row(
+        let (id, name, color_value, icon_value, created_at): (i64, String, Option<String>, Option<String>, String) = conn.query_row(
             "INSERT INTO activities (name, color, icon) VALUES (?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
             duckdb::params![trimmed_name, color, icon],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
@@ -408,20 +417,17 @@ impl MoodRepository {
         Ok(Activity {
             id,
             name,
-            color: color_result,
-            icon: icon_result,
+            color: color_value,
+            icon: icon_value,
             created_at,
             deleted_at: None,
         })
     }
 
-    // Helper to get a single activity
-    fn get_activity(&self, id: i64) -> Result<Activity, MoodError> {
+    // Get a single activity by ID
+    pub fn get_activity(&self, id: i64) -> Result<Activity, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         conn.query_row(
             "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE id = ?",
@@ -449,10 +455,7 @@ impl MoodRepository {
         icon: Option<&str>,
     ) -> Result<Activity, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         // Verify activity exists
         let activity_exists: bool = conn
@@ -517,10 +520,7 @@ impl MoodRepository {
     // T104: delete_activity method (soft delete)
     pub fn delete_activity(&self, id: i64) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         // Verify activity exists
         let activity_exists: bool = conn
@@ -545,10 +545,7 @@ impl MoodRepository {
     // T105: get_activities query
     pub fn get_activities(&self, include_deleted: bool) -> Result<Vec<Activity>, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         let query = if include_deleted {
             "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities ORDER BY name"
@@ -580,10 +577,7 @@ impl MoodRepository {
     // T093b: delete_mood_checkin with transactional cascade
     pub fn delete_mood_checkin(&self, id: i64) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|e| {
-            error!("Failed to acquire database lock: {}", e);
-            MoodError::Database(duckdb::Error::InvalidParameterCount(0, 0))
-        })?;
+        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         // Verify mood check-in exists
         let checkin_exists: bool = conn

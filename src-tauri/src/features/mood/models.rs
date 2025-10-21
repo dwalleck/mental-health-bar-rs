@@ -13,11 +13,20 @@ pub enum MoodError {
     #[error("Activity name cannot be empty")]
     EmptyActivityName,
 
+    #[error("Activity name too long: {0} characters. Maximum 100 characters allowed")]
+    ActivityNameTooLong(usize),
+
     #[error("Activity name already exists: {0}")]
     DuplicateActivityName(String),
 
     #[error("Invalid color format: {0}. Must be #RRGGBB")]
     InvalidColorFormat(String),
+
+    #[error("Notes too long: {0} characters. Maximum 5000 characters allowed")]
+    NotesLengthExceeded(usize),
+
+    #[error("Database lock poisoned")]
+    LockPoisoned,
 
     #[error("Database error: {0}")]
     Database(#[from] duckdb::Error),
@@ -103,9 +112,17 @@ pub fn validate_activity_name(name: &str) -> Result<String, MoodError> {
         return Err(MoodError::EmptyActivityName);
     }
     if trimmed.len() > 100 {
-        return Err(MoodError::EmptyActivityName); // Will improve error message later
+        return Err(MoodError::ActivityNameTooLong(trimmed.len()));
     }
     Ok(trimmed)
+}
+
+/// Validate notes length (max 5000 characters)
+pub fn validate_notes(notes: &str) -> Result<(), MoodError> {
+    if notes.len() > 5000 {
+        return Err(MoodError::NotesLengthExceeded(notes.len()));
+    }
+    Ok(())
 }
 
 /// Validate hex color format (#RRGGBB)
