@@ -1,7 +1,7 @@
 // Integration tests for assessment repository
+use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::assessments::repository::AssessmentRepository;
-use std::sync::Arc;
 use tempfile::TempDir;
 
 fn setup_test_db() -> (Arc<Database>, TempDir) {
@@ -17,7 +17,9 @@ fn test_get_all_assessment_types() {
     let (db, _temp_dir) = setup_test_db();
     let repo = AssessmentRepository::new(db);
 
-    let types = repo.get_assessment_types().expect("Failed to get assessment types");
+    let types = repo
+        .get_assessment_types()
+        .expect("Failed to get assessment types");
 
     // Should have 4 assessment types seeded
     assert_eq!(types.len(), 4);
@@ -35,7 +37,8 @@ fn test_get_assessment_type_by_code() {
     let (db, _temp_dir) = setup_test_db();
     let repo = AssessmentRepository::new(db);
 
-    let assessment_type = repo.get_assessment_type_by_code("PHQ9")
+    let assessment_type = repo
+        .get_assessment_type_by_code("PHQ9")
         .expect("Failed to get PHQ9 assessment type");
 
     assert_eq!(assessment_type.code, "PHQ9");
@@ -61,7 +64,8 @@ fn test_save_and_retrieve_assessment() {
     let repo = AssessmentRepository::new(db);
 
     // Get PHQ9 assessment type
-    let assessment_type = repo.get_assessment_type_by_code("PHQ9")
+    let assessment_type = repo
+        .get_assessment_type_by_code("PHQ9")
         .expect("Failed to get PHQ9");
 
     // Save an assessment
@@ -70,16 +74,19 @@ fn test_save_and_retrieve_assessment() {
     let severity_level = "mild";
     let notes = Some("Test notes".to_string());
 
-    let id = repo.save_assessment(
-        assessment_type.id,
-        &responses,
-        total_score,
-        severity_level,
-        notes.clone(),
-    ).expect("Failed to save assessment");
+    let id = repo
+        .save_assessment(
+            assessment_type.id,
+            &responses,
+            total_score,
+            severity_level,
+            notes.clone(),
+        )
+        .expect("Failed to save assessment");
 
     // Retrieve the assessment
-    let retrieved = repo.get_assessment_response(id)
+    let retrieved = repo
+        .get_assessment_response(id)
         .expect("Failed to retrieve assessment");
 
     assert_eq!(retrieved.id, id);
@@ -96,8 +103,12 @@ fn test_get_assessment_history() {
     let repo = AssessmentRepository::new(db.clone());
 
     // Get assessment types
-    let phq9 = repo.get_assessment_type_by_code("PHQ9").expect("Failed to get PHQ9");
-    let gad7 = repo.get_assessment_type_by_code("GAD7").expect("Failed to get GAD7");
+    let phq9 = repo
+        .get_assessment_type_by_code("PHQ9")
+        .expect("Failed to get PHQ9");
+    let gad7 = repo
+        .get_assessment_type_by_code("GAD7")
+        .expect("Failed to get GAD7");
 
     // Save multiple assessments
     repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None)
@@ -108,18 +119,23 @@ fn test_get_assessment_history() {
         .expect("Failed to save second PHQ9 assessment");
 
     // Get all history
-    let history = repo.get_assessment_history(None, None, None, None)
+    let history = repo
+        .get_assessment_history(None, None, None, None)
         .expect("Failed to get history");
     assert_eq!(history.len(), 3);
 
     // Filter by type
-    let phq9_history = repo.get_assessment_history(Some("PHQ9".to_string()), None, None, None)
+    let phq9_history = repo
+        .get_assessment_history(Some("PHQ9".to_string()), None, None, None)
         .expect("Failed to get PHQ9 history");
     assert_eq!(phq9_history.len(), 2);
-    assert!(phq9_history.iter().all(|a| a.assessment_type.code == "PHQ9"));
+    assert!(phq9_history
+        .iter()
+        .all(|a| a.assessment_type.code == "PHQ9"));
 
     // Test limit
-    let limited_history = repo.get_assessment_history(None, None, None, Some(2))
+    let limited_history = repo
+        .get_assessment_history(None, None, None, Some(2))
         .expect("Failed to get limited history");
     assert_eq!(limited_history.len(), 2);
 }
@@ -129,18 +145,22 @@ fn test_save_assessment_without_notes() {
     let (db, _temp_dir) = setup_test_db();
     let repo = AssessmentRepository::new(db);
 
-    let assessment_type = repo.get_assessment_type_by_code("GAD7")
+    let assessment_type = repo
+        .get_assessment_type_by_code("GAD7")
         .expect("Failed to get GAD7");
 
-    let id = repo.save_assessment(
-        assessment_type.id,
-        &vec![1, 1, 2, 1, 2, 1, 1],
-        9,
-        "mild",
-        None,
-    ).expect("Failed to save assessment");
+    let id = repo
+        .save_assessment(
+            assessment_type.id,
+            &vec![1, 1, 2, 1, 2, 1, 1],
+            9,
+            "mild",
+            None,
+        )
+        .expect("Failed to save assessment");
 
-    let retrieved = repo.get_assessment_response(id)
+    let retrieved = repo
+        .get_assessment_response(id)
         .expect("Failed to retrieve assessment");
 
     assert_eq!(retrieved.notes, None);

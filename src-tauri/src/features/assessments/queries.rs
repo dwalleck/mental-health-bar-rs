@@ -1,9 +1,9 @@
 // Assessment queries (reads)
-use tauri::State;
-use crate::AppState;
+use super::content;
 use super::models::*;
 use super::repository::AssessmentRepository;
-use super::content;
+use crate::AppState;
+use tauri::State;
 
 /// Get all available assessment types
 #[tauri::command]
@@ -70,7 +70,12 @@ pub async fn get_latest_assessment(
     let repo = AssessmentRepository::new(state.db.clone());
     let history = repo
         .get_assessment_history(Some(assessment_type_code.clone()), None, None, Some(1))
-        .map_err(|e| format!("Failed to retrieve latest assessment for '{}': {}", assessment_type_code, e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to retrieve latest assessment for '{}': {}",
+                assessment_type_code, e
+            )
+        })?;
 
     Ok(history.into_iter().next())
 }

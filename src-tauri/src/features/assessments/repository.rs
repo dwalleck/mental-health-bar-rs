@@ -1,5 +1,5 @@
 // Assessment repository - database access layer
-use super::models::{AssessmentType, AssessmentResponse, AssessmentError};
+use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
 use std::sync::Arc;
 use tracing::error;
@@ -29,11 +29,11 @@ impl AssessmentRepository {
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock()
-            .map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
-        let responses_json = serde_json::to_string(responses)
-            .map_err(|e| AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e)))?;
+        let responses_json = serde_json::to_string(responses).map_err(|e| {
+            AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e))
+        })?;
 
         // Begin transaction for data consistency
         conn.execute("BEGIN TRANSACTION", [])?;
@@ -68,13 +68,12 @@ impl AssessmentRepository {
     /// Get all assessment types
     pub fn get_assessment_types(&self) -> Result<Vec<AssessmentType>, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock()
-            .map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let mut stmt = conn.prepare(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
              FROM assessment_types
-             ORDER BY id"
+             ORDER BY id",
         )?;
 
         let types = stmt
@@ -87,15 +86,14 @@ impl AssessmentRepository {
                     question_count: row.get(4)?,
                     min_score: row.get(5)?,
                     max_score: row.get(6)?,
-                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
-                        .map_err(|e| {
-                            error!("Failed to deserialize assessment type thresholds: {}", e);
-                            duckdb::Error::InvalidColumnType(
-                                7,
-                                "thresholds".to_string(),
-                                duckdb::types::Type::Text
-                            )
-                        })?,
+                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).map_err(|e| {
+                        error!("Failed to deserialize assessment type thresholds: {}", e);
+                        duckdb::Error::InvalidColumnType(
+                            7,
+                            "thresholds".to_string(),
+                            duckdb::types::Type::Text,
+                        )
+                    })?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -104,10 +102,12 @@ impl AssessmentRepository {
     }
 
     /// Get assessment type by code
-    pub fn get_assessment_type_by_code(&self, code: &str) -> Result<AssessmentType, AssessmentError> {
+    pub fn get_assessment_type_by_code(
+        &self,
+        code: &str,
+    ) -> Result<AssessmentType, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock()
-            .map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let result = conn.query_row(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -123,15 +123,14 @@ impl AssessmentRepository {
                     question_count: row.get(4)?,
                     min_score: row.get(5)?,
                     max_score: row.get(6)?,
-                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?)
-                        .map_err(|e| {
-                            error!("Failed to deserialize assessment type thresholds: {}", e);
-                            duckdb::Error::InvalidColumnType(
-                                7,
-                                "thresholds".to_string(),
-                                duckdb::types::Type::Text
-                            )
-                        })?,
+                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).map_err(|e| {
+                        error!("Failed to deserialize assessment type thresholds: {}", e);
+                        duckdb::Error::InvalidColumnType(
+                            7,
+                            "thresholds".to_string(),
+                            duckdb::types::Type::Text,
+                        )
+                    })?,
                 })
             },
         );
@@ -154,8 +153,7 @@ impl AssessmentRepository {
         limit: Option<i32>,
     ) -> Result<Vec<AssessmentResponse>, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock()
-            .map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let mut query = String::from(
             "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
@@ -201,15 +199,14 @@ impl AssessmentRepository {
         let responses = stmt
             .query_map(params.as_slice(), |row| {
                 let responses_json: String = row.get(2)?;
-                let responses: Vec<i32> = serde_json::from_str(&responses_json)
-                    .map_err(|e| {
-                        error!("Failed to deserialize assessment responses: {}", e);
-                        duckdb::Error::InvalidColumnType(
-                            2,
-                            "responses".to_string(),
-                            duckdb::types::Type::Text
-                        )
-                    })?;
+                let responses: Vec<i32> = serde_json::from_str(&responses_json).map_err(|e| {
+                    error!("Failed to deserialize assessment responses: {}", e);
+                    duckdb::Error::InvalidColumnType(
+                        2,
+                        "responses".to_string(),
+                        duckdb::types::Type::Text,
+                    )
+                })?;
 
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
@@ -221,15 +218,19 @@ impl AssessmentRepository {
                         question_count: row.get(11)?,
                         min_score: row.get(12)?,
                         max_score: row.get(13)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
-                            .map_err(|e| {
-                                error!("Failed to deserialize thresholds in assessment history: {}", e);
+                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?).map_err(
+                            |e| {
+                                error!(
+                                    "Failed to deserialize thresholds in assessment history: {}",
+                                    e
+                                );
                                 duckdb::Error::InvalidColumnType(
                                     14,
                                     "thresholds".to_string(),
-                                    duckdb::types::Type::Text
+                                    duckdb::types::Type::Text,
                                 )
-                            })?,
+                            },
+                        )?,
                     },
                     responses,
                     total_score: row.get(3)?,
@@ -246,8 +247,7 @@ impl AssessmentRepository {
     /// Get a single assessment response by ID
     pub fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock()
-            .map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let result = conn.query_row(
             "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
@@ -300,9 +300,7 @@ impl AssessmentRepository {
 
         match result {
             Ok(response) => Ok(response),
-            Err(duckdb::Error::QueryReturnedNoRows) => {
-                Err(AssessmentError::NotFound(id))
-            }
+            Err(duckdb::Error::QueryReturnedNoRows) => Err(AssessmentError::NotFound(id)),
             Err(e) => Err(AssessmentError::Database(e)),
         }
     }
@@ -310,8 +308,7 @@ impl AssessmentRepository {
     /// Delete an assessment response
     pub fn delete_assessment(&self, id: i32) -> Result<(), AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock()
-            .map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         conn.execute("DELETE FROM assessment_responses WHERE id = ?", [id])?;
 

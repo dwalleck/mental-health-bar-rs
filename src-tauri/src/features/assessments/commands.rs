@@ -1,8 +1,8 @@
 // Assessment commands (mutations)
-use tauri::State;
-use crate::AppState;
 use super::models::*;
 use super::repository::AssessmentRepository;
+use crate::AppState;
+use tauri::State;
 
 /// Maximum length for assessment notes field
 const MAX_NOTES_LENGTH: usize = 10_000;
@@ -17,12 +17,19 @@ pub async fn submit_assessment(
     // Validate notes field length
     if let Some(ref notes) = request.notes {
         if notes.len() > MAX_NOTES_LENGTH {
-            return Err(format!("Notes exceed maximum length of {} characters", MAX_NOTES_LENGTH));
+            return Err(format!(
+                "Notes exceed maximum length of {} characters",
+                MAX_NOTES_LENGTH
+            ));
         }
     }
 
     // Validate assessment type code format (alphanumeric only)
-    if !request.assessment_type_code.chars().all(|c| c.is_alphanumeric()) {
+    if !request
+        .assessment_type_code
+        .chars()
+        .all(|c| c.is_alphanumeric())
+    {
         return Err("Assessment type code must contain only alphanumeric characters".to_string());
     }
 
@@ -31,7 +38,12 @@ pub async fn submit_assessment(
     // Get assessment type
     let assessment_type = repo
         .get_assessment_type_by_code(&request.assessment_type_code)
-        .map_err(|e| format!("Failed to retrieve assessment type '{}': {}", request.assessment_type_code, e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to retrieve assessment type '{}': {}",
+                request.assessment_type_code, e
+            )
+        })?;
 
     // Calculate score based on type
     let (total_score, severity_level) = match assessment_type.code.as_str() {
@@ -77,10 +89,7 @@ pub async fn submit_assessment(
 /// Delete an assessment response
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_assessment(
-    id: i32,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = AssessmentRepository::new(state.db.clone());
 
     repo.delete_assessment(id)

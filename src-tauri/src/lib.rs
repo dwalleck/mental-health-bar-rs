@@ -27,21 +27,23 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = Builder::<tauri::Wry>::new()
-        .commands(collect_commands![
-            greet,
-            features::assessments::commands::submit_assessment,
-            features::assessments::commands::delete_assessment,
-            features::assessments::queries::get_assessment_types,
-            features::assessments::queries::get_assessment_questions,
-            features::assessments::queries::get_assessment_history,
-            features::assessments::queries::get_assessment_response,
-            features::assessments::queries::get_latest_assessment,
-        ]);
+    let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+        greet,
+        features::assessments::commands::submit_assessment,
+        features::assessments::commands::delete_assessment,
+        features::assessments::queries::get_assessment_types,
+        features::assessments::queries::get_assessment_questions,
+        features::assessments::queries::get_assessment_history,
+        features::assessments::queries::get_assessment_response,
+        features::assessments::queries::get_latest_assessment,
+    ]);
 
     #[cfg(debug_assertions)]
     builder
-        .export(specta_typescript::Typescript::default(), "../src/lib/bindings.ts")
+        .export(
+            specta_typescript::Typescript::default(),
+            "../src/lib/bindings.ts",
+        )
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
@@ -53,30 +55,26 @@ pub fn run() {
             builder.mount_events(app);
 
             // Initialize database
-            let app_data_dir = app.path().app_data_dir()
-                .map_err(|e| {
-                    eprintln!("Failed to get app data directory: {}", e);
-                    e
-                })?;
-            let db = Database::new(app_data_dir)
-                .map_err(|e| {
-                    eprintln!("Failed to initialize database: {}", e);
-                    e
-                })?;
+            let app_data_dir = app.path().app_data_dir().map_err(|e| {
+                eprintln!("Failed to get app data directory: {}", e);
+                e
+            })?;
+            let db = Database::new(app_data_dir).map_err(|e| {
+                eprintln!("Failed to initialize database: {}", e);
+                e
+            })?;
 
             // Check database permissions
-            db.check_permissions()
-                .map_err(|e| {
-                    eprintln!("Database permission check failed: {}", e);
-                    e
-                })?;
+            db.check_permissions().map_err(|e| {
+                eprintln!("Database permission check failed: {}", e);
+                e
+            })?;
 
             // Load configuration
-            let config = AppConfig::load()
-                .map_err(|e| {
-                    eprintln!("Failed to load configuration: {}", e);
-                    e
-                })?;
+            let config = AppConfig::load().map_err(|e| {
+                eprintln!("Failed to load configuration: {}", e);
+                e
+            })?;
 
             // Setup managed state
             app.manage(AppState {
@@ -98,17 +96,16 @@ mod tests {
     /// Run with: cargo test generate_types -- --exact --nocapture
     #[test]
     fn generate_types() {
-        let builder = Builder::<tauri::Wry>::new()
-            .commands(collect_commands![
-                greet,
-                features::assessments::commands::submit_assessment,
-                features::assessments::commands::delete_assessment,
-                features::assessments::queries::get_assessment_types,
-                features::assessments::queries::get_assessment_questions,
-                features::assessments::queries::get_assessment_history,
-                features::assessments::queries::get_assessment_response,
-                features::assessments::queries::get_latest_assessment,
-            ]);
+        let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+            greet,
+            features::assessments::commands::submit_assessment,
+            features::assessments::commands::delete_assessment,
+            features::assessments::queries::get_assessment_types,
+            features::assessments::queries::get_assessment_questions,
+            features::assessments::queries::get_assessment_history,
+            features::assessments::queries::get_assessment_response,
+            features::assessments::queries::get_latest_assessment,
+        ]);
 
         builder
             .export(

@@ -16,8 +16,7 @@ impl Database {
     /// Initialize database connection and run migrations
     pub fn new(app_data_dir: PathBuf) -> Result<Self> {
         // Ensure app data directory exists
-        std::fs::create_dir_all(&app_data_dir)
-            .context("Failed to create app data directory")?;
+        std::fs::create_dir_all(&app_data_dir).context("Failed to create app data directory")?;
 
         let db_path = app_data_dir.join("mental_health_tracker.db");
         info!("Initializing database at: {:?}", db_path);
@@ -36,8 +35,7 @@ impl Database {
         }
 
         // Open database connection
-        let conn = Connection::open(&db_path)
-            .context("Failed to open database connection")?;
+        let conn = Connection::open(&db_path).context("Failed to open database connection")?;
 
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -76,8 +74,7 @@ impl Database {
     /// Execute a query that returns no results
     pub fn execute(&self, sql: &str, params: &[&dyn duckdb::ToSql]) -> Result<usize> {
         let conn = self.conn.lock().unwrap();
-        conn.execute(sql, params)
-            .context("Failed to execute query")
+        conn.execute(sql, params).context("Failed to execute query")
     }
 
     /// Check database file permissions (Unix only)
