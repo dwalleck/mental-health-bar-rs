@@ -73,7 +73,10 @@ impl Database {
 
     /// Execute a query that returns no results
     pub fn execute(&self, sql: &str, params: &[&dyn duckdb::ToSql]) -> Result<usize> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
         conn.execute(sql, params).context("Failed to execute query")
     }
 

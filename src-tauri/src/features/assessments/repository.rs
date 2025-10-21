@@ -156,25 +156,25 @@ impl AssessmentRepository {
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let mut query = String::from(
-            "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
-                    ar.completed_at, ar.notes,
-                    at.id, at.code, at.name, at.description, at.question_count, at.min_score, at.max_score, at.thresholds
-             FROM assessment_responses ar
-             JOIN assessment_types at ON ar.assessment_type_id = at.id
+            "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
+                    strftime(resp.completed_at, '%Y-%m-%d %H:%M:%S') as completed_at, resp.notes,
+                    atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
+             FROM assessment_responses AS resp
+             JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
              WHERE 1=1"
         );
 
         if assessment_type_code.is_some() {
-            query.push_str(" AND at.code = ?");
+            query.push_str(" AND atype.code = ?");
         }
         if from_date.is_some() {
-            query.push_str(" AND ar.completed_at >= ?");
+            query.push_str(" AND resp.completed_at >= ?");
         }
         if to_date.is_some() {
-            query.push_str(" AND ar.completed_at <= ?");
+            query.push_str(" AND resp.completed_at <= ?");
         }
 
-        query.push_str(" ORDER BY ar.completed_at DESC");
+        query.push_str(" ORDER BY resp.completed_at DESC");
 
         if let Some(lim) = limit {
             // Enforce reasonable bounds to prevent excessive queries
@@ -250,12 +250,12 @@ impl AssessmentRepository {
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let result = conn.query_row(
-            "SELECT ar.id, ar.assessment_type_id, ar.responses, ar.total_score, ar.severity_level,
-                    ar.completed_at, ar.notes,
-                    at.id, at.code, at.name, at.description, at.question_count, at.min_score, at.max_score, at.thresholds
-             FROM assessment_responses ar
-             JOIN assessment_types at ON ar.assessment_type_id = at.id
-             WHERE ar.id = ?",
+            "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
+                    strftime(resp.completed_at, '%Y-%m-%d %H:%M:%S') as completed_at, resp.notes,
+                    atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
+             FROM assessment_responses AS resp
+             JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
+             WHERE resp.id = ?",
             [id],
             |row| {
                 let responses_json: String = row.get(2)?;

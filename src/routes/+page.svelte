@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { invoke } from '@tauri-apps/api/core';
 	import type { AssessmentType } from '$lib/bindings';
 	import Card from '$lib/components/ui/Card.svelte';
@@ -65,7 +66,7 @@
 					<li>Review your score and severity level</li>
 					<li>Track your progress over time with charts</li>
 				</ol>
-				<Button variant="primary" fullWidth on:click={() => (window.location.href = '/assessments')}>
+				<Button variant="primary" fullWidth on:click={() => goto('/assessments')}>
 					Take Your First Assessment
 				</Button>
 			</div>

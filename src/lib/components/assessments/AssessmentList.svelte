@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { invoke } from '@tauri-apps/api/core';
 	import type { AssessmentType } from '$lib/bindings';
 	import Card from '$lib/components/ui/Card.svelte';
@@ -20,7 +21,7 @@
 	});
 
 	function startAssessment(code: string) {
-		window.location.href = `/assessments/${code}`;
+		goto(`/assessments/${code}`);
 	}
 </script>
 

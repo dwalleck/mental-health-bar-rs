@@ -23,6 +23,8 @@ CREATE TABLE assessment_types (
 );
 
 -- Assessment Responses
+-- NOTE: DuckDB does not support ON DELETE CASCADE (as of v1.1.3)
+-- If assessment types are deleted, child responses must be manually deleted first
 CREATE TABLE assessment_responses (
     id INTEGER PRIMARY KEY DEFAULT nextval('assessment_responses_id_seq'),
     assessment_type_id INTEGER NOT NULL,
@@ -62,6 +64,8 @@ CREATE INDEX idx_mood_checkins_created_at ON mood_checkins(created_at);
 CREATE INDEX idx_mood_checkins_date ON mood_checkins(DATE(created_at));
 
 -- Mood Check-In Activities (junction table)
+-- NOTE: DuckDB does not support ON DELETE CASCADE
+-- Manual cleanup required when deleting mood_checkins or activities
 CREATE TABLE mood_checkin_activities (
     id INTEGER PRIMARY KEY DEFAULT nextval('mood_checkin_activities_id_seq'),
     mood_checkin_id INTEGER NOT NULL,
@@ -75,6 +79,8 @@ CREATE INDEX idx_mood_checkin_activities_checkin ON mood_checkin_activities(mood
 CREATE INDEX idx_mood_checkin_activities_activity ON mood_checkin_activities(activity_id);
 
 -- Assessment Schedules
+-- NOTE: DuckDB does not support ON DELETE CASCADE
+-- Delete schedules manually before deleting assessment types
 CREATE TABLE assessment_schedules (
     id INTEGER PRIMARY KEY DEFAULT nextval('assessment_schedules_id_seq'),
     assessment_type_id INTEGER NOT NULL,
