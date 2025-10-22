@@ -43,11 +43,11 @@ impl AssessmentRepository {
              VALUES (?, ?, ?, ?, ?)
              RETURNING id",
             [
-                &assessment_type_id as &dyn duckdb::ToSql,
-                &responses_json as &dyn duckdb::ToSql,
-                &total_score as &dyn duckdb::ToSql,
-                &severity_level as &dyn duckdb::ToSql,
-                &notes as &dyn duckdb::ToSql,
+                &assessment_type_id as &dyn rusqlite::ToSql,
+                &responses_json as &dyn rusqlite::ToSql,
+                &total_score as &dyn rusqlite::ToSql,
+                &severity_level as &dyn rusqlite::ToSql,
+                &notes as &dyn rusqlite::ToSql,
             ],
             |row| row.get(0)
         );
@@ -90,10 +90,10 @@ impl AssessmentRepository {
                     max_score: row.get(6)?,
                     thresholds: serde_json::from_str(&row.get::<_, String>(7)?).map_err(|e| {
                         error!("Failed to deserialize assessment type thresholds: {}", e);
-                        duckdb::Error::InvalidColumnType(
+                        rusqlite::Error::InvalidColumnType(
                             7,
                             "thresholds".to_string(),
-                            duckdb::types::Type::Text,
+                            rusqlite::types::Type::Text,
                         )
                     })?,
                 })
@@ -127,10 +127,10 @@ impl AssessmentRepository {
                     max_score: row.get(6)?,
                     thresholds: serde_json::from_str(&row.get::<_, String>(7)?).map_err(|e| {
                         error!("Failed to deserialize assessment type thresholds: {}", e);
-                        duckdb::Error::InvalidColumnType(
+                        rusqlite::Error::InvalidColumnType(
                             7,
                             "thresholds".to_string(),
-                            duckdb::types::Type::Text,
+                            rusqlite::types::Type::Text,
                         )
                     })?,
                 })
@@ -139,7 +139,7 @@ impl AssessmentRepository {
 
         match result {
             Ok(assessment_type) => Ok(assessment_type),
-            Err(duckdb::Error::QueryReturnedNoRows) => {
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
                 Err(AssessmentError::InvalidType(code.to_string()))
             }
             Err(e) => Err(AssessmentError::Database(e)),
@@ -159,7 +159,7 @@ impl AssessmentRepository {
 
         let mut query = String::from(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
-                    strftime(resp.completed_at, '%Y-%m-%d %H:%M:%S') as completed_at, resp.notes,
+                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
@@ -187,7 +187,7 @@ impl AssessmentRepository {
         let mut stmt = conn.prepare(&query)?;
 
         // Build params dynamically
-        let mut params: Vec<&dyn duckdb::ToSql> = Vec::new();
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
         if let Some(code) = &assessment_type_code {
             params.push(code);
         }
@@ -203,10 +203,10 @@ impl AssessmentRepository {
                 let responses_json: String = row.get(2)?;
                 let responses: Vec<i32> = serde_json::from_str(&responses_json).map_err(|e| {
                     error!("Failed to deserialize assessment responses: {}", e);
-                    duckdb::Error::InvalidColumnType(
+                    rusqlite::Error::InvalidColumnType(
                         2,
                         "responses".to_string(),
-                        duckdb::types::Type::Text,
+                        rusqlite::types::Type::Text,
                     )
                 })?;
 
@@ -226,10 +226,10 @@ impl AssessmentRepository {
                                     "Failed to deserialize thresholds in assessment history: {}",
                                     e
                                 );
-                                duckdb::Error::InvalidColumnType(
+                                rusqlite::Error::InvalidColumnType(
                                     14,
                                     "thresholds".to_string(),
-                                    duckdb::types::Type::Text,
+                                    rusqlite::types::Type::Text,
                                 )
                             },
                         )?,
@@ -253,7 +253,7 @@ impl AssessmentRepository {
 
         let result = conn.query_row(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
-                    strftime(resp.completed_at, '%Y-%m-%d %H:%M:%S') as completed_at, resp.notes,
+                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
@@ -264,10 +264,10 @@ impl AssessmentRepository {
                 let responses: Vec<i32> = serde_json::from_str(&responses_json)
                     .map_err(|e| {
                         error!("Failed to deserialize assessment responses: {}", e);
-                        duckdb::Error::InvalidColumnType(
+                        rusqlite::Error::InvalidColumnType(
                             2,
                             "responses".to_string(),
-                            duckdb::types::Type::Text
+                            rusqlite::types::Type::Text
                         )
                     })?;
 
@@ -284,10 +284,10 @@ impl AssessmentRepository {
                         thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
                             .map_err(|e| {
                                 error!("Failed to deserialize thresholds in assessment history: {}", e);
-                                duckdb::Error::InvalidColumnType(
+                                rusqlite::Error::InvalidColumnType(
                                     14,
                                     "thresholds".to_string(),
-                                    duckdb::types::Type::Text
+                                    rusqlite::types::Type::Text
                                 )
                             })?,
                     },
@@ -302,7 +302,7 @@ impl AssessmentRepository {
 
         match result {
             Ok(response) => Ok(response),
-            Err(duckdb::Error::QueryReturnedNoRows) => Err(AssessmentError::NotFound(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(AssessmentError::NotFound(id)),
             Err(e) => Err(AssessmentError::Database(e)),
         }
     }

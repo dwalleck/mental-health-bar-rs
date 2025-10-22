@@ -37,6 +37,15 @@ pub fn run() {
         features::assessments::queries::get_assessment_history,
         features::assessments::queries::get_assessment_response,
         features::assessments::queries::get_latest_assessment,
+        features::mood::commands::log_mood,
+        features::mood::commands::create_activity,
+        features::mood::commands::update_activity,
+        features::mood::commands::delete_activity,
+        features::mood::commands::delete_mood_checkin,
+        features::mood::queries::get_mood_history,
+        features::mood::queries::get_mood_checkin,
+        features::mood::queries::get_mood_stats,
+        features::mood::queries::get_activities,
     ]);
 
     #[cfg(debug_assertions)]
@@ -107,6 +116,15 @@ mod tests {
             features::assessments::queries::get_assessment_history,
             features::assessments::queries::get_assessment_response,
             features::assessments::queries::get_latest_assessment,
+            features::mood::commands::log_mood,
+            features::mood::commands::create_activity,
+            features::mood::commands::update_activity,
+            features::mood::commands::delete_activity,
+            features::mood::commands::delete_mood_checkin,
+            features::mood::queries::get_mood_history,
+            features::mood::queries::get_mood_checkin,
+            features::mood::queries::get_mood_stats,
+            features::mood::queries::get_activities,
         ]);
 
         builder

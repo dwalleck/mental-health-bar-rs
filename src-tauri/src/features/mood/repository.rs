@@ -9,6 +9,9 @@ use tracing::{error, info};
 /// Maximum number of records that can be retrieved in a single query
 const MAX_QUERY_LIMIT: i32 = 1000;
 
+/// Minimum number of check-ins required to establish activity-mood correlation
+const MIN_CORRELATION_SAMPLE_SIZE: i32 = 3;
+
 pub struct MoodRepository {
     db: Arc<Database>,
 }
@@ -22,7 +25,7 @@ impl MoodRepository {
     pub fn create_mood_checkin(
         &self,
         mood_rating: i32,
-        activity_ids: Vec<i64>,
+        activity_ids: Vec<i32>,
         notes: Option<&str>,
     ) -> Result<MoodCheckin, MoodError> {
         // Validate inputs
@@ -39,9 +42,9 @@ impl MoodRepository {
 
         let result = (|| {
             // Insert mood check-in and get the ID using RETURNING
-            let (mood_checkin_id, created_at): (i64, String) = conn.query_row(
+            let (mood_checkin_id, created_at): (i32, String) = conn.query_row(
                 "INSERT INTO mood_checkins (mood_rating, notes) VALUES (?, ?) RETURNING id, CAST(created_at AS VARCHAR)",
-                duckdb::params![mood_rating, notes],
+                rusqlite::params![mood_rating, notes],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )?;
 
@@ -56,7 +59,7 @@ impl MoodRepository {
                         [activity_id],
                         |row| row.get(0),
                     )
-                    .unwrap_or(false);
+                    .map_err(MoodError::Database)?;
 
                 if !activity_exists {
                     return Err(MoodError::ActivityNotFound(*activity_id));
@@ -65,14 +68,19 @@ impl MoodRepository {
                 // Insert into junction table (handles duplicates with UNIQUE constraint)
                 let result = conn.execute(
                     "INSERT INTO mood_checkin_activities (mood_checkin_id, activity_id) VALUES (?, ?)",
-                    duckdb::params![mood_checkin_id, activity_id],
+                    rusqlite::params![mood_checkin_id, activity_id],
                 );
 
-                // Ignore duplicate errors (unique constraint violation)
+                // Ignore duplicate errors (unique constraint violation), propagate all others
                 if let Err(e) = result {
-                    let err_msg = e.to_string();
-                    if !err_msg.contains("UNIQUE") && !err_msg.contains("duplicate") {
-                        return Err(MoodError::Database(e));
+                    match e {
+                        rusqlite::Error::SqliteFailure(err, _) => {
+                            if err.code != rusqlite::ErrorCode::ConstraintViolation {
+                                return Err(MoodError::Database(e));
+                            }
+                            // Silently ignore constraint violations (duplicate activity_id)
+                        }
+                        _ => return Err(MoodError::Database(e)),
                     }
                 }
             }
@@ -96,9 +104,13 @@ impl MoodRepository {
                 Ok(mood_checkin)
             }
             Err(e) => {
-                // Rollback on error
+                // Rollback on error - if rollback fails, the DB may be in an inconsistent state
                 if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("Failed to rollback transaction: {}", rollback_err);
+                    error!("CRITICAL: Failed to rollback transaction: {}", rollback_err);
+                    return Err(MoodError::TransactionFailure(format!(
+                        "Original error: {}. Rollback error: {}",
+                        e, rollback_err
+                    )));
                 }
                 Err(e)
             }
@@ -116,7 +128,7 @@ impl MoodRepository {
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         let mut query = String::from("SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE 1=1");
-        let mut params: Vec<&dyn duckdb::ToSql> = Vec::new();
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
         if let Some(ref from) = from_date {
             query.push_str(" AND created_at >= ?");
@@ -129,17 +141,18 @@ impl MoodRepository {
 
         query.push_str(" ORDER BY created_at DESC");
 
-        // Apply limit with bounds checking
-        if let Some(lim) = limit {
-            let safe_limit = lim.min(MAX_QUERY_LIMIT).max(1);
-            query.push_str(&format!(" LIMIT {}", safe_limit));
+        // Apply limit with bounds checking using parameterized query
+        let safe_limit = limit.map(|lim| lim.min(MAX_QUERY_LIMIT).max(1));
+        if safe_limit.is_some() {
+            query.push_str(" LIMIT ?");
+            params.push(&safe_limit);
         }
 
         let mut stmt = conn.prepare(&query)?;
 
         let mood_rows = stmt.query_map(params.as_slice(), |row| {
             Ok((
-                row.get::<_, i64>(0)?,            // id
+                row.get::<_, i32>(0)?,            // id
                 row.get::<_, i32>(1)?,            // mood_rating
                 row.get::<_, Option<String>>(2)?, // notes
                 row.get::<_, String>(3)?,         // created_at
@@ -164,7 +177,7 @@ impl MoodRepository {
     }
 
     // T077: get_mood_checkin query
-    pub fn get_mood_checkin(&self, id: i64) -> Result<MoodCheckin, MoodError> {
+    pub fn get_mood_checkin(&self, id: i32) -> Result<MoodCheckin, MoodError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
@@ -173,7 +186,7 @@ impl MoodRepository {
             [id],
             |row| {
                 Ok((
-                    row.get::<_, i64>(0)?,
+                    row.get::<_, i32>(0)?,
                     row.get::<_, i32>(1)?,
                     row.get::<_, Option<String>>(2)?,
                     row.get::<_, String>(3)?,
@@ -200,8 +213,8 @@ impl MoodRepository {
     // Accepts connection reference to avoid deadlock when called from already-locked context
     fn get_activities_for_checkin_with_conn(
         &self,
-        conn: &duckdb::Connection,
-        mood_checkin_id: i64,
+        conn: &rusqlite::Connection,
+        mood_checkin_id: i32,
     ) -> Result<Vec<Activity>, MoodError> {
         let mut stmt = conn.prepare(
             "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR)
@@ -335,7 +348,10 @@ impl MoodRepository {
         }
 
         query.push_str(" GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at");
-        query.push_str(" HAVING COUNT(mc.id) >= 3"); // Minimum sample size
+        query.push_str(&format!(
+            " HAVING COUNT(mc.id) >= {}",
+            MIN_CORRELATION_SAMPLE_SIZE
+        ));
         query.push_str(" ORDER BY avg_mood DESC");
 
         let mut stmt = conn.prepare(&query)?;
@@ -394,25 +410,27 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        // Check for duplicate name (among non-deleted activities)
-        let name_exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) > 0 FROM activities WHERE name = ? AND deleted_at IS NULL",
-                [&trimmed_name],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
-
-        if name_exists {
-            return Err(MoodError::DuplicateActivityName(trimmed_name));
-        }
-
         // Insert activity and get all fields using RETURNING
-        let (id, name, color_value, icon_value, created_at): (i64, String, Option<String>, Option<String>, String) = conn.query_row(
+        // The partial unique index will enforce uniqueness atomically
+        let result: Result<(i32, String, Option<String>, Option<String>, String), rusqlite::Error> = conn.query_row(
             "INSERT INTO activities (name, color, icon) VALUES (?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
-            duckdb::params![trimmed_name, color, icon],
+            rusqlite::params![trimmed_name, color, icon],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-        )?;
+        );
+
+        // Handle constraint violation with proper error
+        let (id, name, color_value, icon_value, created_at) = match result {
+            Ok(data) => data,
+            Err(rusqlite::Error::SqliteFailure(err, _)) => {
+                if err.code == rusqlite::ErrorCode::ConstraintViolation {
+                    return Err(MoodError::DuplicateActivityName(trimmed_name));
+                }
+                return Err(MoodError::Database(rusqlite::Error::SqliteFailure(
+                    err, None,
+                )));
+            }
+            Err(e) => return Err(MoodError::Database(e)),
+        };
 
         info!("Created activity with ID: {}", id);
 
@@ -428,7 +446,7 @@ impl MoodRepository {
     }
 
     // Get a single activity by ID
-    pub fn get_activity(&self, id: i64) -> Result<Activity, MoodError> {
+    pub fn get_activity(&self, id: i32) -> Result<Activity, MoodError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
@@ -452,7 +470,7 @@ impl MoodRepository {
     // T103: update_activity method
     pub fn update_activity(
         &self,
-        id: i64,
+        id: i32,
         name: Option<&str>,
         color: Option<&str>,
         icon: Option<&str>,
@@ -467,7 +485,7 @@ impl MoodRepository {
                 [id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .map_err(MoodError::Database)?;
 
         if !activity_exists {
             return Err(MoodError::ActivityNotFound(id));
@@ -477,23 +495,25 @@ impl MoodRepository {
         if let Some(n) = name {
             let trimmed_name = validate_activity_name(n)?;
 
-            // Check for duplicate name
-            let name_exists: bool = conn
-                .query_row(
-                    "SELECT COUNT(*) > 0 FROM activities WHERE name = ? AND id != ? AND deleted_at IS NULL",
-                    duckdb::params![&trimmed_name, id],
-                    |row| row.get(0),
-                )
-                .unwrap_or(false);
-
-            if name_exists {
-                return Err(MoodError::DuplicateActivityName(trimmed_name));
-            }
-
-            conn.execute(
+            // Update name atomically - the partial unique index will enforce uniqueness
+            let result = conn.execute(
                 "UPDATE activities SET name = ? WHERE id = ?",
-                duckdb::params![trimmed_name, id],
-            )?;
+                rusqlite::params![trimmed_name, id],
+            );
+
+            // Handle constraint violation with proper error
+            match result {
+                Ok(_) => {}
+                Err(rusqlite::Error::SqliteFailure(err, _)) => {
+                    if err.code == rusqlite::ErrorCode::ConstraintViolation {
+                        return Err(MoodError::DuplicateActivityName(trimmed_name));
+                    }
+                    return Err(MoodError::Database(rusqlite::Error::SqliteFailure(
+                        err, None,
+                    )));
+                }
+                Err(e) => return Err(MoodError::Database(e)),
+            }
         }
 
         // Update color if provided
@@ -501,7 +521,7 @@ impl MoodRepository {
             validate_color(c)?;
             conn.execute(
                 "UPDATE activities SET color = ? WHERE id = ?",
-                duckdb::params![c, id],
+                rusqlite::params![c, id],
             )?;
         }
 
@@ -509,7 +529,7 @@ impl MoodRepository {
         if let Some(i) = icon {
             conn.execute(
                 "UPDATE activities SET icon = ? WHERE id = ?",
-                duckdb::params![i, id],
+                rusqlite::params![i, id],
             )?;
         }
 
@@ -534,7 +554,7 @@ impl MoodRepository {
     }
 
     // T104: delete_activity method (soft delete)
-    pub fn delete_activity(&self, id: i64) -> Result<(), MoodError> {
+    pub fn delete_activity(&self, id: i32) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
@@ -545,7 +565,7 @@ impl MoodRepository {
                 [id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .map_err(MoodError::Database)?;
 
         if !activity_exists {
             return Err(MoodError::ActivityNotFound(id));
@@ -595,7 +615,7 @@ impl MoodRepository {
     }
 
     // T093b: delete_mood_checkin with transactional cascade
-    pub fn delete_mood_checkin(&self, id: i64) -> Result<(), MoodError> {
+    pub fn delete_mood_checkin(&self, id: i32) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
@@ -606,7 +626,7 @@ impl MoodRepository {
                 [id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .map_err(MoodError::Database)?;
 
         if !checkin_exists {
             return Err(MoodError::MoodCheckinNotFound(id));
@@ -626,7 +646,7 @@ impl MoodRepository {
             // Delete the mood check-in itself
             conn.execute("DELETE FROM mood_checkins WHERE id = ?", [id])?;
 
-            Ok::<(), duckdb::Error>(())
+            Ok::<(), rusqlite::Error>(())
         })();
 
         match delete_result {
@@ -636,9 +656,13 @@ impl MoodRepository {
                 Ok(())
             }
             Err(e) => {
-                // Rollback on error
+                // Rollback on error - if rollback fails, the DB may be in an inconsistent state
                 if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("Failed to rollback transaction: {}", rollback_err);
+                    error!("CRITICAL: Failed to rollback transaction: {}", rollback_err);
+                    return Err(MoodError::TransactionFailure(format!(
+                        "Original error: {}. Rollback error: {}",
+                        e, rollback_err
+                    )));
                 }
                 Err(MoodError::Database(e))
             }

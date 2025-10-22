@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Database error: {0}")]
-    Database(#[from] duckdb::Error),
+    Database(#[from] rusqlite::Error),
 
     #[error("Validation error: {0}")]
     Validation(String),
