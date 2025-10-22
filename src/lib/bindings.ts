@@ -31,6 +31,17 @@ async deleteAssessment(id: number) : Promise<Result<null, string>> {
 }
 },
 /**
+ * Delete an assessment type (defensive - prevents deletion if children exist)
+ */
+async deleteAssessmentType(id: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_assessment_type", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Get all available assessment types
  */
 async getAssessmentTypes() : Promise<Result<AssessmentType[], string>> {

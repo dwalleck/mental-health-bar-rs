@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.svelte-kit/
+/package
+
+# Generated files
+src/lib/bindings.ts
+
+# Coverage
+coverage/
+
+# Minified files
+*.min.js
+*.min.mjs
+
+# Tauri Rust backend
+src-tauri/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

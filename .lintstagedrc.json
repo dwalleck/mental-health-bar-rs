@@ -1,0 +1,17 @@
+{
+  "src-tauri/**/*.rs": [
+    "bash -c 'cd src-tauri && cargo fmt'",
+    "bash -c 'cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged -- -D warnings || true'"
+  ],
+  "src/**/*.{ts,js}": [
+    "prettier --write",
+    "eslint --fix"
+  ],
+  "src/**/*.svelte": [
+    "prettier --write",
+    "eslint --fix"
+  ],
+  "src/**/*.css": [
+    "prettier --write"
+  ]
+}

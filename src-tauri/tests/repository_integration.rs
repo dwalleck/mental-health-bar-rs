@@ -175,3 +175,63 @@ fn test_retrieve_nonexistent_assessment() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn test_delete_assessment_type_blocked_when_responses_exist() {
+    let (db, _temp_dir) = setup_test_db();
+    let repo = AssessmentRepository::new(db);
+
+    // Get PHQ9 assessment type
+    let assessment_type = repo
+        .get_assessment_type_by_code("PHQ9")
+        .expect("Failed to get PHQ9");
+
+    // Save an assessment response
+    repo.save_assessment(
+        assessment_type.id,
+        &vec![1, 2, 1, 0, 1, 2, 1, 0, 1],
+        9,
+        "mild",
+        None,
+    )
+    .expect("Failed to save assessment");
+
+    // Attempt to delete the assessment type
+    let result = repo.delete_assessment_type(assessment_type.id);
+
+    // Should fail with HasChildren error
+    assert!(result.is_err());
+    let error_msg = format!("{}", result.unwrap_err());
+    assert!(error_msg.contains("1 assessment response"));
+}
+
+#[test]
+fn test_delete_assessment_type_blocked_when_schedules_exist() {
+    let (db, _temp_dir) = setup_test_db();
+    let repo = AssessmentRepository::new(db.clone());
+
+    // Get GAD7 assessment type
+    let assessment_type = repo
+        .get_assessment_type_by_code("GAD7")
+        .expect("Failed to get GAD7");
+
+    // Manually insert a schedule for this assessment type
+    let conn = db.get_connection();
+    let conn_guard = conn.lock().unwrap();
+    conn_guard
+        .execute(
+            "INSERT INTO assessment_schedules (assessment_type_id, frequency, time_of_day, enabled)
+             VALUES (?, 'daily', '09:00:00', true)",
+            [assessment_type.id],
+        )
+        .expect("Failed to insert schedule");
+    drop(conn_guard);
+
+    // Attempt to delete the assessment type
+    let result = repo.delete_assessment_type(assessment_type.id);
+
+    // Should fail with HasChildren error mentioning schedules
+    assert!(result.is_err());
+    let error_msg = format!("{}", result.unwrap_err());
+    assert!(error_msg.contains("1 schedule"));
+}
