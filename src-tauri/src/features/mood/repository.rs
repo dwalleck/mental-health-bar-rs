@@ -1,10 +1,10 @@
 // Mood repository - Data access layer for mood check-ins and activities
 // T073-T079: Mood repository implementation
 
-use crate::db::Database;
 use super::models::*;
+use crate::db::Database;
 use std::sync::Arc;
-use tracing::{info, error};
+use tracing::{error, info};
 
 /// Maximum number of records that can be retrieved in a single query
 const MAX_QUERY_LIMIT: i32 = 1000;
@@ -139,10 +139,10 @@ impl MoodRepository {
 
         let mood_rows = stmt.query_map(params.as_slice(), |row| {
             Ok((
-                row.get::<_, i64>(0)?,      // id
-                row.get::<_, i32>(1)?,       // mood_rating
+                row.get::<_, i64>(0)?,            // id
+                row.get::<_, i32>(1)?,            // mood_rating
                 row.get::<_, Option<String>>(2)?, // notes
-                row.get::<_, String>(3)?,    // created_at
+                row.get::<_, String>(3)?,         // created_at
             ))
         })?;
 
@@ -238,7 +238,8 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        let mut query = String::from("SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1");
+        let mut query =
+            String::from("SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1");
 
         if from_date.is_some() {
             query.push_str(" AND created_at >= ?");
@@ -259,7 +260,10 @@ impl MoodRepository {
         }
 
         let (average_mood, total_checkins) = stmt.query_row([], |row| {
-            Ok((row.get::<_, f64>(0).unwrap_or(0.0), row.get::<_, i32>(1).unwrap_or(0)))
+            Ok((
+                row.get::<_, f64>(0).unwrap_or(0.0),
+                row.get::<_, i32>(1).unwrap_or(0),
+            ))
         })?;
 
         // Get mood distribution
@@ -286,9 +290,8 @@ impl MoodRepository {
             stmt2.raw_bind_parameter(param_index2, to)?;
         }
 
-        let dist_rows = stmt2.query_map([], |row| {
-            Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?))
-        })?;
+        let dist_rows =
+            stmt2.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))?;
 
         for dist_result in dist_rows {
             let (rating, count) = dist_result?;
@@ -356,8 +359,8 @@ impl MoodRepository {
                     created_at: row.get(4)?,
                     deleted_at: row.get(5)?,
                 },
-                row.get::<_, f64>(6)?,  // avg_mood
-                row.get::<_, i32>(7)?,   // checkin_count
+                row.get::<_, f64>(6)?, // avg_mood
+                row.get::<_, i32>(7)?, // checkin_count
             ))
         })?;
 
@@ -459,7 +462,11 @@ impl MoodRepository {
 
         // Verify activity exists
         let activity_exists: bool = conn
-            .query_row("SELECT COUNT(*) > 0 FROM activities WHERE id = ?", [id], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
             .unwrap_or(false);
 
         if !activity_exists {
@@ -483,18 +490,27 @@ impl MoodRepository {
                 return Err(MoodError::DuplicateActivityName(trimmed_name));
             }
 
-            conn.execute("UPDATE activities SET name = ? WHERE id = ?", duckdb::params![trimmed_name, id])?;
+            conn.execute(
+                "UPDATE activities SET name = ? WHERE id = ?",
+                duckdb::params![trimmed_name, id],
+            )?;
         }
 
         // Update color if provided
         if let Some(c) = color {
             validate_color(c)?;
-            conn.execute("UPDATE activities SET color = ? WHERE id = ?", duckdb::params![c, id])?;
+            conn.execute(
+                "UPDATE activities SET color = ? WHERE id = ?",
+                duckdb::params![c, id],
+            )?;
         }
 
         // Update icon if provided
         if let Some(i) = icon {
-            conn.execute("UPDATE activities SET icon = ? WHERE id = ?", duckdb::params![i, id])?;
+            conn.execute(
+                "UPDATE activities SET icon = ? WHERE id = ?",
+                duckdb::params![i, id],
+            )?;
         }
 
         info!("Updated activity ID: {}", id);
@@ -524,7 +540,11 @@ impl MoodRepository {
 
         // Verify activity exists
         let activity_exists: bool = conn
-            .query_row("SELECT COUNT(*) > 0 FROM activities WHERE id = ?", [id], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
             .unwrap_or(false);
 
         if !activity_exists {
@@ -581,7 +601,11 @@ impl MoodRepository {
 
         // Verify mood check-in exists
         let checkin_exists: bool = conn
-            .query_row("SELECT COUNT(*) > 0 FROM mood_checkins WHERE id = ?", [id], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM mood_checkins WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
             .unwrap_or(false);
 
         if !checkin_exists {

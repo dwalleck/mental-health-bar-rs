@@ -56,10 +56,7 @@ fn test_submit_assessment_phq9_end_to_end() {
     assert_eq!(retrieved.responses, responses);
     assert_eq!(retrieved.total_score, 9);
     assert_eq!(retrieved.severity_level, "mild");
-    assert_eq!(
-        retrieved.notes,
-        Some("Integration test notes".to_string())
-    );
+    assert_eq!(retrieved.notes, Some("Integration test notes".to_string()));
 }
 
 #[test]
@@ -74,7 +71,13 @@ fn test_submit_all_assessment_types_end_to_end() {
     assert_eq!(get_phq9_severity(phq9_score), "severe");
 
     let phq9_id = repo
-        .save_assessment(phq9.id, &phq9_responses, phq9_score, get_phq9_severity(phq9_score), None)
+        .save_assessment(
+            phq9.id,
+            &phq9_responses,
+            phq9_score,
+            get_phq9_severity(phq9_score),
+            None,
+        )
         .expect("Failed to save PHQ9");
 
     // Test GAD-7 (7 questions, 0-3 each, moderate score)
@@ -85,7 +88,13 @@ fn test_submit_all_assessment_types_end_to_end() {
     assert_eq!(get_gad7_severity(gad7_score), "moderate");
 
     let gad7_id = repo
-        .save_assessment(gad7.id, &gad7_responses, gad7_score, get_gad7_severity(gad7_score), None)
+        .save_assessment(
+            gad7.id,
+            &gad7_responses,
+            gad7_score,
+            get_gad7_severity(gad7_score),
+            None,
+        )
         .expect("Failed to save GAD7");
 
     // Test CES-D (20 questions, 0-3 each, mild score)
@@ -96,7 +105,13 @@ fn test_submit_all_assessment_types_end_to_end() {
     assert_eq!(get_cesd_severity(cesd_score), "mild");
 
     let cesd_id = repo
-        .save_assessment(cesd.id, &cesd_responses, cesd_score, get_cesd_severity(cesd_score), None)
+        .save_assessment(
+            cesd.id,
+            &cesd_responses,
+            cesd_score,
+            get_cesd_severity(cesd_score),
+            None,
+        )
         .expect("Failed to save CESD");
 
     // Test OASIS (5 questions, 0-4 each, moderate score)
@@ -107,7 +122,13 @@ fn test_submit_all_assessment_types_end_to_end() {
     assert_eq!(get_oasis_severity(oasis_score), "moderate");
 
     let oasis_id = repo
-        .save_assessment(oasis.id, &oasis_responses, oasis_score, get_oasis_severity(oasis_score), None)
+        .save_assessment(
+            oasis.id,
+            &oasis_responses,
+            oasis_score,
+            get_oasis_severity(oasis_score),
+            None,
+        )
         .expect("Failed to save OASIS");
 
     // Verify all assessments can be retrieved
@@ -198,13 +219,21 @@ fn test_get_assessment_history_with_date_filtering() {
     let from_yesterday = repo
         .get_assessment_history(None, Some(yesterday.clone()), None, None)
         .expect("Failed to get history from yesterday");
-    assert_eq!(from_yesterday.len(), 1, "Should find assessment from yesterday onwards");
+    assert_eq!(
+        from_yesterday.len(),
+        1,
+        "Should find assessment from yesterday onwards"
+    );
 
     // Filter up to next week - should include today's assessment
     let until_next_week = repo
         .get_assessment_history(None, None, Some(next_week.clone()), None)
         .expect("Failed to get history until next week");
-    assert_eq!(until_next_week.len(), 1, "Should find assessment until next week");
+    assert_eq!(
+        until_next_week.len(),
+        1,
+        "Should find assessment until next week"
+    );
 
     // Filter for combined date range (yesterday to next week) - should include today
     let date_range = repo

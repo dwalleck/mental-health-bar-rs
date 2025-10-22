@@ -4,8 +4,8 @@
 use super::models::*;
 use super::repository::MoodRepository;
 use crate::AppState;
-use tauri::State;
 use anyhow::Context;
+use tauri::State;
 use tracing::error;
 
 // T081: get_mood_history command
@@ -30,10 +30,7 @@ pub async fn get_mood_history(
 // T082: get_mood_checkin command
 #[tauri::command]
 #[specta::specta]
-pub async fn get_mood_checkin(
-    id: i64,
-    state: State<'_, AppState>,
-) -> Result<MoodCheckin, String> {
+pub async fn get_mood_checkin(id: i64, state: State<'_, AppState>) -> Result<MoodCheckin, String> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.get_mood_checkin(id)

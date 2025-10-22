@@ -123,11 +123,10 @@ pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<()
 pub async fn delete_assessment_type(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = AssessmentRepository::new(state.db.clone());
 
-    repo.delete_assessment_type(id)
-        .map_err(|e| match e {
-            AssessmentError::HasChildren(msg) => {
-                format!("Cannot delete assessment type: {}", msg)
-            }
-            _ => format!("Failed to delete assessment type {}: {}", id, e)
-        })
+    repo.delete_assessment_type(id).map_err(|e| match e {
+        AssessmentError::HasChildren(msg) => {
+            format!("Cannot delete assessment type: {}", msg)
+        }
+        _ => format!("Failed to delete assessment type {}: {}", id, e),
+    })
 }

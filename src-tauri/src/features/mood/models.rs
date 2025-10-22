@@ -100,7 +100,6 @@ pub struct ActivityCorrelation {
 /// Validate mood rating is between 1 and 5
 pub fn validate_mood_rating(rating: i32) -> Result<(), MoodError> {
     if !(1..=5).contains(&rating) {
-        // Bad formatting to test cargo fmt
         return Err(MoodError::InvalidRating(rating));
     }
     Ok(())

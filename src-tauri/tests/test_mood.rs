@@ -3,10 +3,10 @@
 // T070: Integration test - get_mood_history query with date filtering
 // T071: Integration test - Mood check-in with multiple activities
 
+use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::mood::models::*;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
-use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Setup test environment with temporary database
@@ -33,7 +33,11 @@ fn test_log_mood_end_to_end() {
 
     // Log mood with activities
     let mood_checkin = repo
-        .create_mood_checkin(4, vec![activity1.id, activity2.id], Some("Feeling great after workout and meditation"))
+        .create_mood_checkin(
+            4,
+            vec![activity1.id, activity2.id],
+            Some("Feeling great after workout and meditation"),
+        )
         .expect("Failed to create mood check-in");
 
     // Verify mood check-in
@@ -105,7 +109,8 @@ fn test_get_mood_history_with_date_filtering() {
     let tomorrow = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::days(1))
         .unwrap()
-        .format("%Y-%m-%d").to_string();
+        .format("%Y-%m-%d")
+        .to_string();
 
     // Create 3 mood check-ins
     repo.create_mood_checkin(3, vec![], Some("Yesterday's mood"))

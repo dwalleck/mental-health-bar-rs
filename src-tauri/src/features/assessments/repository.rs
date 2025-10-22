@@ -318,7 +318,10 @@ impl AssessmentRepository {
     }
 
     /// Count assessment responses for a given assessment type (for defensive deletion)
-    pub fn count_assessment_responses(&self, assessment_type_id: i32) -> Result<i32, AssessmentError> {
+    pub fn count_assessment_responses(
+        &self,
+        assessment_type_id: i32,
+    ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
@@ -332,7 +335,10 @@ impl AssessmentRepository {
     }
 
     /// Count assessment schedules for a given assessment type (for defensive deletion)
-    pub fn count_assessment_schedules(&self, assessment_type_id: i32) -> Result<i32, AssessmentError> {
+    pub fn count_assessment_schedules(
+        &self,
+        assessment_type_id: i32,
+    ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
@@ -353,12 +359,10 @@ impl AssessmentRepository {
 
         // Block deletion if children exist
         if response_count > 0 || schedule_count > 0 {
-            return Err(AssessmentError::HasChildren(
-                format!(
-                    "{} assessment response(s) and {} schedule(s) exist. Delete or export data first.",
-                    response_count, schedule_count
-                )
-            ));
+            return Err(AssessmentError::HasChildren(format!(
+                "{} assessment response(s) and {} schedule(s) exist. Delete or export data first.",
+                response_count, schedule_count
+            )));
         }
 
         // Safe to delete - no children
