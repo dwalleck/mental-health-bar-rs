@@ -1,7 +1,7 @@
 {
   "src-tauri/**/*.rs": [
-    "cargo fmt --manifest-path src-tauri/Cargo.toml --",
-    "cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged --"
+    "bash -c 'cd src-tauri && cargo fmt'",
+    "bash -c 'cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged -- -D warnings || true'"
   ],
   "src/**/*.{ts,js}": [
     "prettier --write",

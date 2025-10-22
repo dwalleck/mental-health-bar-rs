@@ -99,7 +99,8 @@ pub struct ActivityCorrelation {
 
 /// Validate mood rating is between 1 and 5
 pub fn validate_mood_rating(rating: i32) -> Result<(), MoodError> {
-    if rating < 1 || rating > 5 {
+    if !(1..=5).contains(&rating) {
+        // Bad formatting to test cargo fmt
         return Err(MoodError::InvalidRating(rating));
     }
     Ok(())
@@ -189,10 +190,7 @@ mod tests {
         // Valid names
         assert!(validate_activity_name("Exercise").is_ok());
         assert!(validate_activity_name("  Meditation  ").is_ok());
-        assert_eq!(
-            validate_activity_name("  Reading  ").unwrap(),
-            "Reading"
-        );
+        assert_eq!(validate_activity_name("  Reading  ").unwrap(), "Reading");
 
         // Invalid names
         assert!(validate_activity_name("").is_err());
