@@ -19,7 +19,7 @@ pub enum MoodError {
     #[error("Activity name already exists: {0}")]
     DuplicateActivityName(String),
 
-    #[error("Invalid color format: {0}. Must be #RRGGBB")]
+    #[error("Invalid color format: {0}. Must be #RGB, #RRGGBB, or #RRGGBBAA")]
     InvalidColorFormat(String),
 
     #[error("Notes too long: {0} characters. Maximum 5000 characters allowed")]
@@ -33,6 +33,9 @@ pub enum MoodError {
 
     #[error("Mood check-in not found: {0}")]
     MoodCheckinNotFound(i32),
+
+    #[error("Transaction rollback failed: {0}. Database may be in inconsistent state")]
+    TransactionFailure(String),
 }
 
 /// Activity model
@@ -125,13 +128,15 @@ pub fn validate_notes(notes: &str) -> Result<(), MoodError> {
     Ok(())
 }
 
-/// Validate hex color format (#RRGGBB)
+/// Validate hex color format (#RGB, #RRGGBB, or #RRGGBBAA)
 pub fn validate_color(color: &str) -> Result<(), MoodError> {
-    if color.len() != 7 {
+    if !color.starts_with('#') {
         return Err(MoodError::InvalidColorFormat(color.to_string()));
     }
 
-    if !color.starts_with('#') {
+    // Valid lengths: 4 (#RGB), 7 (#RRGGBB), or 9 (#RRGGBBAA)
+    let hex_part_len = color.len() - 1;
+    if hex_part_len != 3 && hex_part_len != 6 && hex_part_len != 8 {
         return Err(MoodError::InvalidColorFormat(color.to_string()));
     }
 
@@ -198,17 +203,28 @@ mod tests {
 
     #[test]
     fn test_color_validation() {
-        // Valid colors
+        // Valid 6-digit colors (#RRGGBB)
         assert!(validate_color("#FF5733").is_ok());
         assert!(validate_color("#000000").is_ok());
         assert!(validate_color("#ffffff").is_ok());
         assert!(validate_color("#4CAF50").is_ok());
 
+        // Valid 3-digit colors (#RGB)
+        assert!(validate_color("#FFF").is_ok());
+        assert!(validate_color("#000").is_ok());
+        assert!(validate_color("#F5A").is_ok());
+
+        // Valid 8-digit colors with alpha (#RRGGBBAA)
+        assert!(validate_color("#FF5733FF").is_ok());
+        assert!(validate_color("#00000080").is_ok());
+        assert!(validate_color("#4CAF5000").is_ok());
+
         // Invalid colors
-        assert!(validate_color("FF5733").is_err());
-        assert!(validate_color("#FF57").is_err());
-        assert!(validate_color("#FF57331").is_err());
-        assert!(validate_color("blue").is_err());
-        assert!(validate_color("#GGGGGG").is_err());
+        assert!(validate_color("FF5733").is_err()); // Missing #
+        assert!(validate_color("#FF57").is_err()); // Wrong length
+        assert!(validate_color("#FF57331").is_err()); // Wrong length
+        assert!(validate_color("blue").is_err()); // Not hex
+        assert!(validate_color("#GGGGGG").is_err()); // Invalid hex chars
+        assert!(validate_color("#FF").is_err()); // Too short
     }
 }

@@ -9,6 +9,9 @@ use tracing::{error, info};
 /// Maximum number of records that can be retrieved in a single query
 const MAX_QUERY_LIMIT: i32 = 1000;
 
+/// Minimum number of check-ins required to establish activity-mood correlation
+const MIN_CORRELATION_SAMPLE_SIZE: i32 = 3;
+
 pub struct MoodRepository {
     db: Arc<Database>,
 }
@@ -101,9 +104,13 @@ impl MoodRepository {
                 Ok(mood_checkin)
             }
             Err(e) => {
-                // Rollback on error
+                // Rollback on error - if rollback fails, the DB may be in an inconsistent state
                 if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("Failed to rollback transaction: {}", rollback_err);
+                    error!("CRITICAL: Failed to rollback transaction: {}", rollback_err);
+                    return Err(MoodError::TransactionFailure(format!(
+                        "Original error: {}. Rollback error: {}",
+                        e, rollback_err
+                    )));
                 }
                 Err(e)
             }
@@ -341,7 +348,10 @@ impl MoodRepository {
         }
 
         query.push_str(" GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at");
-        query.push_str(" HAVING COUNT(mc.id) >= 3"); // Minimum sample size
+        query.push_str(&format!(
+            " HAVING COUNT(mc.id) >= {}",
+            MIN_CORRELATION_SAMPLE_SIZE
+        ));
         query.push_str(" ORDER BY avg_mood DESC");
 
         let mut stmt = conn.prepare(&query)?;
@@ -646,9 +656,13 @@ impl MoodRepository {
                 Ok(())
             }
             Err(e) => {
-                // Rollback on error
+                // Rollback on error - if rollback fails, the DB may be in an inconsistent state
                 if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("Failed to rollback transaction: {}", rollback_err);
+                    error!("CRITICAL: Failed to rollback transaction: {}", rollback_err);
+                    return Err(MoodError::TransactionFailure(format!(
+                        "Original error: {}. Rollback error: {}",
+                        e, rollback_err
+                    )));
                 }
                 Err(MoodError::Database(e))
             }

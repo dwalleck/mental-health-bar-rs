@@ -43,11 +43,18 @@
 			error = null
 			successMessage = null
 
+			// Validate notes length before submission
+			const trimmedNotes = notes.trim()
+			if (trimmedNotes.length > 5000) {
+				error = `Notes too long: ${trimmedNotes.length} characters. Maximum 5000 characters allowed.`
+				return
+			}
+
 			await invoke('log_mood', {
 				request: {
 					mood_rating: moodRating,
 					activity_ids: selectedActivityIds,
-					notes: notes.trim() || null,
+					notes: trimmedNotes || null,
 				},
 			})
 
