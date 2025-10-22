@@ -1,0 +1,17 @@
+{
+  "src-tauri/**/*.rs": [
+    "cargo fmt --manifest-path src-tauri/Cargo.toml --",
+    "cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged --"
+  ],
+  "src/**/*.{ts,js}": [
+    "prettier --write",
+    "eslint --fix"
+  ],
+  "src/**/*.svelte": [
+    "prettier --write",
+    "eslint --fix"
+  ],
+  "src/**/*.css": [
+    "prettier --write"
+  ]
+}
