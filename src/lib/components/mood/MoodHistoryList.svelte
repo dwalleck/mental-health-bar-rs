@@ -1,6 +1,7 @@
 <script lang="ts">
 	// T088: MoodHistoryList component - Display past mood check-ins with activities
 
+	import { MOOD_COLORS, MOOD_LABELS } from '$lib/utils/colors'
 	import type { MoodCheckin } from '$lib/bindings'
 
 	interface Props {
@@ -10,22 +11,6 @@
 	}
 
 	let { checkins = [], loading = false, error = null }: Props = $props()
-
-	const moodColors: Record<number, string> = {
-		1: 'bg-red-500 text-white',
-		2: 'bg-orange-500 text-white',
-		3: 'bg-yellow-500 text-white',
-		4: 'bg-lime-500 text-white',
-		5: 'bg-green-500 text-white',
-	}
-
-	const moodLabels: Record<number, string> = {
-		1: 'Very Bad',
-		2: 'Bad',
-		3: 'Neutral',
-		4: 'Good',
-		5: 'Very Good',
-	}
 
 	function formatDate(dateStr: string): string {
 		const date = new Date(dateStr)
@@ -86,16 +71,16 @@
 						<div class="flex-1">
 							<div class="flex items-center gap-3 mb-2">
 								<div
-									class="mood-badge flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold {moodColors[
+									class="mood-badge flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold {MOOD_COLORS[
 										checkin.mood_rating
 									]}"
-									aria-label={`Mood rating: ${checkin.mood_rating} out of 5 (${moodLabels[checkin.mood_rating]})`}
+									aria-label={`Mood rating: ${checkin.mood_rating} out of 5 (${MOOD_LABELS[checkin.mood_rating]})`}
 								>
 									{checkin.mood_rating}
 								</div>
 								<div>
 									<div class="font-semibold text-gray-900 dark:text-white">
-										{moodLabels[checkin.mood_rating]}
+										{MOOD_LABELS[checkin.mood_rating]}
 									</div>
 									<div class="text-xs text-gray-500 dark:text-gray-400">
 										{formatDate(checkin.created_at)} • {formatTime(checkin.created_at)}

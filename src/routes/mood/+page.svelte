@@ -6,6 +6,7 @@
 	import Card from '$lib/components/ui/Card.svelte'
 	import MoodScaleInput from '$lib/components/mood/MoodScaleInput.svelte'
 	import ActivitySelector from '$lib/components/mood/ActivitySelector.svelte'
+	import { getMoodLabel } from '$lib/utils/colors'
 	import type { MoodCheckin } from '$lib/bindings'
 
 	let moodRating = $state(3)
@@ -65,17 +66,6 @@
 		} finally {
 			isSubmitting = false
 		}
-	}
-
-	function getMoodLabel(rating: number): string {
-		const labels: Record<number, string> = {
-			1: 'Very Bad',
-			2: 'Bad',
-			3: 'Neutral',
-			4: 'Good',
-			5: 'Very Good',
-		}
-		return labels[rating] || 'Unknown'
 	}
 
 	function formatDate(dateStr: string): string {

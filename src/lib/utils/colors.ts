@@ -47,9 +47,14 @@ export const MOOD_HEX_COLORS: Record<number, string> = {
 
 /**
  * Get mood color class for a given rating
+ * Returns neutral color for out-of-range values
  */
 export function getMoodColor(rating: number): string {
-	return MOOD_COLORS[rating] || MOOD_COLORS[3]
+	if (rating < 1 || rating > 5) {
+		console.warn(`Invalid mood rating: ${rating}, using neutral default`)
+		return MOOD_COLORS[3]
+	}
+	return MOOD_COLORS[rating]
 }
 
 /**

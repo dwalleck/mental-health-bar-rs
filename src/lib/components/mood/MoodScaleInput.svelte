@@ -1,6 +1,8 @@
 <script lang="ts">
 	// T086: MoodScaleInput component - Interactive 1-5 mood rating selector with color coding
 
+	import { MOOD_COLORS, MOOD_HOVER_COLORS, MOOD_LABELS } from '$lib/utils/colors'
+
 	interface Props {
 		value: number
 		onchange: (rating: number) => void
@@ -8,28 +10,13 @@
 
 	let { value = 3, onchange }: Props = $props()
 
-	const moodOptions = [
-		{ rating: 1, label: 'Very Bad', color: 'bg-red-500 hover:bg-red-600', textColor: 'text-white' },
-		{
-			rating: 2,
-			label: 'Bad',
-			color: 'bg-orange-500 hover:bg-orange-600',
-			textColor: 'text-white',
-		},
-		{
-			rating: 3,
-			label: 'Neutral',
-			color: 'bg-yellow-500 hover:bg-yellow-600',
-			textColor: 'text-white',
-		},
-		{ rating: 4, label: 'Good', color: 'bg-lime-500 hover:bg-lime-600', textColor: 'text-white' },
-		{
-			rating: 5,
-			label: 'Very Good',
-			color: 'bg-green-500 hover:bg-green-600',
-			textColor: 'text-white',
-		},
-	]
+	// Derive mood options from centralized constants
+	const moodOptions = [1, 2, 3, 4, 5].map((rating) => ({
+		rating,
+		label: MOOD_LABELS[rating],
+		color: `${MOOD_COLORS[rating]} ${MOOD_HOVER_COLORS[rating]}`,
+		textColor: 'text-white',
+	}))
 
 	function handleKeydown(event: KeyboardEvent, rating: number) {
 		if (event.key === 'Enter' || event.key === ' ') {
