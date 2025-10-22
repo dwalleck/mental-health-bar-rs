@@ -33,7 +33,8 @@
 		}
 	}
 
-	async function submitMood() {
+	async function submitMood(event: SubmitEvent) {
+		event.preventDefault()
 		if (isSubmitting) return
 
 		try {
@@ -144,7 +145,7 @@
 	{/if}
 
 	<Card title="Log Your Mood">
-		<form onsubmit|preventDefault={submitMood} class="space-y-6">
+		<form onsubmit={submitMood} class="space-y-6">
 			<div>
 				<MoodScaleInput value={moodRating} onchange={(rating) => (moodRating = rating)} />
 			</div>

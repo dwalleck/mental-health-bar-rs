@@ -39,7 +39,8 @@
 		return Object.keys(newErrors).length === 0
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(event: SubmitEvent) {
+		event.preventDefault()
 		if (!validateForm()) return
 
 		try {
@@ -54,7 +55,7 @@
 	}
 </script>
 
-<form onsubmit|preventDefault={handleSubmit} class="space-y-4">
+<form onsubmit={handleSubmit} class="space-y-4">
 	<div>
 		<label
 			for="activity-name"
