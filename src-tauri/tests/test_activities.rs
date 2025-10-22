@@ -318,20 +318,18 @@ fn test_duplicate_name_even_after_soft_delete() {
     repo.delete_activity(activity.id)
         .expect("Failed to delete activity");
 
-    // Try to create new activity with same name
-    // This should fail due to UNIQUE constraint on name column
-    // (Schema has UNIQUE constraint without considering deleted_at)
-    let result = repo.create_activity("Exercise", Some("#FF0000"), Some("🚴"));
-    assert!(
-        result.is_err(),
-        "Should not allow duplicate name even after soft delete"
-    );
-
-    // User must choose a different name
+    // Create new activity with same name - should succeed now
+    // The partial unique index only enforces uniqueness for non-deleted activities
     let new_activity = repo
-        .create_activity("Running", Some("#FF0000"), Some("🚴"))
-        .expect("Failed to create activity with different name");
+        .create_activity("Exercise", Some("#FF0000"), Some("🚴"))
+        .expect("Should allow recreating activity with same name after soft delete");
 
-    assert_eq!(new_activity.name, "Running");
+    assert_eq!(new_activity.name, "Exercise");
+    assert_eq!(new_activity.color, Some("#FF0000".to_string()));
+    assert_eq!(new_activity.icon, Some("🚴".to_string()));
     assert!(new_activity.deleted_at.is_none());
+    assert_ne!(
+        new_activity.id, activity.id,
+        "Should be a new activity with different ID"
+    );
 }

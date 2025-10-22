@@ -33,7 +33,7 @@ CREATE INDEX idx_assessment_responses_severity ON assessment_responses(severity_
 -- Activities (user-defined for mood tracking)
 CREATE TABLE activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     color TEXT,
     icon TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -41,6 +41,10 @@ CREATE TABLE activities (
 );
 
 CREATE INDEX idx_activities_deleted_at ON activities(deleted_at);
+
+-- Partial unique index: only enforce uniqueness for non-deleted activities
+-- This allows users to recreate activities with the same name after deletion
+CREATE UNIQUE INDEX idx_activities_name_unique ON activities(name) WHERE deleted_at IS NULL;
 
 -- Mood Check-Ins
 CREATE TABLE mood_checkins (

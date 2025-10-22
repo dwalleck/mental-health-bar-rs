@@ -68,11 +68,16 @@ impl MoodRepository {
                     rusqlite::params![mood_checkin_id, activity_id],
                 );
 
-                // Ignore duplicate errors (unique constraint violation)
+                // Ignore duplicate errors (unique constraint violation), propagate all others
                 if let Err(e) = result {
-                    let err_msg = e.to_string();
-                    if !err_msg.contains("UNIQUE") && !err_msg.contains("duplicate") {
-                        return Err(MoodError::Database(e));
+                    match e {
+                        rusqlite::Error::SqliteFailure(err, _) => {
+                            if err.code != rusqlite::ErrorCode::ConstraintViolation {
+                                return Err(MoodError::Database(e));
+                            }
+                            // Silently ignore constraint violations (duplicate activity_id)
+                        }
+                        _ => return Err(MoodError::Database(e)),
                     }
                 }
             }
@@ -394,25 +399,27 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        // Check for duplicate name (among non-deleted activities)
-        let name_exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) > 0 FROM activities WHERE name = ? AND deleted_at IS NULL",
-                [&trimmed_name],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
-
-        if name_exists {
-            return Err(MoodError::DuplicateActivityName(trimmed_name));
-        }
-
         // Insert activity and get all fields using RETURNING
-        let (id, name, color_value, icon_value, created_at): (i32, String, Option<String>, Option<String>, String) = conn.query_row(
+        // The partial unique index will enforce uniqueness atomically
+        let result: Result<(i32, String, Option<String>, Option<String>, String), rusqlite::Error> = conn.query_row(
             "INSERT INTO activities (name, color, icon) VALUES (?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
             rusqlite::params![trimmed_name, color, icon],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-        )?;
+        );
+
+        // Handle constraint violation with proper error
+        let (id, name, color_value, icon_value, created_at) = match result {
+            Ok(data) => data,
+            Err(rusqlite::Error::SqliteFailure(err, _)) => {
+                if err.code == rusqlite::ErrorCode::ConstraintViolation {
+                    return Err(MoodError::DuplicateActivityName(trimmed_name));
+                }
+                return Err(MoodError::Database(rusqlite::Error::SqliteFailure(
+                    err, None,
+                )));
+            }
+            Err(e) => return Err(MoodError::Database(e)),
+        };
 
         info!("Created activity with ID: {}", id);
 
@@ -477,23 +484,25 @@ impl MoodRepository {
         if let Some(n) = name {
             let trimmed_name = validate_activity_name(n)?;
 
-            // Check for duplicate name
-            let name_exists: bool = conn
-                .query_row(
-                    "SELECT COUNT(*) > 0 FROM activities WHERE name = ? AND id != ? AND deleted_at IS NULL",
-                    rusqlite::params![&trimmed_name, id],
-                    |row| row.get(0),
-                )
-                .unwrap_or(false);
-
-            if name_exists {
-                return Err(MoodError::DuplicateActivityName(trimmed_name));
-            }
-
-            conn.execute(
+            // Update name atomically - the partial unique index will enforce uniqueness
+            let result = conn.execute(
                 "UPDATE activities SET name = ? WHERE id = ?",
                 rusqlite::params![trimmed_name, id],
-            )?;
+            );
+
+            // Handle constraint violation with proper error
+            match result {
+                Ok(_) => {}
+                Err(rusqlite::Error::SqliteFailure(err, _)) => {
+                    if err.code == rusqlite::ErrorCode::ConstraintViolation {
+                        return Err(MoodError::DuplicateActivityName(trimmed_name));
+                    }
+                    return Err(MoodError::Database(rusqlite::Error::SqliteFailure(
+                        err, None,
+                    )));
+                }
+                Err(e) => return Err(MoodError::Database(e)),
+            }
         }
 
         // Update color if provided
