@@ -156,16 +156,16 @@
 - [X] T081 [US2] Implement get_mood_history Tauri command in src-tauri/src/features/mood/queries.rs
 - [X] T082 [US2] Implement get_mood_checkin Tauri command in src-tauri/src/features/mood/queries.rs
 - [X] T083 [US2] Implement get_mood_stats Tauri command in src-tauri/src/features/mood/queries.rs
-- [ ] T084 [US2] Register all mood commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T085 [US2] Regenerate TypeScript bindings
-- [ ] T086 [P] [US2] Create MoodScaleInput component in src/lib/components/mood/MoodScaleInput.svelte with 1-5 buttons and color coding
-- [ ] T087 [P] [US2] Create ActivitySelector component in src/lib/components/mood/ActivitySelector.svelte for multi-select
-- [ ] T088 [P] [US2] Create MoodHistoryList component in src/lib/components/mood/MoodHistoryList.svelte to display check-ins
-- [ ] T089 [US2] Create mood Svelte store in src/lib/stores/mood.ts
-- [ ] T090 [US2] Create /mood route page in src/routes/mood/+page.svelte for logging mood check-ins
-- [ ] T091 [US2] Create /mood/history route in src/routes/mood/history/+page.svelte for viewing past check-ins
-- [ ] T092 [US2] Add mood navigation links to layout sidebar
-- [ ] T093 [US2] Add mood color constants (Very Bad=red, Very Good=green) in src/lib/utils/colors.ts
+- [X] T084 [US2] Register all mood commands in src-tauri/src/lib.rs invoke_handler
+- [X] T085 [US2] Regenerate TypeScript bindings
+- [X] T086 [P] [US2] Create MoodScaleInput component in src/lib/components/mood/MoodScaleInput.svelte with 1-5 buttons and color coding
+- [X] T087 [P] [US2] Create ActivitySelector component in src/lib/components/mood/ActivitySelector.svelte for multi-select
+- [X] T088 [P] [US2] Create MoodHistoryList component in src/lib/components/mood/MoodHistoryList.svelte to display check-ins
+- [X] T089 [US2] Create mood Svelte store in src/lib/stores/mood.ts
+- [X] T090 [US2] Create /mood route page in src/routes/mood/+page.svelte for logging mood check-ins
+- [X] T091 [US2] Create /mood/history route in src/routes/mood/history/+page.svelte for viewing past check-ins
+- [X] T092 [US2] Add mood navigation links to layout sidebar
+- [X] T093 [US2] Add mood color constants (Very Bad=red, Very Good=green) in src/lib/utils/colors.ts
 - [ ] T093a [P] [US2] Integration test: Deleting mood_checkin cascades to mood_checkin_activities in src-tauri/tests/test_mood.rs
 - [X] T093b [US2] Implement delete_mood_checkin with transactional cascade in src-tauri/src/features/mood/repository.rs
 - [X] T093c [US2] Implement delete_mood_checkin Tauri command in src-tauri/src/features/mood/commands.rs
@@ -182,35 +182,35 @@
 
 ### Tests for User Story 3 (TDD - Write First, Verify Fail)
 
-- [ ] T094 [P] [US3] Unit test: Activity name validation (1-100 chars, non-empty) in src-tauri/src/features/mood/models.rs
-- [ ] T095 [P] [US3] Unit test: Activity color validation (hex format) in src-tauri/src/features/mood/models.rs
-- [ ] T096 [P] [US3] Integration test: create_activity command in src-tauri/tests/integration/test_activities.rs
-- [ ] T097 [P] [US3] Integration test: Soft delete preserves historical data in src-tauri/tests/integration/test_activities.rs
-- [ ] T097b [P] [US3] Integration test: Verify deleted activity names still display correctly in historical mood check-ins in src-tauri/tests/integration/test_activities.rs
+- [X] T094 [P] [US3] Unit test: Activity name validation (1-100 chars, non-empty) in src-tauri/src/features/mood/models.rs
+- [X] T095 [P] [US3] Unit test: Activity color validation (hex format) in src-tauri/src/features/mood/models.rs
+- [X] T096 [P] [US3] Integration test: create_activity command in src-tauri/tests/test_activities.rs
+- [X] T097 [P] [US3] Integration test: Soft delete preserves historical data in src-tauri/tests/test_activities.rs
+- [X] T097b [P] [US3] Integration test: Verify deleted activity names still display correctly in historical mood check-ins
 - [ ] T098 [P] [US3] Component test: ActivityForm validates input in tests/unit/ActivityForm.test.ts
 
 ### Implementation for User Story 3
 
-- [ ] T099 [P] [US3] Create Activity model in src-tauri/src/features/mood/models.rs (if not already created for US2)
-- [ ] T100 [P] [US3] Create CreateActivityRequest model in src-tauri/src/features/mood/models.rs
-- [ ] T101 [P] [US3] Create UpdateActivityRequest model in src-tauri/src/features/mood/models.rs
+- [X] T099 [P] [US3] Create Activity model in src-tauri/src/features/mood/models.rs (if not already created for US2)
+- [X] T100 [P] [US3] Create CreateActivityRequest model in src-tauri/src/features/mood/models.rs
+- [X] T101 [P] [US3] Create UpdateActivityRequest model in src-tauri/src/features/mood/models.rs
 - [ ] T101a [P] [US3] Implement Lineicons v5 icon picker component in src/lib/components/ui/IconPicker.svelte with search and preview
 - [ ] T101b [P] [US3] Add icon identifier (string) field to Activity model and validate Lineicons v5 icon codes in src-tauri/src/features/mood/models.rs
-- [ ] T102 [P] [US3] Implement create_activity method in repository with duplicate name check
-- [ ] T103 [P] [US3] Implement update_activity method in repository
-- [ ] T104 [P] [US3] Implement delete_activity method in repository with soft delete (set deleted_at)
-- [ ] T105 [P] [US3] Implement get_activities query in repository with include_deleted parameter
-- [ ] T106 [US3] Implement create_activity Tauri command in src-tauri/src/features/mood/commands.rs with name/color validation
-- [ ] T107 [US3] Implement update_activity Tauri command in src-tauri/src/features/mood/commands.rs
-- [ ] T108 [US3] Implement delete_activity Tauri command in src-tauri/src/features/mood/commands.rs
-- [ ] T109 [US3] Implement get_activities Tauri command in src-tauri/src/features/mood/queries.rs
-- [ ] T110 [US3] Register activity commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T111 [US3] Regenerate TypeScript bindings
-- [ ] T112 [P] [US3] Create ActivityForm component in src/lib/components/mood/ActivityForm.svelte with name/color/icon inputs
-- [ ] T113 [P] [US3] Create ActivityList component in src/lib/components/mood/ActivityList.svelte with edit/delete actions
-- [ ] T114 [US3] Create /mood/activities route in src/routes/mood/activities/+page.svelte for activity management
-- [ ] T115 [US3] Integrate ActivitySelector with get_activities query (filter deleted_at IS NULL for new check-ins, include deleted activities in historical view with "(deleted)" badge)
-- [ ] T116 [US3] Add activity management link to mood section in sidebar
+- [X] T102 [P] [US3] Implement create_activity method in repository with duplicate name check
+- [X] T103 [P] [US3] Implement update_activity method in repository
+- [X] T104 [P] [US3] Implement delete_activity method in repository with soft delete (set deleted_at)
+- [X] T105 [P] [US3] Implement get_activities query in repository with include_deleted parameter
+- [X] T106 [US3] Implement create_activity Tauri command in src-tauri/src/features/mood/commands.rs with name/color validation
+- [X] T107 [US3] Implement update_activity Tauri command in src-tauri/src/features/mood/commands.rs
+- [X] T108 [US3] Implement delete_activity Tauri command in src-tauri/src/features/mood/commands.rs
+- [X] T109 [US3] Implement get_activities Tauri command in src-tauri/src/features/mood/queries.rs
+- [X] T110 [US3] Register activity commands in src-tauri/src/lib.rs invoke_handler
+- [X] T111 [US3] Regenerate TypeScript bindings
+- [X] T112 [P] [US3] Create ActivityForm component in src/lib/components/mood/ActivityForm.svelte with name/color/icon inputs
+- [X] T113 [P] [US3] Create ActivityList component in src/lib/components/mood/ActivityList.svelte with edit/delete actions
+- [X] T114 [US3] Create /mood/activities route in src/routes/mood/activities/+page.svelte for activity management
+- [X] T115 [US3] Integrate ActivitySelector with get_activities query (filter deleted_at IS NULL for new check-ins, include deleted activities in historical view with "(deleted)" badge)
+- [X] T116 [US3] Add activity management link to mood section in sidebar
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently - Activity CRUD functional
 

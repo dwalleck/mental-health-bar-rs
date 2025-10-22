@@ -54,7 +54,7 @@ pub async fn create_activity(
 #[tauri::command]
 #[specta::specta]
 pub async fn update_activity(
-    id: i64,
+    id: i32,
     request: UpdateActivityRequest,
     state: State<'_, AppState>,
 ) -> Result<Activity, String> {
@@ -76,7 +76,7 @@ pub async fn update_activity(
 // T108: delete_activity command
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_activity(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_activity(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.delete_activity(id)
@@ -90,7 +90,7 @@ pub async fn delete_activity(id: i64, state: State<'_, AppState>) -> Result<(), 
 // T093c: delete_mood_checkin command (cascade deletion)
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_mood_checkin(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.delete_mood_checkin(id)

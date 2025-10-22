@@ -11,7 +11,7 @@ pub fn run_migrations(db: &Database) -> Result<()> {
     db.execute(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,
-            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            applied_at TEXT DEFAULT (datetime('now'))
         )",
         &[],
     )?;

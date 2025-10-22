@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use duckdb::Connection;
+use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
@@ -72,7 +72,7 @@ impl Database {
     }
 
     /// Execute a query that returns no results
-    pub fn execute(&self, sql: &str, params: &[&dyn duckdb::ToSql]) -> Result<usize> {
+    pub fn execute(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<usize> {
         let conn = self
             .conn
             .lock()

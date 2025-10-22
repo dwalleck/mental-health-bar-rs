@@ -8,7 +8,7 @@ pub enum MoodError {
     InvalidRating(i32),
 
     #[error("Activity not found: {0}")]
-    ActivityNotFound(i64),
+    ActivityNotFound(i32),
 
     #[error("Activity name cannot be empty")]
     EmptyActivityName,
@@ -29,16 +29,16 @@ pub enum MoodError {
     LockPoisoned,
 
     #[error("Database error: {0}")]
-    Database(#[from] duckdb::Error),
+    Database(#[from] rusqlite::Error),
 
     #[error("Mood check-in not found: {0}")]
-    MoodCheckinNotFound(i64),
+    MoodCheckinNotFound(i32),
 }
 
 /// Activity model
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Activity {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub color: Option<String>,
     pub icon: Option<String>,
@@ -49,7 +49,7 @@ pub struct Activity {
 /// Mood check-in model
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct MoodCheckin {
-    pub id: i64,
+    pub id: i32,
     pub mood_rating: i32,
     pub notes: Option<String>,
     pub activities: Vec<Activity>,
@@ -60,7 +60,7 @@ pub struct MoodCheckin {
 #[derive(Debug, Serialize, Deserialize, specta::Type)]
 pub struct LogMoodRequest {
     pub mood_rating: i32,
-    pub activity_ids: Vec<i64>,
+    pub activity_ids: Vec<i32>,
     pub notes: Option<String>,
 }
 

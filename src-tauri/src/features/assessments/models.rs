@@ -35,7 +35,7 @@ pub enum AssessmentError {
     Deserialization(String),
 
     #[error("Database error: {0}")]
-    Database(#[from] duckdb::Error),
+    Database(#[from] rusqlite::Error),
 }
 
 /// Assessment type (PHQ-9, GAD-7, CES-D, OASIS)
