@@ -56,7 +56,7 @@ impl MoodRepository {
                         [activity_id],
                         |row| row.get(0),
                     )
-                    .unwrap_or(false);
+                    .map_err(MoodError::Database)?;
 
                 if !activity_exists {
                     return Err(MoodError::ActivityNotFound(*activity_id));
@@ -134,10 +134,11 @@ impl MoodRepository {
 
         query.push_str(" ORDER BY created_at DESC");
 
-        // Apply limit with bounds checking
-        if let Some(lim) = limit {
-            let safe_limit = lim.min(MAX_QUERY_LIMIT).max(1);
-            query.push_str(&format!(" LIMIT {}", safe_limit));
+        // Apply limit with bounds checking using parameterized query
+        let safe_limit = limit.map(|lim| lim.min(MAX_QUERY_LIMIT).max(1));
+        if safe_limit.is_some() {
+            query.push_str(" LIMIT ?");
+            params.push(&safe_limit);
         }
 
         let mut stmt = conn.prepare(&query)?;
@@ -474,7 +475,7 @@ impl MoodRepository {
                 [id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .map_err(MoodError::Database)?;
 
         if !activity_exists {
             return Err(MoodError::ActivityNotFound(id));
@@ -554,7 +555,7 @@ impl MoodRepository {
                 [id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .map_err(MoodError::Database)?;
 
         if !activity_exists {
             return Err(MoodError::ActivityNotFound(id));
@@ -615,7 +616,7 @@ impl MoodRepository {
                 [id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .map_err(MoodError::Database)?;
 
         if !checkin_exists {
             return Err(MoodError::MoodCheckinNotFound(id));
