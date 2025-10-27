@@ -427,7 +427,7 @@ impl MoodRepository {
     /// # Arguments
     /// * `name` - Activity name (1-100 characters, trimmed)
     /// * `color` - Optional hex color code (#RGB, #RRGGBB, or #RRGGBBAA)
-    /// * `icon` - Optional emoji or icon string (max 10 characters)
+    /// * `icon` - Optional emoji or icon string (max 20 characters)
     ///
     /// # Returns
     /// * `Ok(Activity)` - The created activity
@@ -438,7 +438,7 @@ impl MoodRepository {
     /// * `ActivityNameTooLong` - If name exceeds 100 characters
     /// * `DuplicateActivityName` - If an active activity with this name already exists
     /// * `InvalidColorFormat` - If color doesn't match hex format
-    /// * `ActivityIconTooLong` - If icon exceeds 10 characters
+    /// * `ActivityIconTooLong` - If icon exceeds 20 characters
     /// * `Database` - On database errors
     pub fn create_activity(
         &self,
@@ -525,7 +525,7 @@ impl MoodRepository {
     /// * `id` - Activity ID to update
     /// * `name` - Optional new name (1-100 characters, trimmed)
     /// * `color` - Optional new hex color code
-    /// * `icon` - Optional new emoji or icon string (max 10 characters)
+    /// * `icon` - Optional new emoji or icon string (max 20 characters)
     ///
     /// # Returns
     /// * `Ok(Activity)` - The updated activity
@@ -535,7 +535,7 @@ impl MoodRepository {
     /// * `ActivityNotFound` - If activity with given ID doesn't exist
     /// * `DuplicateActivityName` - If new name conflicts with another active activity
     /// * `InvalidColorFormat` - If color doesn't match hex format
-    /// * `ActivityIconTooLong` - If icon exceeds 10 characters
+    /// * `ActivityIconTooLong` - If icon exceeds 20 characters
     /// * `Database` - On database errors
     pub fn update_activity(
         &self,

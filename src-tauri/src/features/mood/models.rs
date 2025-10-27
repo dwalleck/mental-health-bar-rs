@@ -22,7 +22,7 @@ pub enum MoodError {
     #[error("Invalid color format: {0}. Must be #RGB, #RRGGBB, or #RRGGBBAA")]
     InvalidColorFormat(String),
 
-    #[error("Activity icon too long: {0} characters. Maximum 10 characters allowed")]
+    #[error("Activity icon too long: {0} characters. Maximum 20 characters allowed")]
     ActivityIconTooLong(usize),
 
     #[error("Notes too long: {0} characters. Maximum 5000 characters allowed")]
@@ -153,9 +153,9 @@ pub fn validate_color(color: &str) -> Result<(), MoodError> {
     Ok(())
 }
 
-/// Validate activity icon (max 10 characters to accommodate emoji sequences)
+/// Validate activity icon (max 20 characters to accommodate compound emoji sequences)
 pub fn validate_icon(icon: &str) -> Result<(), MoodError> {
-    if icon.len() > 10 {
+    if icon.len() > 20 {
         return Err(MoodError::ActivityIconTooLong(icon.len()));
     }
     Ok(())
