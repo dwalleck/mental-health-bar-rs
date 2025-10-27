@@ -173,9 +173,9 @@ impl MoodRepository {
 
         // Apply limit with bounds checking using parameterized query
         let safe_limit = limit.map(|lim| lim.min(MAX_QUERY_LIMIT).max(1));
-        if let Some(lim) = safe_limit {
+        if let Some(ref lim) = safe_limit {
             query.push_str(" LIMIT ?");
-            params.push(&lim);
+            params.push(lim);
         }
 
         let mut stmt = conn.prepare(&query)?;
