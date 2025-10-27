@@ -379,7 +379,11 @@ impl MoodRepository {
         }
 
         query.push_str(" GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at");
-        query.push_str(" HAVING COUNT(mc.id) >= 3"); // MIN_CORRELATION_SAMPLE_SIZE
+        // Using compile-time constant - safe as it's not user input
+        query.push_str(&format!(
+            " HAVING COUNT(mc.id) >= {}",
+            MIN_CORRELATION_SAMPLE_SIZE
+        ));
         query.push_str(" ORDER BY avg_mood DESC");
 
         let mut stmt = conn.prepare(&query)?;
