@@ -12,6 +12,11 @@ const MAX_QUERY_LIMIT: i32 = 1000;
 /// Minimum number of check-ins required to establish activity-mood correlation
 const MIN_CORRELATION_SAMPLE_SIZE: i32 = 3;
 
+/// Type alias for activity INSERT RETURNING query result
+/// Tuple: (id, name, color, icon, created_at)
+type ActivityInsertResult =
+    Result<(i32, String, Option<String>, Option<String>, String), rusqlite::Error>;
+
 pub struct MoodRepository {
     db: Arc<Database>,
 }
@@ -172,7 +177,7 @@ impl MoodRepository {
         query.push_str(" ORDER BY created_at DESC");
 
         // Apply limit with bounds checking using parameterized query
-        let safe_limit = limit.map(|lim| lim.min(MAX_QUERY_LIMIT).max(1));
+        let safe_limit = limit.map(|lim| lim.clamp(1, MAX_QUERY_LIMIT));
         if let Some(ref lim) = safe_limit {
             query.push_str(" LIMIT ?");
             params.push(lim);
@@ -458,7 +463,7 @@ impl MoodRepository {
 
         // Insert activity and get all fields using RETURNING
         // The partial unique index will enforce uniqueness atomically
-        let result: Result<(i32, String, Option<String>, Option<String>, String), rusqlite::Error> = conn.query_row(
+        let result: ActivityInsertResult = conn.query_row(
             "INSERT INTO activities (name, color, icon) VALUES (?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
             rusqlite::params![trimmed_name, color, icon],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
