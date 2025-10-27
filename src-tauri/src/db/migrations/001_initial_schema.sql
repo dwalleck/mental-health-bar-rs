@@ -50,7 +50,7 @@ CREATE UNIQUE INDEX idx_activities_name_unique ON activities(name) WHERE deleted
 CREATE TABLE mood_checkins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mood_rating INTEGER NOT NULL CHECK (mood_rating BETWEEN 1 AND 5),
-    notes TEXT,
+    notes TEXT CHECK (length(notes) <= 5000 OR notes IS NULL),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
