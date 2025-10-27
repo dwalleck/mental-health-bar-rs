@@ -45,7 +45,7 @@
 			})
 			checkins = history as MoodCheckin[]
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			console.error('Failed to load mood history:', e)
 		} finally {
 			loading = false

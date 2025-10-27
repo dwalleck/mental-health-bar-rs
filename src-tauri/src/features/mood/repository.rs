@@ -17,10 +17,30 @@ pub struct MoodRepository {
 }
 
 impl MoodRepository {
+    /// Creates a new MoodRepository instance.
+    ///
+    /// # Arguments
+    /// * `db` - Shared reference to the database connection
     pub fn new(db: Arc<Database>) -> Self {
         Self { db }
     }
 
+    /// Creates a new mood check-in with optional activities and notes.
+    ///
+    /// # Arguments
+    /// * `mood_rating` - Mood rating from 1 (worst) to 5 (best)
+    /// * `activity_ids` - List of activity IDs to associate with this check-in
+    /// * `notes` - Optional text notes (max 5000 characters)
+    ///
+    /// # Returns
+    /// * `Ok(MoodCheckin)` - The created check-in with all associated activities
+    /// * `Err(MoodError)` - If validation fails or database error occurs
+    ///
+    /// # Errors
+    /// * `InvalidRating` - If mood_rating is not between 1-5
+    /// * `NotesLengthExceeded` - If notes exceed 5000 characters
+    /// * `ActivityNotFound` - If any activity_id doesn't exist
+    /// * `Database` - On database errors
     // T075: create_mood_checkin method
     pub fn create_mood_checkin(
         &self,
@@ -117,6 +137,16 @@ impl MoodRepository {
         }
     }
 
+    /// Retrieves mood check-in history with optional date filtering and limit.
+    ///
+    /// # Arguments
+    /// * `from_date` - Optional ISO 8601 date string to filter check-ins after this date
+    /// * `to_date` - Optional ISO 8601 date string to filter check-ins before this date
+    /// * `limit` - Optional limit on number of results (max 1000, defaults to all)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<MoodCheckin>)` - List of mood check-ins ordered by created_at DESC
+    /// * `Err(MoodError)` - On database errors
     // T076: get_mood_history query
     pub fn get_mood_history(
         &self,
@@ -242,6 +272,15 @@ impl MoodRepository {
         Ok(activities)
     }
 
+    /// Computes mood statistics including averages, distribution, and activity correlations.
+    ///
+    /// # Arguments
+    /// * `from_date` - Optional ISO 8601 date string to filter stats after this date
+    /// * `to_date` - Optional ISO 8601 date string to filter stats before this date
+    ///
+    /// # Returns
+    /// * `Ok(MoodStats)` - Statistics including average mood, total count, mood distribution, and activity correlations
+    /// * `Err(MoodError)` - On database errors
     // T078: get_mood_stats query
     pub fn get_mood_stats(
         &self,
@@ -253,26 +292,20 @@ impl MoodRepository {
 
         let mut query =
             String::from("SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1");
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
-        if from_date.is_some() {
+        if let Some(ref from) = from_date {
             query.push_str(" AND created_at >= ?");
+            params.push(from);
         }
-        if to_date.is_some() {
+        if let Some(ref to) = to_date {
             query.push_str(" AND created_at <= ?");
+            params.push(to);
         }
 
         let mut stmt = conn.prepare(&query)?;
 
-        let mut param_index = 1;
-        if let Some(ref from) = from_date {
-            stmt.raw_bind_parameter(param_index, from)?;
-            param_index += 1;
-        }
-        if let Some(ref to) = to_date {
-            stmt.raw_bind_parameter(param_index, to)?;
-        }
-
-        let (average_mood, total_checkins) = stmt.query_row([], |row| {
+        let (average_mood, total_checkins) = stmt.query_row(params.as_slice(), |row| {
             Ok((
                 row.get::<_, f64>(0).unwrap_or(0.0),
                 row.get::<_, i32>(1).unwrap_or(0),
@@ -282,29 +315,24 @@ impl MoodRepository {
         // Get mood distribution
         let mut mood_distribution = std::collections::HashMap::new();
         let mut query2 = String::from("SELECT mood_rating, COUNT(*) FROM mood_checkins WHERE 1=1");
+        let mut params2: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
-        if from_date.is_some() {
+        if let Some(ref from) = from_date {
             query2.push_str(" AND created_at >= ?");
+            params2.push(from);
         }
-        if to_date.is_some() {
+        if let Some(ref to) = to_date {
             query2.push_str(" AND created_at <= ?");
+            params2.push(to);
         }
 
         query2.push_str(" GROUP BY mood_rating");
 
         let mut stmt2 = conn.prepare(&query2)?;
 
-        let mut param_index2 = 1;
-        if let Some(ref from) = from_date {
-            stmt2.raw_bind_parameter(param_index2, from)?;
-            param_index2 += 1;
-        }
-        if let Some(ref to) = to_date {
-            stmt2.raw_bind_parameter(param_index2, to)?;
-        }
-
-        let dist_rows =
-            stmt2.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))?;
+        let dist_rows = stmt2.query_map(params2.as_slice(), |row| {
+            Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?))
+        })?;
 
         for dist_result in dist_rows {
             let (rating, count) = dist_result?;
@@ -339,12 +367,15 @@ impl MoodRepository {
              JOIN mood_checkins mc ON mca.mood_checkin_id = mc.id
              WHERE 1=1",
         );
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
-        if from_date.is_some() {
+        if let Some(ref from) = from_date {
             query.push_str(" AND mc.created_at >= ?");
+            params.push(from);
         }
-        if to_date.is_some() {
+        if let Some(ref to) = to_date {
             query.push_str(" AND mc.created_at <= ?");
+            params.push(to);
         }
 
         query.push_str(" GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at");
@@ -356,16 +387,7 @@ impl MoodRepository {
 
         let mut stmt = conn.prepare(&query)?;
 
-        let mut param_index = 1;
-        if let Some(ref from) = from_date {
-            stmt.raw_bind_parameter(param_index, from)?;
-            param_index += 1;
-        }
-        if let Some(ref to) = to_date {
-            stmt.raw_bind_parameter(param_index, to)?;
-        }
-
-        let corr_rows = stmt.query_map([], |row| {
+        let corr_rows = stmt.query_map(params.as_slice(), |row| {
             Ok((
                 Activity {
                     id: row.get(0)?,
@@ -394,6 +416,24 @@ impl MoodRepository {
     }
 
     // T102: create_activity method
+    /// Creates a new activity for mood tracking.
+    ///
+    /// # Arguments
+    /// * `name` - Activity name (1-100 characters, trimmed)
+    /// * `color` - Optional hex color code (#RGB, #RRGGBB, or #RRGGBBAA)
+    /// * `icon` - Optional emoji or icon string (max 10 characters)
+    ///
+    /// # Returns
+    /// * `Ok(Activity)` - The created activity
+    /// * `Err(MoodError)` - If validation fails or database error occurs
+    ///
+    /// # Errors
+    /// * `EmptyActivityName` - If name is empty after trimming
+    /// * `ActivityNameTooLong` - If name exceeds 100 characters
+    /// * `DuplicateActivityName` - If an active activity with this name already exists
+    /// * `InvalidColorFormat` - If color doesn't match hex format
+    /// * `ActivityIconTooLong` - If icon exceeds 10 characters
+    /// * `Database` - On database errors
     pub fn create_activity(
         &self,
         name: &str,
@@ -405,6 +445,11 @@ impl MoodRepository {
         // Validate color if provided
         if let Some(c) = color {
             validate_color(c)?;
+        }
+
+        // Validate icon if provided
+        if let Some(i) = icon {
+            validate_icon(i)?;
         }
 
         let conn = self.db.get_connection();
@@ -468,6 +513,24 @@ impl MoodRepository {
     }
 
     // T103: update_activity method
+    /// Updates an existing activity's properties.
+    ///
+    /// # Arguments
+    /// * `id` - Activity ID to update
+    /// * `name` - Optional new name (1-100 characters, trimmed)
+    /// * `color` - Optional new hex color code
+    /// * `icon` - Optional new emoji or icon string (max 10 characters)
+    ///
+    /// # Returns
+    /// * `Ok(Activity)` - The updated activity
+    /// * `Err(MoodError)` - If validation fails or database error occurs
+    ///
+    /// # Errors
+    /// * `ActivityNotFound` - If activity with given ID doesn't exist
+    /// * `DuplicateActivityName` - If new name conflicts with another active activity
+    /// * `InvalidColorFormat` - If color doesn't match hex format
+    /// * `ActivityIconTooLong` - If icon exceeds 10 characters
+    /// * `Database` - On database errors
     pub fn update_activity(
         &self,
         id: i32,
@@ -527,6 +590,7 @@ impl MoodRepository {
 
         // Update icon if provided
         if let Some(i) = icon {
+            validate_icon(i)?;
             conn.execute(
                 "UPDATE activities SET icon = ? WHERE id = ?",
                 rusqlite::params![i, id],
@@ -554,6 +618,21 @@ impl MoodRepository {
     }
 
     // T104: delete_activity method (soft delete)
+    /// Soft-deletes an activity by setting its deleted_at timestamp.
+    ///
+    /// The activity remains in the database and historical mood check-ins
+    /// will still reference it, but it won't appear in active lists.
+    ///
+    /// # Arguments
+    /// * `id` - Activity ID to delete
+    ///
+    /// # Returns
+    /// * `Ok(())` - Activity successfully marked as deleted
+    /// * `Err(MoodError)` - If activity not found or database error occurs
+    ///
+    /// # Errors
+    /// * `ActivityNotFound` - If activity with given ID doesn't exist
+    /// * `Database` - On database errors
     pub fn delete_activity(&self, id: i32) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
@@ -583,6 +662,14 @@ impl MoodRepository {
     }
 
     // T105: get_activities query
+    /// Retrieves all activities, optionally including soft-deleted ones.
+    ///
+    /// # Arguments
+    /// * `include_deleted` - If true, includes soft-deleted activities; if false, only active ones
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Activity>)` - List of activities ordered by created_at DESC
+    /// * `Err(MoodError)` - On database errors
     pub fn get_activities(&self, include_deleted: bool) -> Result<Vec<Activity>, MoodError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;

@@ -31,7 +31,7 @@
 			error = null
 			activities = await invoke('get_activities', { includeDeleted: false })
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			console.error('Failed to load activities:', e)
 		} finally {
 			loading = false
@@ -66,7 +66,7 @@
 			newActivityIcon = ''
 			showCreateForm = false
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			console.error('Failed to create activity:', e)
 		} finally {
 			creating = false

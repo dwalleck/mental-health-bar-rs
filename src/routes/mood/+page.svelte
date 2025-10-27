@@ -68,7 +68,7 @@
 				successMessage = null
 			}, 3000)
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			console.error('Failed to log mood:', e)
 		} finally {
 			isSubmitting = false

@@ -24,7 +24,7 @@
 			error = null
 			activities = await invoke('get_activities', { includeDeleted: false })
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			console.error('Failed to load activities:', e)
 		} finally {
 			loading = false
@@ -74,7 +74,7 @@
 			await loadActivities()
 			handleCancel()
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			throw e // Re-throw so form can handle it
 		}
 	}
@@ -85,7 +85,7 @@
 			await invoke('delete_activity', { id })
 			await loadActivities()
 		} catch (e) {
-			error = e as string
+			error = e instanceof Error ? e.message : String(e)
 			console.error('Failed to delete activity:', e)
 		}
 	}
