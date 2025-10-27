@@ -307,8 +307,8 @@ impl MoodRepository {
 
         let (average_mood, total_checkins) = stmt.query_row(params.as_slice(), |row| {
             Ok((
-                row.get::<_, f64>(0).unwrap_or(0.0),
-                row.get::<_, i32>(1).unwrap_or(0),
+                row.get::<_, Option<f64>>(0)?.unwrap_or(0.0), // AVG returns NULL when no rows
+                row.get::<_, i32>(1)?,                        // COUNT never returns NULL
             ))
         })?;
 
