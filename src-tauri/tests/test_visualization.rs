@@ -8,7 +8,9 @@ use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::assessments::repository::AssessmentRepository;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
-use tauri_sveltekit_modern_lib::features::visualization::models::*;
+use tauri_sveltekit_modern_lib::features::visualization::models::{
+    TimeRange, TrendDirection, VisualizationError,
+};
 use tauri_sveltekit_modern_lib::features::visualization::repository::VisualizationRepository;
 use tempfile::TempDir;
 
@@ -37,7 +39,6 @@ fn test_get_assessment_chart_data_with_week_range() {
 
     // Create several PHQ-9 assessments over the past week
     for i in 0..5 {
-        let days_ago = i;
         let score = 5 + i * 2;
 
         // Create assessment response (using PHQ-9 type id=1)
