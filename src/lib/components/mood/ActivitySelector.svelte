@@ -7,10 +7,10 @@
 
 	interface Props {
 		selectedIds: number[]
-		onchange: (ids: number[]) => void
+		onChange: (ids: number[]) => void
 	}
 
-	let { selectedIds = [], onchange }: Props = $props()
+	let { selectedIds = [], onChange }: Props = $props()
 
 	let activities: Activity[] = $state([])
 	let loading = $state(true)
@@ -40,9 +40,9 @@
 
 	function toggleActivity(id: number) {
 		if (selectedIds.includes(id)) {
-			onchange(selectedIds.filter((selectedId) => selectedId !== id))
+			onChange(selectedIds.filter((selectedId) => selectedId !== id))
 		} else {
-			onchange([...selectedIds, id])
+			onChange([...selectedIds, id])
 		}
 	}
 
@@ -60,7 +60,7 @@
 				},
 			})
 			activities = [...activities, activity]
-			onchange([...selectedIds, activity.id])
+			onChange([...selectedIds, activity.id])
 			newActivityName = ''
 			newActivityColor = '#3B82F6'
 			newActivityIcon = ''
@@ -118,7 +118,7 @@
 					placeholder="Emoji (optional)"
 					class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
 						focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-					maxlength="10"
+					maxlength="20"
 				/>
 			</div>
 			<button

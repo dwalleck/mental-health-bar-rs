@@ -5,10 +5,10 @@
 
 	interface Props {
 		value: number
-		onchange: (rating: number) => void
+		onChange: (rating: number) => void
 	}
 
-	let { value = 3, onchange }: Props = $props()
+	let { value = 3, onChange }: Props = $props()
 
 	// Derive mood options from centralized constants
 	const moodOptions = [1, 2, 3, 4, 5].map((rating) => ({
@@ -21,7 +21,7 @@
 	function handleKeydown(event: KeyboardEvent, rating: number) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault()
-			onchange(rating)
+			onChange(rating)
 		}
 	}
 </script>
@@ -36,7 +36,7 @@
 					{option.color} {option.textColor}
 					{value === option.rating ? 'ring-4 ring-offset-2 ring-blue-500 scale-105' : 'opacity-75'}
 					focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-blue-500"
-				onclick={() => onchange(option.rating)}
+				onclick={() => onChange(option.rating)}
 				onkeydown={(e) => handleKeydown(e, option.rating)}
 				aria-label={`Rate your mood as ${option.label} (${option.rating} out of 5)`}
 				aria-pressed={value === option.rating}

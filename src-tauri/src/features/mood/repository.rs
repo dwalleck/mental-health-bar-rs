@@ -1,5 +1,21 @@
 // Mood repository - Data access layer for mood check-ins and activities
 // T073-T079: Mood repository implementation
+//
+// ## Lock Poisoning
+// This repository uses a Mutex to protect database connections. Lock poisoning occurs when
+// a thread panics while holding the lock, leaving the Mutex in a "poisoned" state.
+//
+// In a single-threaded Tauri application, lock poisoning should never occur under normal
+// circumstances. If it does occur, it indicates a serious bug (panic in database code) that
+// has likely left the database in an inconsistent state.
+//
+// The fail-fast approach (returning MoodError::LockPoisoned) is intentional:
+// - It surfaces the critical error to the UI layer
+// - Prevents continuing with potentially corrupted data
+// - The application should be restarted to recover
+//
+// Recovery: The database file itself is not corrupted (SQLite is ACID-compliant), but
+// the in-memory state may be inconsistent. Restarting the application will recover.
 
 use super::models::*;
 use crate::db::Database;
@@ -240,7 +256,8 @@ impl MoodRepository {
                     created_at,
                 })
             }
-            Err(_) => Err(MoodError::MoodCheckinNotFound(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(MoodError::MoodCheckinNotFound(id)),
+            Err(e) => Err(MoodError::Database(e)),
         }
     }
 

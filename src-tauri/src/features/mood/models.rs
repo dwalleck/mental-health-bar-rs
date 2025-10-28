@@ -28,7 +28,7 @@ pub enum MoodError {
     #[error("Notes too long: {0} characters. Maximum 5000 characters allowed")]
     NotesLengthExceeded(usize),
 
-    #[error("Database lock poisoned")]
+    #[error("Database lock poisoned - a panic occurred while holding the database lock. The application should restart.")]
     LockPoisoned,
 
     #[error("Database error: {0}")]

@@ -144,13 +144,13 @@
 	<Card title="Log Your Mood">
 		<form onsubmit={submitMood} class="space-y-6">
 			<div>
-				<MoodScaleInput value={moodRating} onchange={(rating) => (moodRating = rating)} />
+				<MoodScaleInput value={moodRating} onChange={(rating) => (moodRating = rating)} />
 			</div>
 
 			<div>
 				<ActivitySelector
 					selectedIds={selectedActivityIds}
-					onchange={(ids) => (selectedActivityIds = ids)}
+					onChange={(ids) => (selectedActivityIds = ids)}
 				/>
 			</div>
 
