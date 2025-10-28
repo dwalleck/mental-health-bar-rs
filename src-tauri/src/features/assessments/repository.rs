@@ -29,16 +29,18 @@ impl AssessmentRepository {
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let mut conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let responses_json = serde_json::to_string(responses).map_err(|e| {
             AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e))
         })?;
 
-        // Begin transaction for data consistency
-        conn.execute("BEGIN TRANSACTION", [])?;
+        // ✅ RAII transaction - automatic rollback on drop if not committed
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(AssessmentError::Database)?;
 
-        let result = conn.query_row(
+        let id = tx.query_row(
             "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
              VALUES (?, ?, ?, ?, ?)
              RETURNING id",
@@ -49,22 +51,13 @@ impl AssessmentRepository {
                 &severity_level as &dyn rusqlite::ToSql,
                 &notes as &dyn rusqlite::ToSql,
             ],
-            |row| row.get(0)
-        );
+            |row| row.get(0),
+        )?;
 
-        match result {
-            Ok(id) => {
-                conn.execute("COMMIT", [])?;
-                Ok(id)
-            }
-            Err(e) => {
-                // Rollback on error
-                if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("Failed to rollback transaction: {}", rollback_err);
-                }
-                Err(AssessmentError::Database(e))
-            }
-        }
+        // Commit transaction - automatic rollback via Drop on error/panic
+        tx.commit().map_err(AssessmentError::Database)?;
+
+        Ok(id)
     }
 
     /// Get all assessment types
@@ -178,14 +171,6 @@ impl AssessmentRepository {
 
         query.push_str(" ORDER BY resp.completed_at DESC");
 
-        if let Some(lim) = limit {
-            // Enforce reasonable bounds to prevent excessive queries
-            let safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);
-            query.push_str(&format!(" LIMIT {}", safe_limit));
-        }
-
-        let mut stmt = conn.prepare(&query)?;
-
         // Build params dynamically
         let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
         if let Some(code) = &assessment_type_code {
@@ -197,6 +182,17 @@ impl AssessmentRepository {
         if let Some(to) = &to_date {
             params.push(to);
         }
+
+        // ✅ FIXED: Use parameterized query for LIMIT (prevents SQL injection)
+        // Enforce reasonable bounds to prevent excessive queries
+        let safe_limit;
+        if let Some(lim) = limit {
+            safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);
+            query.push_str(" LIMIT ?");
+            params.push(&safe_limit);
+        }
+
+        let mut stmt = conn.prepare(&query)?;
 
         let responses = stmt
             .query_map(params.as_slice(), |row| {

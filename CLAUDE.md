@@ -108,6 +108,250 @@ Rust (latest stable) + TypeScript/JavaScript (ES2022): Follow standard conventio
 
 ---
 
+## Database Development Guidelines (SQLite + Rusqlite)
+
+### Core Principles
+- **TDD Required**: Write integration tests before repository methods
+- **Deadlock Prevention**: Use `_with_conn` pattern for all internal helpers
+- **Security First**: 100% parameterized queries, zero string interpolation
+- **PRAGMA Enforcement**: `foreign_keys=ON` required on all connections
+
+### Connection Management Pattern
+
+Every public repository method must follow this pattern:
+
+```rust
+// Public method - acquires lock ONCE
+pub fn operation(&self, ...) -> Result<T, Error> {
+    let conn = self.db.get_connection();
+    let conn = conn.lock().map_err(|_| Error::LockPoisoned)?;
+
+    // Use connection for operations
+    let result = self.helper_with_conn(&conn, ...)?;
+    Ok(result)
+}
+
+// Helper - accepts connection reference (NO locking)
+fn helper_with_conn(&self, conn: &Connection, ...) -> Result<T, Error> {
+    // Uses provided connection, never calls conn.lock()
+}
+```
+
+**Critical Rule**: Methods that accept `&Connection` MUST have `_with_conn` suffix
+
+### Deadlock Prevention
+
+**❌ ANTI-PATTERN (Causes Deadlock):**
+```rust
+pub fn get_stats(&self) -> Result<Stats> {
+    let conn = conn.lock()?;  // First lock
+    let data = self.get_helper()?;  // Second lock → DEADLOCK
+}
+
+fn get_helper(&self) -> Result<Data> {
+    let conn = conn.lock()?;  // Tries to acquire same lock
+}
+```
+
+**✅ CORRECT PATTERN:**
+```rust
+pub fn get_stats(&self) -> Result<Stats> {
+    let conn = conn.lock()?;
+    let data = self.get_helper_with_conn(&conn)?;  // Pass connection
+}
+
+fn get_helper_with_conn(&self, conn: &Connection) -> Result<Data> {
+    // No locking - uses provided connection
+}
+```
+
+**Real Bug Fixed**: `mood/repository.rs:365` - `get_mood_stats` deadlocked by calling `get_activity_correlations` which tried to re-lock.
+
+### Transaction Pattern (RAII)
+
+Prefer `rusqlite::Transaction` over manual BEGIN/COMMIT:
+
+```rust
+// ❌ Manual (error-prone):
+conn.execute("BEGIN TRANSACTION", [])?;
+// ... operations ...
+conn.execute("COMMIT", [])?;  // Forgot rollback on error!
+
+// ✅ RAII (automatic rollback on drop):
+let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+// ... operations ...
+tx.commit()?;  // Auto-rollback if dropped without commit or on panic
+```
+
+**When to use**:
+- IMMEDIATE mode for write operations (acquire lock on BEGIN)
+- DEFERRED mode for read-heavy, optimistic locking
+- EXCLUSIVE mode for bulk operations or schema changes
+
+### Required PRAGMAs
+
+**⚠️ CRITICAL**: Add to `db/mod.rs` after connection open:
+
+```rust
+// In Database::new() after Connection::open():
+conn.execute_batch("
+    PRAGMA foreign_keys = ON;         -- CRITICAL: Enable FK constraints
+    PRAGMA journal_mode = WAL;         -- Better concurrency
+    PRAGMA synchronous = NORMAL;       -- Safe for WAL mode
+    PRAGMA busy_timeout = 5000;        -- Prevent immediate SQLITE_BUSY
+")?;
+```
+
+**Why foreign_keys is critical**: SQLite defaults to OFF for backwards compatibility. Without this, FK constraints in schema are ignored!
+
+### Query Security (100% Parameterization)
+
+**✅ ALWAYS USE:**
+```rust
+// Static parameters with params! macro:
+conn.query_row(
+    "SELECT * FROM users WHERE id = ?",
+    rusqlite::params![user_id],
+    |row| { ... }
+)?;
+
+// Dynamic parameters with Vec:
+let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+if let Some(ref from) = from_date {
+    query.push_str(" AND created_at >= ?");
+    params.push(from);
+}
+stmt.query_map(params.as_slice(), |row| { ... })?;
+```
+
+**❌ NEVER USE:**
+```rust
+// SQL injection risk:
+let query = format!("SELECT * FROM users WHERE name = '{}'", user_input);
+```
+
+### Testing Pattern
+
+Every repository test must follow this structure:
+
+```rust
+fn setup_test_repo() -> (Repository, TempDir) {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let db = Arc::new(Database::new(temp_dir.path()).expect("Failed to create database"));
+    (Repository::new(db), temp_dir)
+}
+
+#[test]
+fn test_operation() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Arrange
+    let entity = repo.create(...).expect("Failed to create");
+
+    // Act
+    let result = repo.operation(...).expect("Failed to operate");
+
+    // Assert
+    assert_eq!(result.field, expected_value);
+}
+```
+
+**TempDir benefits**:
+- Isolated test database (no cross-test contamination)
+- Automatic cleanup on drop
+- Migrations run automatically via `Database::new()`
+
+### Migration Checklist
+
+Before merging database migrations:
+
+- [ ] Foreign key constraints defined with appropriate CASCADE
+- [ ] CHECK constraints for validation (e.g., rating BETWEEN 1 AND 5)
+- [ ] Partial indexes for soft deletes (`WHERE deleted_at IS NULL`)
+- [ ] Migration tested with rollback (if applicable)
+- [ ] Updated repository methods for new/modified tables
+- [ ] Integration tests added for new functionality
+- [ ] No ALTER COLUMN or DROP COLUMN (not supported < SQLite 3.35)
+
+### Performance Best Practices
+
+**Statement Caching** (for repeated queries):
+```rust
+conn.set_prepared_statement_cache_capacity(100);
+let mut stmt = conn.prepare_cached("SELECT * FROM users WHERE id = ?")?;
+for id in ids {
+    stmt.query_row([id], |row| { ... })?;
+}
+```
+
+**Batch Operations** (wrap in transaction):
+```rust
+let tx = conn.transaction()?;
+{
+    let mut stmt = tx.prepare_cached("INSERT INTO users VALUES (?1, ?2)")?;
+    for user in users {
+        stmt.execute(params![user.name, user.email])?;
+    }
+}
+tx.commit()?;  // 100x-1000x faster than individual commits
+```
+
+**Avoid N+1 Queries** (use JOINs):
+```rust
+// ❌ BAD:
+for post in posts {
+    let comments = get_comments_for_post(post.id)?;  // N queries
+}
+
+// ✅ GOOD:
+SELECT p.*, c.* FROM posts p LEFT JOIN comments c ON p.id = c.post_id
+```
+
+### Common Pitfalls
+
+| Pitfall | Detection | Fix |
+|---------|-----------|-----|
+| Nested lock acquisition | Method locks then calls method that locks | Use `_with_conn` pattern |
+| Forgotten foreign keys | Schema has FK but runtime doesn't enforce | Add `PRAGMA foreign_keys=ON` |
+| Long-lived transactions | Lock held during non-DB operations | Minimize transaction scope |
+| SQL injection | String interpolation in queries | Use parameterized queries |
+| Statement re-preparation | `prepare()` in loops | Use `prepare_cached()` |
+
+### Error Handling
+
+Use `thiserror` for feature-level error types:
+
+```rust
+#[derive(Error, Debug)]
+pub enum FeatureError {
+    #[error("Invalid rating: {0}. Must be 1-5")]
+    InvalidRating(i32),
+
+    #[error("Database lock poisoned")]
+    LockPoisoned,
+
+    #[error("Database error: {0}")]
+    Database(#[from] rusqlite::Error),
+
+    #[error("Transaction rollback failed: {0}")]
+    TransactionFailure(String),
+}
+```
+
+**Error Propagation**:
+```rust
+let result = conn.query_row(...)?;  // Auto-converts via #[from]
+```
+
+### Resources
+
+- `.claude/knowledge/database-patterns.md` - Codebase-specific patterns & architecture
+- `.claude/knowledge/sqlite-reference.md` - SQLite/rusqlite API reference
+- `.claude/knowledge/sqlite-anti-patterns.md` - Common mistakes to avoid
+- Slash commands: `/db-review`, `/db-implement`, `/db-refactor`
+
+---
+
 ## Svelte Coding Guidelines
 
 ### Style & Formatting
