@@ -29,16 +29,18 @@ impl AssessmentRepository {
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let mut conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
         let responses_json = serde_json::to_string(responses).map_err(|e| {
             AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e))
         })?;
 
-        // Begin transaction for data consistency
-        conn.execute("BEGIN TRANSACTION", [])?;
+        // ✅ RAII transaction - automatic rollback on drop if not committed
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(AssessmentError::Database)?;
 
-        let result = conn.query_row(
+        let id = tx.query_row(
             "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
              VALUES (?, ?, ?, ?, ?)
              RETURNING id",
@@ -49,22 +51,13 @@ impl AssessmentRepository {
                 &severity_level as &dyn rusqlite::ToSql,
                 &notes as &dyn rusqlite::ToSql,
             ],
-            |row| row.get(0)
-        );
+            |row| row.get(0),
+        )?;
 
-        match result {
-            Ok(id) => {
-                conn.execute("COMMIT", [])?;
-                Ok(id)
-            }
-            Err(e) => {
-                // Rollback on error
-                if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("Failed to rollback transaction: {}", rollback_err);
-                }
-                Err(AssessmentError::Database(e))
-            }
-        }
+        // Commit transaction - automatic rollback via Drop on error/panic
+        tx.commit().map_err(AssessmentError::Database)?;
+
+        Ok(id)
     }
 
     /// Get all assessment types
@@ -157,46 +150,52 @@ impl AssessmentRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
-        let mut query = String::from(
+        // Build date filter using query builder helper
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "resp.completed_at")
+            .with_to_date(to_date.as_deref(), "resp.completed_at")
+            .build();
+
+        // Build assessment type filter
+        let type_filter = if assessment_type_code.is_some() {
+            " AND atype.code = ?"
+        } else {
+            ""
+        };
+
+        let mut query = format!(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
                     strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
-             WHERE 1=1"
+             WHERE 1=1{}{}
+             ORDER BY resp.completed_at DESC",
+            type_filter, date_filter
         );
 
-        if assessment_type_code.is_some() {
-            query.push_str(" AND atype.code = ?");
-        }
-        if from_date.is_some() {
-            query.push_str(" AND resp.completed_at >= ?");
-        }
-        if to_date.is_some() {
-            query.push_str(" AND resp.completed_at <= ?");
-        }
-
-        query.push_str(" ORDER BY resp.completed_at DESC");
-
-        if let Some(lim) = limit {
-            // Enforce reasonable bounds to prevent excessive queries
-            let safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);
-            query.push_str(&format!(" LIMIT {}", safe_limit));
-        }
-
-        let mut stmt = conn.prepare(&query)?;
-
-        // Build params dynamically
+        // Build params dynamically: type code + date params
         let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
         if let Some(code) = &assessment_type_code {
             params.push(code);
         }
-        if let Some(from) = &from_date {
-            params.push(from);
+        // Add date params
+        for param in &date_params {
+            params.push(param.as_ref());
         }
-        if let Some(to) = &to_date {
-            params.push(to);
+
+        // ✅ FIXED: Use parameterized query for LIMIT (prevents SQL injection)
+        // Enforce reasonable bounds to prevent excessive queries
+        // Design choice: Using clamp() for silent correction rather than validation error
+        // This provides better UX (automatically corrects invalid limits) rather than rejecting requests
+        let safe_limit;
+        if let Some(lim) = limit {
+            safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);
+            query.push_str(" LIMIT ?");
+            params.push(&safe_limit);
         }
+
+        let mut stmt = conn.prepare(&query)?;
 
         let responses = stmt
             .query_map(params.as_slice(), |row| {

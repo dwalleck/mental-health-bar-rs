@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 
 pub mod migrations;
+pub mod query_builder;
 
 /// Database connection manager
 pub struct Database {
@@ -36,6 +37,22 @@ impl Database {
 
         // Open database connection
         let conn = Connection::open(&db_path).context("Failed to open database connection")?;
+
+        // ✅ CRITICAL: Configure SQLite PRAGMAs for data integrity and performance
+        // Reference: .claude/knowledge/sqlite-reference.md
+        conn.execute_batch(
+            "PRAGMA foreign_keys = ON;         -- CRITICAL: Enable FK constraint enforcement
+             PRAGMA busy_timeout = 5000;       -- Wait 5s on lock contention before failing
+             PRAGMA journal_mode = WAL;        -- Write-Ahead Logging for better concurrency
+             PRAGMA synchronous = NORMAL;      -- Safe with WAL mode, faster than FULL
+             PRAGMA cache_size = -64000;       -- 64MB cache (negative value = KB)
+             PRAGMA temp_store = MEMORY;       -- Store temp tables in memory for speed",
+        )
+        .context("Failed to configure database PRAGMAs")?;
+
+        // Configure statement cache for prepared statement reuse
+        // Note: This operation cannot fail - it simply sets an internal capacity value
+        conn.set_prepared_statement_cache_capacity(100);
 
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),

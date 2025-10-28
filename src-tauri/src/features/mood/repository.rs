@@ -20,7 +20,7 @@
 use super::models::*;
 use crate::db::Database;
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::info;
 
 /// Maximum number of records that can be retrieved in a single query
 const MAX_QUERY_LIMIT: i32 = 1000;
@@ -76,38 +76,58 @@ impl MoodRepository {
         }
 
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let mut conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        // Begin transaction for atomicity
-        conn.execute("BEGIN TRANSACTION", [])?;
+        // ✅ RAII transaction - automatic rollback on drop if not committed
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(MoodError::Database)?;
 
-        let result = (|| {
-            // Insert mood check-in and get the ID using RETURNING
-            let (mood_checkin_id, created_at): (i32, String) = conn.query_row(
-                "INSERT INTO mood_checkins (mood_rating, notes) VALUES (?, ?) RETURNING id, CAST(created_at AS VARCHAR)",
-                rusqlite::params![mood_rating, notes],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )?;
+        // Insert mood check-in and get the ID using RETURNING
+        let (mood_checkin_id, created_at): (i32, String) = tx.query_row(
+            "INSERT INTO mood_checkins (mood_rating, notes) VALUES (?, ?) RETURNING id, CAST(created_at AS VARCHAR)",
+            rusqlite::params![mood_rating, notes],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
 
-            info!("Created mood check-in with ID: {}", mood_checkin_id);
+        info!("Created mood check-in with ID: {}", mood_checkin_id);
 
-            // Link activities
-            for activity_id in &activity_ids {
-                // Verify activity exists
-                let activity_exists: bool = conn
-                    .query_row(
-                        "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
-                        [activity_id],
-                        |row| row.get(0),
-                    )
-                    .map_err(MoodError::Database)?;
+        // Link activities - Batch validate all activity IDs first to avoid N+1 queries
+        if !activity_ids.is_empty() {
+            // Generate IN clause placeholders for batch validation
+            let in_clause = crate::db::query_builder::generate_in_clause(activity_ids.len());
+            let query = format!("SELECT COUNT(*) FROM activities WHERE id IN {}", in_clause);
 
-                if !activity_exists {
-                    return Err(MoodError::ActivityNotFound(*activity_id));
+            // Build params vector for the query
+            let params: Vec<&dyn rusqlite::ToSql> = activity_ids
+                .iter()
+                .map(|id| id as &dyn rusqlite::ToSql)
+                .collect();
+
+            let valid_count: i32 = tx
+                .query_row(&query, params.as_slice(), |row| row.get(0))
+                .map_err(MoodError::Database)?;
+
+            // If count doesn't match, at least one activity ID is invalid
+            if valid_count != activity_ids.len() as i32 {
+                // Find which activity ID is invalid (for better error message)
+                for activity_id in &activity_ids {
+                    let exists: bool = tx
+                        .query_row(
+                            "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
+                            [activity_id],
+                            |row| row.get(0),
+                        )
+                        .map_err(MoodError::Database)?;
+                    if !exists {
+                        return Err(MoodError::ActivityNotFound(*activity_id));
+                    }
                 }
+            }
 
-                // Insert into junction table (handles duplicates with UNIQUE constraint)
-                let result = conn.execute(
+            // All activities are valid, insert into junction table
+            for activity_id in &activity_ids {
+                let result = tx.execute(
                     "INSERT INTO mood_checkin_activities (mood_checkin_id, activity_id) VALUES (?, ?)",
                     rusqlite::params![mood_checkin_id, activity_id],
                 );
@@ -125,37 +145,24 @@ impl MoodRepository {
                     }
                 }
             }
-
-            // Fetch activities for this check-in
-            let activities = self.get_activities_for_checkin_with_conn(&conn, mood_checkin_id)?;
-
-            // Build and return the created mood check-in
-            Ok(MoodCheckin {
-                id: mood_checkin_id,
-                mood_rating,
-                notes: notes.map(|s| s.to_string()),
-                activities,
-                created_at,
-            })
-        })();
-
-        match result {
-            Ok(mood_checkin) => {
-                conn.execute("COMMIT", [])?;
-                Ok(mood_checkin)
-            }
-            Err(e) => {
-                // Rollback on error - if rollback fails, the DB may be in an inconsistent state
-                if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("CRITICAL: Failed to rollback transaction: {}", rollback_err);
-                    return Err(MoodError::TransactionFailure(format!(
-                        "Original error: {}. Rollback error: {}",
-                        e, rollback_err
-                    )));
-                }
-                Err(e)
-            }
         }
+
+        // Fetch activities for this check-in (need to get underlying connection)
+        let activities = self.get_activities_for_checkin_with_conn(&tx, mood_checkin_id)?;
+
+        // Build the created mood check-in
+        let mood_checkin = MoodCheckin {
+            id: mood_checkin_id,
+            mood_rating,
+            notes: notes.map(|s| s.to_string()),
+            activities,
+            created_at,
+        };
+
+        // Commit transaction - automatic rollback via Drop on error/panic
+        tx.commit().map_err(MoodError::Database)?;
+
+        Ok(mood_checkin)
     }
 
     /// Retrieves mood check-in history with optional date filtering and limit.
@@ -178,19 +185,21 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        let mut query = String::from("SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE 1=1");
-        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+        // Build date filter using query builder helper
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "created_at")
+            .with_to_date(to_date.as_deref(), "created_at")
+            .build();
 
-        if let Some(ref from) = from_date {
-            query.push_str(" AND created_at >= ?");
-            params.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query.push_str(" AND created_at <= ?");
-            params.push(to);
-        }
-
+        let mut query = format!(
+            "SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE 1=1{}",
+            date_filter
+        );
         query.push_str(" ORDER BY created_at DESC");
+
+        // Build params vector from date params
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            date_params.iter().map(|p| p.as_ref()).collect();
 
         // Apply limit with bounds checking using parameterized query
         let safe_limit = limit.map(|lim| lim.clamp(1, MAX_QUERY_LIMIT));
@@ -268,7 +277,8 @@ impl MoodRepository {
         conn: &rusqlite::Connection,
         mood_checkin_id: i32,
     ) -> Result<Vec<Activity>, MoodError> {
-        let mut stmt = conn.prepare(
+        // ✅ Use prepare_cached for performance (called in loops)
+        let mut stmt = conn.prepare_cached(
             "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR)
              FROM activities a
              JOIN mood_checkin_activities mca ON a.id = mca.activity_id
@@ -312,18 +322,18 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        let mut query =
-            String::from("SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1");
-        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+        // Build date filter using query builder helper (used for both queries)
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "created_at")
+            .with_to_date(to_date.as_deref(), "created_at")
+            .build();
 
-        if let Some(ref from) = from_date {
-            query.push_str(" AND created_at >= ?");
-            params.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query.push_str(" AND created_at <= ?");
-            params.push(to);
-        }
+        // Query 1: Average mood and total count
+        let query = format!(
+            "SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1{}",
+            date_filter
+        );
+        let params: Vec<&dyn rusqlite::ToSql> = date_params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = conn.prepare(&query)?;
 
@@ -334,21 +344,13 @@ impl MoodRepository {
             ))
         })?;
 
-        // Get mood distribution
+        // Query 2: Mood distribution (reuse date filter and params)
         let mut mood_distribution = std::collections::HashMap::new();
-        let mut query2 = String::from("SELECT mood_rating, COUNT(*) FROM mood_checkins WHERE 1=1");
-        let mut params2: Vec<&dyn rusqlite::ToSql> = Vec::new();
-
-        if let Some(ref from) = from_date {
-            query2.push_str(" AND created_at >= ?");
-            params2.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query2.push_str(" AND created_at <= ?");
-            params2.push(to);
-        }
-
-        query2.push_str(" GROUP BY mood_rating");
+        let query2 = format!(
+            "SELECT mood_rating, COUNT(*) FROM mood_checkins WHERE 1=1{} GROUP BY mood_rating",
+            date_filter
+        );
+        let params2: Vec<&dyn rusqlite::ToSql> = date_params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt2 = conn.prepare(&query2)?;
 
@@ -361,8 +363,10 @@ impl MoodRepository {
             mood_distribution.insert(rating, count);
         }
 
-        // Get activity correlations
-        let activity_correlations = self.get_activity_correlations(from_date, to_date)?;
+        // Get activity correlations (pass conn to avoid deadlock)
+        // Clone date params since they were borrowed by the query builder
+        let activity_correlations =
+            self.get_activity_correlations_with_conn(&conn, from_date.clone(), to_date.clone())?;
 
         Ok(MoodStats {
             average_mood,
@@ -373,37 +377,35 @@ impl MoodRepository {
     }
 
     // Helper for activity correlations
-    fn get_activity_correlations(
+    fn get_activity_correlations_with_conn(
         &self,
+        conn: &rusqlite::Connection,
         from_date: Option<String>,
         to_date: Option<String>,
     ) -> Result<Vec<ActivityCorrelation>, MoodError> {
-        let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        // Build date filter using query builder helper
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "mc.created_at")
+            .with_to_date(to_date.as_deref(), "mc.created_at")
+            .build();
 
-        let mut query = String::from(
+        let query = format!(
             "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR),
                     AVG(mc.mood_rating) as avg_mood, COUNT(mc.id) as checkin_count
              FROM activities a
              JOIN mood_checkin_activities mca ON a.id = mca.activity_id
              JOIN mood_checkins mc ON mca.mood_checkin_id = mc.id
-             WHERE 1=1",
+             WHERE 1=1{}
+             GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at
+             HAVING COUNT(mc.id) >= ?
+             ORDER BY avg_mood DESC",
+            date_filter
         );
-        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
-        if let Some(ref from) = from_date {
-            query.push_str(" AND mc.created_at >= ?");
-            params.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query.push_str(" AND mc.created_at <= ?");
-            params.push(to);
-        }
-
-        query.push_str(" GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at");
-        query.push_str(" HAVING COUNT(mc.id) >= ?");
+        // Build params vector: date params + min sample size
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            date_params.iter().map(|p| p.as_ref()).collect();
         params.push(&MIN_CORRELATION_SAMPLE_SIZE);
-        query.push_str(" ORDER BY avg_mood DESC");
 
         let mut stmt = conn.prepare(&query)?;
 
@@ -724,7 +726,7 @@ impl MoodRepository {
     // T093b: delete_mood_checkin with transactional cascade
     pub fn delete_mood_checkin(&self, id: i32) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let mut conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
         // Verify mood check-in exists
         let checkin_exists: bool = conn
@@ -739,40 +741,24 @@ impl MoodRepository {
             return Err(MoodError::MoodCheckinNotFound(id));
         }
 
-        // Begin transaction
-        conn.execute("BEGIN TRANSACTION", [])?;
+        // ✅ RAII transaction - automatic rollback on drop if not committed
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(MoodError::Database)?;
 
-        // Try to delete junction table entries first, then the mood check-in
-        let delete_result = (|| {
-            // Delete mood_checkin_activities junction entries
-            conn.execute(
-                "DELETE FROM mood_checkin_activities WHERE mood_checkin_id = ?",
-                [id],
-            )?;
+        // Delete mood_checkin_activities junction entries
+        tx.execute(
+            "DELETE FROM mood_checkin_activities WHERE mood_checkin_id = ?",
+            [id],
+        )?;
 
-            // Delete the mood check-in itself
-            conn.execute("DELETE FROM mood_checkins WHERE id = ?", [id])?;
+        // Delete the mood check-in itself
+        tx.execute("DELETE FROM mood_checkins WHERE id = ?", [id])?;
 
-            Ok::<(), rusqlite::Error>(())
-        })();
+        // Commit transaction - automatic rollback via Drop on error/panic
+        tx.commit().map_err(MoodError::Database)?;
 
-        match delete_result {
-            Ok(()) => {
-                conn.execute("COMMIT", [])?;
-                info!("Deleted mood check-in ID: {} with cascaded deletions", id);
-                Ok(())
-            }
-            Err(e) => {
-                // Rollback on error - if rollback fails, the DB may be in an inconsistent state
-                if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
-                    error!("CRITICAL: Failed to rollback transaction: {}", rollback_err);
-                    return Err(MoodError::TransactionFailure(format!(
-                        "Original error: {}. Rollback error: {}",
-                        e, rollback_err
-                    )));
-                }
-                Err(MoodError::Database(e))
-            }
-        }
+        info!("Deleted mood check-in ID: {} with cascaded deletions", id);
+        Ok(())
     }
 }

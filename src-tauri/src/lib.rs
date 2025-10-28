@@ -46,6 +46,8 @@ pub fn run() {
         features::mood::queries::get_mood_checkin,
         features::mood::queries::get_mood_stats,
         features::mood::queries::get_activities,
+        features::visualization::queries::get_assessment_chart_data,
+        features::visualization::queries::get_mood_chart_data,
     ]);
 
     #[cfg(debug_assertions)]
