@@ -92,37 +92,57 @@ impl MoodRepository {
 
         info!("Created mood check-in with ID: {}", mood_checkin_id);
 
-        // Link activities
-        for activity_id in &activity_ids {
-            // Verify activity exists
-            let activity_exists: bool = tx
-                .query_row(
-                    "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
-                    [activity_id],
-                    |row| row.get(0),
-                )
+        // Link activities - Batch validate all activity IDs first to avoid N+1 queries
+        if !activity_ids.is_empty() {
+            // Generate IN clause placeholders for batch validation
+            let in_clause = crate::db::query_builder::generate_in_clause(activity_ids.len());
+            let query = format!("SELECT COUNT(*) FROM activities WHERE id IN {}", in_clause);
+
+            // Build params vector for the query
+            let params: Vec<&dyn rusqlite::ToSql> = activity_ids
+                .iter()
+                .map(|id| id as &dyn rusqlite::ToSql)
+                .collect();
+
+            let valid_count: i32 = tx
+                .query_row(&query, params.as_slice(), |row| row.get(0))
                 .map_err(MoodError::Database)?;
 
-            if !activity_exists {
-                return Err(MoodError::ActivityNotFound(*activity_id));
+            // If count doesn't match, at least one activity ID is invalid
+            if valid_count != activity_ids.len() as i32 {
+                // Find which activity ID is invalid (for better error message)
+                for activity_id in &activity_ids {
+                    let exists: bool = tx
+                        .query_row(
+                            "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
+                            [activity_id],
+                            |row| row.get(0),
+                        )
+                        .map_err(MoodError::Database)?;
+                    if !exists {
+                        return Err(MoodError::ActivityNotFound(*activity_id));
+                    }
+                }
             }
 
-            // Insert into junction table (handles duplicates with UNIQUE constraint)
-            let result = tx.execute(
-                "INSERT INTO mood_checkin_activities (mood_checkin_id, activity_id) VALUES (?, ?)",
-                rusqlite::params![mood_checkin_id, activity_id],
-            );
+            // All activities are valid, insert into junction table
+            for activity_id in &activity_ids {
+                let result = tx.execute(
+                    "INSERT INTO mood_checkin_activities (mood_checkin_id, activity_id) VALUES (?, ?)",
+                    rusqlite::params![mood_checkin_id, activity_id],
+                );
 
-            // Ignore duplicate errors (unique constraint violation), propagate all others
-            if let Err(e) = result {
-                match e {
-                    rusqlite::Error::SqliteFailure(err, _) => {
-                        if err.code != rusqlite::ErrorCode::ConstraintViolation {
-                            return Err(MoodError::Database(e));
+                // Ignore duplicate errors (unique constraint violation), propagate all others
+                if let Err(e) = result {
+                    match e {
+                        rusqlite::Error::SqliteFailure(err, _) => {
+                            if err.code != rusqlite::ErrorCode::ConstraintViolation {
+                                return Err(MoodError::Database(e));
+                            }
+                            // Silently ignore constraint violations (duplicate activity_id)
                         }
-                        // Silently ignore constraint violations (duplicate activity_id)
+                        _ => return Err(MoodError::Database(e)),
                     }
-                    _ => return Err(MoodError::Database(e)),
                 }
             }
         }
@@ -165,25 +185,21 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        // SECURITY NOTE: Dynamic query building pattern used here
-        // This is SAFE because:
-        // 1. Only static SQL strings are appended to the query (no user input)
-        // 2. All user-provided values are passed via the `params` vector with `?` placeholders
-        // 3. No string interpolation or formatting of user data into SQL
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-        let mut query = String::from("SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE 1=1");
-        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+        // Build date filter using query builder helper
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "created_at")
+            .with_to_date(to_date.as_deref(), "created_at")
+            .build();
 
-        if let Some(ref from) = from_date {
-            query.push_str(" AND created_at >= ?");
-            params.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query.push_str(" AND created_at <= ?");
-            params.push(to);
-        }
-
+        let mut query = format!(
+            "SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE 1=1{}",
+            date_filter
+        );
         query.push_str(" ORDER BY created_at DESC");
+
+        // Build params vector from date params
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            date_params.iter().map(|p| p.as_ref()).collect();
 
         // Apply limit with bounds checking using parameterized query
         let safe_limit = limit.map(|lim| lim.clamp(1, MAX_QUERY_LIMIT));
@@ -306,24 +322,18 @@ impl MoodRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
 
-        // SECURITY NOTE: Dynamic query building pattern used throughout this method
-        // This is SAFE because:
-        // 1. Only static SQL strings are appended to queries (no user input)
-        // 2. All user-provided values are passed via params vectors with `?` placeholders
-        // 3. No string interpolation or formatting of user data into SQL
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-        let mut query =
-            String::from("SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1");
-        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+        // Build date filter using query builder helper (used for both queries)
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "created_at")
+            .with_to_date(to_date.as_deref(), "created_at")
+            .build();
 
-        if let Some(ref from) = from_date {
-            query.push_str(" AND created_at >= ?");
-            params.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query.push_str(" AND created_at <= ?");
-            params.push(to);
-        }
+        // Query 1: Average mood and total count
+        let query = format!(
+            "SELECT AVG(mood_rating), COUNT(*) FROM mood_checkins WHERE 1=1{}",
+            date_filter
+        );
+        let params: Vec<&dyn rusqlite::ToSql> = date_params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = conn.prepare(&query)?;
 
@@ -334,21 +344,13 @@ impl MoodRepository {
             ))
         })?;
 
-        // Get mood distribution
+        // Query 2: Mood distribution (reuse date filter and params)
         let mut mood_distribution = std::collections::HashMap::new();
-        let mut query2 = String::from("SELECT mood_rating, COUNT(*) FROM mood_checkins WHERE 1=1");
-        let mut params2: Vec<&dyn rusqlite::ToSql> = Vec::new();
-
-        if let Some(ref from) = from_date {
-            query2.push_str(" AND created_at >= ?");
-            params2.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query2.push_str(" AND created_at <= ?");
-            params2.push(to);
-        }
-
-        query2.push_str(" GROUP BY mood_rating");
+        let query2 = format!(
+            "SELECT mood_rating, COUNT(*) FROM mood_checkins WHERE 1=1{} GROUP BY mood_rating",
+            date_filter
+        );
+        let params2: Vec<&dyn rusqlite::ToSql> = date_params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt2 = conn.prepare(&query2)?;
 
@@ -362,8 +364,9 @@ impl MoodRepository {
         }
 
         // Get activity correlations (pass conn to avoid deadlock)
+        // Clone date params since they were borrowed by the query builder
         let activity_correlations =
-            self.get_activity_correlations_with_conn(&conn, from_date, to_date)?;
+            self.get_activity_correlations_with_conn(&conn, from_date.clone(), to_date.clone())?;
 
         Ok(MoodStats {
             average_mood,
@@ -380,35 +383,29 @@ impl MoodRepository {
         from_date: Option<String>,
         to_date: Option<String>,
     ) -> Result<Vec<ActivityCorrelation>, MoodError> {
-        // SECURITY NOTE: Dynamic query building pattern used here
-        // This is SAFE because:
-        // 1. Only static SQL strings are appended to the query (no user input)
-        // 2. All user-provided values are passed via the `params` vector with `?` placeholders
-        // 3. No string interpolation or formatting of user data into SQL
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-        let mut query = String::from(
+        // Build date filter using query builder helper
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "mc.created_at")
+            .with_to_date(to_date.as_deref(), "mc.created_at")
+            .build();
+
+        let query = format!(
             "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR),
                     AVG(mc.mood_rating) as avg_mood, COUNT(mc.id) as checkin_count
              FROM activities a
              JOIN mood_checkin_activities mca ON a.id = mca.activity_id
              JOIN mood_checkins mc ON mca.mood_checkin_id = mc.id
-             WHERE 1=1",
+             WHERE 1=1{}
+             GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at
+             HAVING COUNT(mc.id) >= ?
+             ORDER BY avg_mood DESC",
+            date_filter
         );
-        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
-        if let Some(ref from) = from_date {
-            query.push_str(" AND mc.created_at >= ?");
-            params.push(from);
-        }
-        if let Some(ref to) = to_date {
-            query.push_str(" AND mc.created_at <= ?");
-            params.push(to);
-        }
-
-        query.push_str(" GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at");
-        query.push_str(" HAVING COUNT(mc.id) >= ?");
+        // Build params vector: date params + min sample size
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            date_params.iter().map(|p| p.as_ref()).collect();
         params.push(&MIN_CORRELATION_SAMPLE_SIZE);
-        query.push_str(" ORDER BY avg_mood DESC");
 
         let mut stmt = conn.prepare(&query)?;
 

@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 
 pub mod migrations;
+pub mod query_builder;
 
 /// Database connection manager
 pub struct Database {

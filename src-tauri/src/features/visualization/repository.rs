@@ -31,30 +31,11 @@ impl VisualizationRepository {
         // Get assessment type
         let assessment_type = self.get_assessment_type_by_code(&conn, code)?;
 
-        // SECURITY NOTE: Dynamic query building pattern used here
-        // This is SAFE because:
-        // 1. date_filter variable contains only static SQL strings (no user input)
-        // 2. All user-provided values (from_date, to_date) are passed via params vector with `?` placeholders
-        // 3. format!() inserts only the static date_filter string, not user data
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-
-        // Build date filter
-        let (date_filter, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
-            match (from_date, to_date) {
-                (Some(from), Some(to)) => (
-                    "AND ar.completed_at >= ? AND ar.completed_at <= ?".to_string(),
-                    vec![Box::new(from.to_string()), Box::new(to.to_string())],
-                ),
-                (Some(from), None) => (
-                    "AND ar.completed_at >= ?".to_string(),
-                    vec![Box::new(from.to_string())],
-                ),
-                (None, Some(to)) => (
-                    "AND ar.completed_at <= ?".to_string(),
-                    vec![Box::new(to.to_string())],
-                ),
-                (None, None) => ("".to_string(), vec![]),
-            };
+        // Build date filter using query builder helper
+        let (date_filter, params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date, "ar.completed_at")
+            .with_to_date(to_date, "ar.completed_at")
+            .build();
 
         // Query data points
         let query = format!(
@@ -112,30 +93,11 @@ impl VisualizationRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| VisualizationError::LockPoisoned)?;
 
-        // SECURITY NOTE: Dynamic query building pattern used here
-        // This is SAFE because:
-        // 1. date_filter variable contains only static SQL strings (no user input)
-        // 2. All user-provided values (from_date, to_date) are passed via params vector with `?` placeholders
-        // 3. format!() inserts only the static date_filter string, not user data
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-
-        // Build date filter
-        let (date_filter, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
-            match (from_date, to_date) {
-                (Some(from), Some(to)) => (
-                    "WHERE mc.created_at >= ? AND mc.created_at <= ?".to_string(),
-                    vec![Box::new(from.to_string()), Box::new(to.to_string())],
-                ),
-                (Some(from), None) => (
-                    "WHERE mc.created_at >= ?".to_string(),
-                    vec![Box::new(from.to_string())],
-                ),
-                (None, Some(to)) => (
-                    "WHERE mc.created_at <= ?".to_string(),
-                    vec![Box::new(to.to_string())],
-                ),
-                (None, None) => ("".to_string(), vec![]),
-            };
+        // Build date filter using query builder helper
+        let (date_filter, params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date, "mc.created_at")
+            .with_to_date(to_date, "mc.created_at")
+            .build_where();
 
         // Query mood data points
         let query = format!(
@@ -202,28 +164,11 @@ impl VisualizationRepository {
         from_date: Option<&str>,
         to_date: Option<&str>,
     ) -> Result<Vec<ActivityMoodData>, VisualizationError> {
-        // SECURITY NOTE: Dynamic query building pattern used here
-        // This is SAFE because:
-        // 1. date_filter variable contains only static SQL strings (no user input)
-        // 2. All user-provided values (from_date, to_date) are passed via params vector with `?` placeholders
-        // 3. format!() inserts only the static date_filter string, not user data
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-        let (date_filter, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
-            match (from_date, to_date) {
-                (Some(from), Some(to)) => (
-                    "AND mc.created_at >= ? AND mc.created_at <= ?".to_string(),
-                    vec![Box::new(from.to_string()), Box::new(to.to_string())],
-                ),
-                (Some(from), None) => (
-                    "AND mc.created_at >= ?".to_string(),
-                    vec![Box::new(from.to_string())],
-                ),
-                (None, Some(to)) => (
-                    "AND mc.created_at <= ?".to_string(),
-                    vec![Box::new(to.to_string())],
-                ),
-                (None, None) => ("".to_string(), vec![]),
-            };
+        // Build date filter using query builder helper
+        let (date_filter, params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date, "mc.created_at")
+            .with_to_date(to_date, "mc.created_at")
+            .build();
 
         let query = format!(
             "SELECT

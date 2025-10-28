@@ -150,43 +150,38 @@ impl AssessmentRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
-        // SECURITY NOTE: Dynamic query building pattern used here
-        // This is SAFE because:
-        // 1. Only static SQL strings are appended to the query (no user input)
-        // 2. All user-provided values are passed via the `params` vector with `?` placeholders
-        // 3. No string interpolation or formatting of user data into SQL
-        // This pattern allows flexible query construction while maintaining 100% parameterization
-        let mut query = String::from(
+        // Build date filter using query builder helper
+        let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
+            .with_from_date(from_date.as_deref(), "resp.completed_at")
+            .with_to_date(to_date.as_deref(), "resp.completed_at")
+            .build();
+
+        // Build assessment type filter
+        let type_filter = if assessment_type_code.is_some() {
+            " AND atype.code = ?"
+        } else {
+            ""
+        };
+
+        let mut query = format!(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
                     strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
-             WHERE 1=1"
+             WHERE 1=1{}{}
+             ORDER BY resp.completed_at DESC",
+            type_filter, date_filter
         );
 
-        if assessment_type_code.is_some() {
-            query.push_str(" AND atype.code = ?");
-        }
-        if from_date.is_some() {
-            query.push_str(" AND resp.completed_at >= ?");
-        }
-        if to_date.is_some() {
-            query.push_str(" AND resp.completed_at <= ?");
-        }
-
-        query.push_str(" ORDER BY resp.completed_at DESC");
-
-        // Build params dynamically
+        // Build params dynamically: type code + date params
         let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
         if let Some(code) = &assessment_type_code {
             params.push(code);
         }
-        if let Some(from) = &from_date {
-            params.push(from);
-        }
-        if let Some(to) = &to_date {
-            params.push(to);
+        // Add date params
+        for param in &date_params {
+            params.push(param.as_ref());
         }
 
         // ✅ FIXED: Use parameterized query for LIMIT (prevents SQL injection)
