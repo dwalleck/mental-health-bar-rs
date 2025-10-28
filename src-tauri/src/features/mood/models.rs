@@ -8,7 +8,7 @@ pub enum MoodError {
     InvalidRating(i32),
 
     #[error("Activity not found: {0}")]
-    ActivityNotFound(i64),
+    ActivityNotFound(i32),
 
     #[error("Activity name cannot be empty")]
     EmptyActivityName,
@@ -19,26 +19,32 @@ pub enum MoodError {
     #[error("Activity name already exists: {0}")]
     DuplicateActivityName(String),
 
-    #[error("Invalid color format: {0}. Must be #RRGGBB")]
+    #[error("Invalid color format: {0}. Must be #RGB, #RRGGBB, or #RRGGBBAA")]
     InvalidColorFormat(String),
+
+    #[error("Activity icon too long: {0} characters. Maximum 20 characters allowed")]
+    ActivityIconTooLong(usize),
 
     #[error("Notes too long: {0} characters. Maximum 5000 characters allowed")]
     NotesLengthExceeded(usize),
 
-    #[error("Database lock poisoned")]
+    #[error("Database lock poisoned - a panic occurred while holding the database lock. The application should restart.")]
     LockPoisoned,
 
     #[error("Database error: {0}")]
-    Database(#[from] duckdb::Error),
+    Database(#[from] rusqlite::Error),
 
     #[error("Mood check-in not found: {0}")]
-    MoodCheckinNotFound(i64),
+    MoodCheckinNotFound(i32),
+
+    #[error("Transaction rollback failed: {0}. Database may be in inconsistent state")]
+    TransactionFailure(String),
 }
 
 /// Activity model
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Activity {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub color: Option<String>,
     pub icon: Option<String>,
@@ -49,7 +55,7 @@ pub struct Activity {
 /// Mood check-in model
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct MoodCheckin {
-    pub id: i64,
+    pub id: i32,
     pub mood_rating: i32,
     pub notes: Option<String>,
     pub activities: Vec<Activity>,
@@ -60,7 +66,7 @@ pub struct MoodCheckin {
 #[derive(Debug, Serialize, Deserialize, specta::Type)]
 pub struct LogMoodRequest {
     pub mood_rating: i32,
-    pub activity_ids: Vec<i64>,
+    pub activity_ids: Vec<i32>,
     pub notes: Option<String>,
 }
 
@@ -125,13 +131,15 @@ pub fn validate_notes(notes: &str) -> Result<(), MoodError> {
     Ok(())
 }
 
-/// Validate hex color format (#RRGGBB)
+/// Validate hex color format (#RGB, #RRGGBB, or #RRGGBBAA)
 pub fn validate_color(color: &str) -> Result<(), MoodError> {
-    if color.len() != 7 {
+    if !color.starts_with('#') {
         return Err(MoodError::InvalidColorFormat(color.to_string()));
     }
 
-    if !color.starts_with('#') {
+    // Valid lengths: 4 (#RGB), 7 (#RRGGBB), or 9 (#RRGGBBAA)
+    let hex_part_len = color.len() - 1;
+    if hex_part_len != 3 && hex_part_len != 6 && hex_part_len != 8 {
         return Err(MoodError::InvalidColorFormat(color.to_string()));
     }
 
@@ -142,6 +150,14 @@ pub fn validate_color(color: &str) -> Result<(), MoodError> {
         }
     }
 
+    Ok(())
+}
+
+/// Validate activity icon (max 20 characters to accommodate compound emoji sequences)
+pub fn validate_icon(icon: &str) -> Result<(), MoodError> {
+    if icon.len() > 20 {
+        return Err(MoodError::ActivityIconTooLong(icon.len()));
+    }
     Ok(())
 }
 
@@ -198,17 +214,28 @@ mod tests {
 
     #[test]
     fn test_color_validation() {
-        // Valid colors
+        // Valid 6-digit colors (#RRGGBB)
         assert!(validate_color("#FF5733").is_ok());
         assert!(validate_color("#000000").is_ok());
         assert!(validate_color("#ffffff").is_ok());
         assert!(validate_color("#4CAF50").is_ok());
 
+        // Valid 3-digit colors (#RGB)
+        assert!(validate_color("#FFF").is_ok());
+        assert!(validate_color("#000").is_ok());
+        assert!(validate_color("#F5A").is_ok());
+
+        // Valid 8-digit colors with alpha (#RRGGBBAA)
+        assert!(validate_color("#FF5733FF").is_ok());
+        assert!(validate_color("#00000080").is_ok());
+        assert!(validate_color("#4CAF5000").is_ok());
+
         // Invalid colors
-        assert!(validate_color("FF5733").is_err());
-        assert!(validate_color("#FF57").is_err());
-        assert!(validate_color("#FF57331").is_err());
-        assert!(validate_color("blue").is_err());
-        assert!(validate_color("#GGGGGG").is_err());
+        assert!(validate_color("FF5733").is_err()); // Missing #
+        assert!(validate_color("#FF57").is_err()); // Wrong length
+        assert!(validate_color("#FF57331").is_err()); // Wrong length
+        assert!(validate_color("blue").is_err()); // Not hex
+        assert!(validate_color("#GGGGGG").is_err()); // Invalid hex chars
+        assert!(validate_color("#FF").is_err()); // Too short
     }
 }

@@ -1,37 +1,27 @@
--- Migration 001: Initial Schema
+-- Migration 001: Initial Schema (SQLite)
 -- Mental Health Assessment and Tracking Application
-
--- Create sequences for auto-incrementing IDs
-CREATE SEQUENCE assessment_types_id_seq START 1;
-CREATE SEQUENCE assessment_responses_id_seq START 1;
-CREATE SEQUENCE activities_id_seq START 1;
-CREATE SEQUENCE mood_checkins_id_seq START 1;
-CREATE SEQUENCE mood_checkin_activities_id_seq START 1;
-CREATE SEQUENCE assessment_schedules_id_seq START 1;
 
 -- Assessment Types (PHQ-9, GAD-7, CES-D, OASIS)
 CREATE TABLE assessment_types (
-    id INTEGER PRIMARY KEY DEFAULT nextval('assessment_types_id_seq'),
-    code VARCHAR(10) NOT NULL UNIQUE,
-    name VARCHAR(100) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     description TEXT,
     question_count INTEGER NOT NULL,
     min_score INTEGER NOT NULL,
     max_score INTEGER NOT NULL,
-    thresholds JSON NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    thresholds TEXT NOT NULL,  -- JSON stored as TEXT
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Assessment Responses
--- NOTE: DuckDB does not support ON DELETE CASCADE (as of v1.1.3)
--- If assessment types are deleted, child responses must be manually deleted first
 CREATE TABLE assessment_responses (
-    id INTEGER PRIMARY KEY DEFAULT nextval('assessment_responses_id_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assessment_type_id INTEGER NOT NULL,
-    responses JSON NOT NULL,
+    responses TEXT NOT NULL,  -- JSON stored as TEXT
     total_score INTEGER NOT NULL,
-    severity_level VARCHAR(50),
-    completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    severity_level TEXT,
+    completed_at TEXT NOT NULL DEFAULT (datetime('now')),
     notes TEXT CHECK (length(notes) <= 10000 OR notes IS NULL),
     FOREIGN KEY (assessment_type_id) REFERENCES assessment_types(id)
 );
@@ -42,35 +32,38 @@ CREATE INDEX idx_assessment_responses_severity ON assessment_responses(severity_
 
 -- Activities (user-defined for mood tracking)
 CREATE TABLE activities (
-    id INTEGER PRIMARY KEY DEFAULT nextval('activities_id_seq'),
-    name VARCHAR(100) NOT NULL UNIQUE,
-    color VARCHAR(7),
-    icon VARCHAR(50),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    color TEXT,
+    icon TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT  -- Soft delete timestamp
 );
 
 CREATE INDEX idx_activities_deleted_at ON activities(deleted_at);
 
+-- Partial unique index: only enforce uniqueness for non-deleted activities
+-- This allows users to recreate activities with the same name after deletion
+CREATE UNIQUE INDEX idx_activities_name_unique ON activities(name) WHERE deleted_at IS NULL;
+
 -- Mood Check-Ins
 CREATE TABLE mood_checkins (
-    id INTEGER PRIMARY KEY DEFAULT nextval('mood_checkins_id_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     mood_rating INTEGER NOT NULL CHECK (mood_rating BETWEEN 1 AND 5),
-    notes TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    notes TEXT CHECK (length(notes) <= 5000 OR notes IS NULL),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX idx_mood_checkins_created_at ON mood_checkins(created_at);
 CREATE INDEX idx_mood_checkins_date ON mood_checkins(DATE(created_at));
 
 -- Mood Check-In Activities (junction table)
--- NOTE: DuckDB does not support ON DELETE CASCADE
--- Manual cleanup required when deleting mood_checkins or activities
+-- SQLite supports ON DELETE CASCADE, so we can use it for referential integrity
 CREATE TABLE mood_checkin_activities (
-    id INTEGER PRIMARY KEY DEFAULT nextval('mood_checkin_activities_id_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     mood_checkin_id INTEGER NOT NULL,
     activity_id INTEGER NOT NULL,
-    FOREIGN KEY (mood_checkin_id) REFERENCES mood_checkins(id),
+    FOREIGN KEY (mood_checkin_id) REFERENCES mood_checkins(id) ON DELETE CASCADE,
     FOREIGN KEY (activity_id) REFERENCES activities(id),
     UNIQUE(mood_checkin_id, activity_id)
 );
@@ -79,19 +72,17 @@ CREATE INDEX idx_mood_checkin_activities_checkin ON mood_checkin_activities(mood
 CREATE INDEX idx_mood_checkin_activities_activity ON mood_checkin_activities(activity_id);
 
 -- Assessment Schedules
--- NOTE: DuckDB does not support ON DELETE CASCADE
--- Delete schedules manually before deleting assessment types
 CREATE TABLE assessment_schedules (
-    id INTEGER PRIMARY KEY DEFAULT nextval('assessment_schedules_id_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     assessment_type_id INTEGER NOT NULL,
-    frequency VARCHAR(20) NOT NULL CHECK (frequency IN ('daily', 'weekly', 'biweekly', 'monthly')),
-    time_of_day TIME NOT NULL,
+    frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'biweekly', 'monthly')),
+    time_of_day TEXT NOT NULL,  -- HH:MM format
     day_of_week INTEGER,
     day_of_month INTEGER,
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    last_triggered_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    enabled INTEGER NOT NULL DEFAULT 1,  -- Boolean stored as INTEGER (0=false, 1=true)
+    last_triggered_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (assessment_type_id) REFERENCES assessment_types(id)
 );
 

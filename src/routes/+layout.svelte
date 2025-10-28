@@ -1,5 +1,5 @@
 <script lang="ts">
-	import '../app.css';
+	import '../app.css'
 
 	// Navigation items
 	const navItems = [
@@ -7,11 +7,18 @@
 		{ name: 'Assessments', path: '/assessments', icon: '📋' },
 		{ name: 'Mood', path: '/mood', icon: '😊' },
 		{ name: 'Charts', path: '/charts', icon: '📊' },
-		{ name: 'Settings', path: '/settings', icon: '⚙️' }
-	];
+		{ name: 'Settings', path: '/settings', icon: '⚙️' },
+	]
 
-	// Get current path
-	let currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+	// Get current path and determine if a nav item is active
+	let currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+
+	function isActive(itemPath: string, currentPath: string): boolean {
+		if (itemPath === '/') {
+			return currentPath === '/'
+		}
+		return currentPath.startsWith(itemPath)
+	}
 </script>
 
 <div class="flex h-screen bg-gray-50">
@@ -22,11 +29,14 @@
 		</div>
 
 		<nav class="mt-6">
-			{#each navItems as item}
+			{#each navItems as item (item.path)}
 				<a
 					href={item.path}
-					class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors {currentPath ===
-					item.path
+					data-sveltekit-preload-data="hover"
+					class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors {isActive(
+						item.path,
+						currentPath
+					)
 						? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600'
 						: ''}"
 				>
@@ -49,7 +59,7 @@
 	:global(body) {
 		margin: 0;
 		padding: 0;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-			sans-serif;
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 	}
 </style>

@@ -10,27 +10,35 @@ This document consolidates research findings that informed the implementation pl
 
 ## Technology Stack Decisions
 
-### 1. Database: DuckDB vs SQLite
+### 1. Database: SQLite (Changed from DuckDB)
 
-**Decision**: Use DuckDB for local data persistence
+**Decision**: Use SQLite for local data persistence
 
 **Rationale**:
-- **Analytics Optimized**: DuckDB is columnar-oriented (OLAP), optimized for time-series aggregations needed for charting
-- **Performance**: Significantly faster for analytical queries (GROUP BY, aggregations) over large datasets (1+ year daily data)
-- **Embedded**: Like SQLite, DuckDB runs in-process with no server required
-- **Rust Support**: Good Rust bindings available via `duckdb` crate
-- **Zero-Copy Arrow**: Efficient data transfer for visualization libraries
+- **Mature & Reliable**: 20+ years of production use, rock-solid stability
+- **Embedded**: Runs in-process with zero configuration, works everywhere
+- **Perfect for Scale**: At ~10K records (5 years of data), SQLite handles queries in milliseconds
+- **Better FK Support**: Properly supports soft deletes with foreign key constraints
+- **Excellent Rust Support**: `rusqlite` crate is mature and well-maintained
+- **Universal**: Already installed on every system, no deployment complexity
+
+**Why Changed from DuckDB** (2025-10-22):
+- **FK Constraint Issue**: DuckDB prevents UPDATE operations on rows with FK references, even when updating non-key columns (like `deleted_at` for soft deletes). This broke our soft delete implementation.
+- **Overkill**: DuckDB's columnar analytics optimization is unnecessary for our scale (10K rows max). SQLite aggregates 10K rows in <10ms.
+- **Less Mature**: DuckDB has fewer production years and a smaller ecosystem than SQLite.
 
 **Alternatives Considered**:
-- **SQLite**: Row-oriented (OLTP), excellent for CRUD but slower for analytical queries. Rejected because charting queries (aggregating mood scores by day/week/month) would be slower with 365+ daily entries.
+- **DuckDB** (original choice): Columnar analytics database, but FK limitations and unnecessary complexity for this scale. Migration completed 2025-10-22.
+- **PostgreSQL**: Most powerful option, but requires server installation (poor UX for desktop app). Overkill for single-user local storage.
 - **JSON Files**: Simple but no query capabilities, would require loading entire dataset into memory. Rejected for performance and scalability reasons.
 - **sled**: Rust-native embedded key-value store. Rejected because we need SQL for complex queries (e.g., "show average mood score by activity type").
 
 **Implementation Notes**:
-- Use DuckDB 0.9+ for best Rust API stability
+- Use `rusqlite` 0.31+ with bundled SQLite
 - Create single database file in user's app data directory
 - Schema migrations managed manually (simple SQL scripts)
-- Fallback plan: If DuckDB proves problematic, migration to SQLite is straightforward (both SQL-based)
+- Timestamps stored as TEXT in ISO8601 format
+- JSON data stored as TEXT (SQLite has native JSON support via JSON1 extension)
 
 ---
 
