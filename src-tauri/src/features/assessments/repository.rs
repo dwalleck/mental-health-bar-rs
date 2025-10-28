@@ -150,6 +150,12 @@ impl AssessmentRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
 
+        // SECURITY NOTE: Dynamic query building pattern used here
+        // This is SAFE because:
+        // 1. Only static SQL strings are appended to the query (no user input)
+        // 2. All user-provided values are passed via the `params` vector with `?` placeholders
+        // 3. No string interpolation or formatting of user data into SQL
+        // This pattern allows flexible query construction while maintaining 100% parameterization
         let mut query = String::from(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
                     strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
@@ -185,6 +191,8 @@ impl AssessmentRepository {
 
         // ✅ FIXED: Use parameterized query for LIMIT (prevents SQL injection)
         // Enforce reasonable bounds to prevent excessive queries
+        // Design choice: Using clamp() for silent correction rather than validation error
+        // This provides better UX (automatically corrects invalid limits) rather than rejecting requests
         let safe_limit;
         if let Some(lim) = limit {
             safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);

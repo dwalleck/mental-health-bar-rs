@@ -31,6 +31,13 @@ impl VisualizationRepository {
         // Get assessment type
         let assessment_type = self.get_assessment_type_by_code(&conn, code)?;
 
+        // SECURITY NOTE: Dynamic query building pattern used here
+        // This is SAFE because:
+        // 1. date_filter variable contains only static SQL strings (no user input)
+        // 2. All user-provided values (from_date, to_date) are passed via params vector with `?` placeholders
+        // 3. format!() inserts only the static date_filter string, not user data
+        // This pattern allows flexible query construction while maintaining 100% parameterization
+
         // Build date filter
         let (date_filter, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
             match (from_date, to_date) {
@@ -104,6 +111,13 @@ impl VisualizationRepository {
     ) -> Result<MoodChartData, VisualizationError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| VisualizationError::LockPoisoned)?;
+
+        // SECURITY NOTE: Dynamic query building pattern used here
+        // This is SAFE because:
+        // 1. date_filter variable contains only static SQL strings (no user input)
+        // 2. All user-provided values (from_date, to_date) are passed via params vector with `?` placeholders
+        // 3. format!() inserts only the static date_filter string, not user data
+        // This pattern allows flexible query construction while maintaining 100% parameterization
 
         // Build date filter
         let (date_filter, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
@@ -188,6 +202,12 @@ impl VisualizationRepository {
         from_date: Option<&str>,
         to_date: Option<&str>,
     ) -> Result<Vec<ActivityMoodData>, VisualizationError> {
+        // SECURITY NOTE: Dynamic query building pattern used here
+        // This is SAFE because:
+        // 1. date_filter variable contains only static SQL strings (no user input)
+        // 2. All user-provided values (from_date, to_date) are passed via params vector with `?` placeholders
+        // 3. format!() inserts only the static date_filter string, not user data
+        // This pattern allows flexible query construction while maintaining 100% parameterization
         let (date_filter, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
             match (from_date, to_date) {
                 (Some(from), Some(to)) => (

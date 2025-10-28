@@ -50,6 +50,7 @@ impl Database {
         .context("Failed to configure database PRAGMAs")?;
 
         // Configure statement cache for prepared statement reuse
+        // Note: This operation cannot fail - it simply sets an internal capacity value
         conn.set_prepared_statement_cache_capacity(100);
 
         let db = Self {
