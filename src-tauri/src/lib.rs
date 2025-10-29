@@ -48,6 +48,11 @@ pub fn run() {
         features::mood::queries::get_activities,
         features::visualization::queries::get_assessment_chart_data,
         features::visualization::queries::get_mood_chart_data,
+        features::scheduling::commands::create_schedule,
+        features::scheduling::commands::update_schedule,
+        features::scheduling::commands::delete_schedule,
+        features::scheduling::queries::get_schedules,
+        features::scheduling::queries::get_schedule,
     ]);
 
     #[cfg(debug_assertions)]
@@ -88,11 +93,18 @@ pub fn run() {
                 e
             })?;
 
+            // Create database Arc for shared access
+            let db_arc = Arc::new(db);
+
             // Setup managed state
             app.manage(AppState {
-                db: Arc::new(db),
+                db: Arc::clone(&db_arc),
                 config: Arc::new(Mutex::new(config)),
             });
+
+            // Start background scheduler
+            let app_handle = app.handle().clone();
+            features::scheduling::start_scheduler(app_handle, Arc::clone(&db_arc));
 
             Ok(())
         })
@@ -127,6 +139,13 @@ mod tests {
             features::mood::queries::get_mood_checkin,
             features::mood::queries::get_mood_stats,
             features::mood::queries::get_activities,
+            features::visualization::queries::get_assessment_chart_data,
+            features::visualization::queries::get_mood_chart_data,
+            features::scheduling::commands::create_schedule,
+            features::scheduling::commands::update_schedule,
+            features::scheduling::commands::delete_schedule,
+            features::scheduling::queries::get_schedules,
+            features::scheduling::queries::get_schedule,
         ]);
 
         builder
