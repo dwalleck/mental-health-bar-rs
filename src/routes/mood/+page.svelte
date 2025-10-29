@@ -2,7 +2,6 @@
 	// T090: /mood route - Quick mood check-in page
 
 	import { invoke } from '@tauri-apps/api/core'
-	import { onMount } from 'svelte'
 	import Card from '$lib/components/ui/Card.svelte'
 	import MoodScaleInput from '$lib/components/mood/MoodScaleInput.svelte'
 	import ActivitySelector from '$lib/components/mood/ActivitySelector.svelte'
@@ -17,8 +16,9 @@
 	let successMessage = $state<string | null>(null)
 	let recentCheckins: MoodCheckin[] = $state([])
 
-	onMount(async () => {
-		await loadRecentCheckins()
+	// Load recent check-ins on mount
+	$effect(() => {
+		loadRecentCheckins()
 	})
 
 	async function loadRecentCheckins() {

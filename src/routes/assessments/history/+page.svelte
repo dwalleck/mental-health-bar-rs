@@ -1,27 +1,30 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
 	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentResponse } from '$lib/bindings'
 	import { formatSeverity } from '$lib/utils/severity'
 	import Card from '$lib/components/ui/Card.svelte'
 
-	let history: AssessmentResponse[] = []
-	let loading = true
-	let error = ''
+	let history = $state<AssessmentResponse[]>([])
+	let loading = $state(true)
+	let error = $state('')
 
-	onMount(async () => {
-		try {
-			history = await invoke('get_assessment_history', {
-				assessmentTypeCode: null,
-				fromDate: null,
-				toDate: null,
-				limit: null,
-			})
-		} catch (e) {
-			error = String(e)
-		} finally {
-			loading = false
+	// Load assessment history on mount
+	$effect(() => {
+		async function loadHistory() {
+			try {
+				history = await invoke('get_assessment_history', {
+					assessmentTypeCode: null,
+					fromDate: null,
+					toDate: null,
+					limit: null,
+				})
+			} catch (e) {
+				error = String(e)
+			} finally {
+				loading = false
+			}
 		}
+		loadHistory()
 	})
 
 	function formatDate(dateString: string): string {

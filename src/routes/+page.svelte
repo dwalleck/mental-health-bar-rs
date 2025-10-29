@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
 	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentType, AssessmentResponse } from '$lib/bindings'
@@ -7,22 +6,26 @@
 	import Button from '$lib/components/ui/Button.svelte'
 	import DashboardScores from '$lib/components/dashboard/DashboardScores.svelte'
 
-	let assessmentTypes: AssessmentType[] = []
-	let recentCount = 0
+	let assessmentTypes = $state<AssessmentType[]>([])
+	let recentCount = $state(0)
 
-	onMount(async () => {
-		try {
-			assessmentTypes = await invoke('get_assessment_types')
-			const history = await invoke<AssessmentResponse[]>('get_assessment_history', {
-				assessmentTypeCode: null,
-				fromDate: null,
-				toDate: null,
-				limit: 10,
-			})
-			recentCount = history.length
-		} catch (e) {
-			console.error('Failed to load dashboard data:', e)
+	// Load dashboard data on mount
+	$effect(() => {
+		async function loadDashboardData() {
+			try {
+				assessmentTypes = await invoke('get_assessment_types')
+				const history = await invoke<AssessmentResponse[]>('get_assessment_history', {
+					assessmentTypeCode: null,
+					fromDate: null,
+					toDate: null,
+					limit: 10,
+				})
+				recentCount = history.length
+			} catch (e) {
+				console.error('Failed to load dashboard data:', e)
+			}
 		}
+		loadDashboardData()
 	})
 </script>
 
@@ -75,7 +78,7 @@
 					<li>Review your score and severity level</li>
 					<li>Track your progress over time with charts</li>
 				</ol>
-				<Button variant="primary" fullWidth on:click={() => goto('/assessments')}>
+				<Button variant="primary" fullWidth onclick={() => goto('/assessments')}>
 					Take Your First Assessment
 				</Button>
 			</div>

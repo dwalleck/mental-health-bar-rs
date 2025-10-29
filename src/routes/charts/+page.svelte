@@ -1,6 +1,5 @@
 <script lang="ts">
 	// T133, T149, T150: Charts route with assessment and mood visualizations
-	import { onMount } from 'svelte'
 	import { page } from '$app/stores'
 	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentType, AssessmentChartData, MoodChartData, TimeRange } from '$lib/bindings'
@@ -27,16 +26,20 @@
 	// Tab state
 	let activeTab: 'assessments' | 'mood' = $state('assessments')
 
-	onMount(async () => {
-		// T230: Support URL query parameter for assessment type
-		const typeParam = $page.url.searchParams.get('type')
-		if (typeParam) {
-			selectedType = typeParam.toUpperCase()
-		}
+	// Load chart data on mount
+	$effect(() => {
+		async function initializeCharts() {
+			// T230: Support URL query parameter for assessment type
+			const typeParam = $page.url.searchParams.get('type')
+			if (typeParam) {
+				selectedType = typeParam.toUpperCase()
+			}
 
-		await loadAssessmentTypes()
-		await loadChartData()
-		await loadMoodChartData()
+			await loadAssessmentTypes()
+			await loadChartData()
+			await loadMoodChartData()
+		}
+		initializeCharts()
 	})
 
 	async function loadAssessmentTypes() {

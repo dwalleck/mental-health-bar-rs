@@ -2,7 +2,6 @@
 	// T114: /mood/activities route - Manage custom activities (CRUD operations)
 
 	import { invoke } from '@tauri-apps/api/core'
-	import { onMount } from 'svelte'
 	import Card from '$lib/components/ui/Card.svelte'
 	import ActivityForm from '$lib/components/mood/ActivityForm.svelte'
 	import ActivityList from '$lib/components/mood/ActivityList.svelte'
@@ -14,8 +13,9 @@
 	let showForm = $state(false)
 	let editingActivity = $state<Activity | null>(null)
 
-	onMount(async () => {
-		await loadActivities()
+	// Load activities on mount
+	$effect(() => {
+		loadActivities()
 	})
 
 	async function loadActivities() {

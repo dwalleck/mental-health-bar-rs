@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css'
-	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
 	import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte'
 
@@ -24,7 +23,7 @@
 	}
 
 	// T179: Handle notification clicks to navigate to assessment page
-	onMount(() => {
+	$effect(() => {
 		// Only set up notification listener in Tauri environment
 		if (typeof window !== 'undefined' && '__TAURI__' in window) {
 			// Store the plugin listener for cleanup

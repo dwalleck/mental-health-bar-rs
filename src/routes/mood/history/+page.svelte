@@ -2,7 +2,6 @@
 	// T091: /mood/history route - View all past mood check-ins
 
 	import { invoke } from '@tauri-apps/api/core'
-	import { onMount } from 'svelte'
 	import Card from '$lib/components/ui/Card.svelte'
 	import MoodHistoryList from '$lib/components/mood/MoodHistoryList.svelte'
 	import type { MoodCheckin, MoodStats } from '$lib/bindings'
@@ -13,9 +12,13 @@
 	let error = $state<string | null>(null)
 	let selectedFilter = $state<'all' | 'week' | 'month'>('all')
 
-	onMount(async () => {
-		await loadHistory()
-		await loadStats()
+	// Load history and stats on mount
+	$effect(() => {
+		async function initialize() {
+			await loadHistory()
+			await loadStats()
+		}
+		initialize()
 	})
 
 	async function loadHistory() {
