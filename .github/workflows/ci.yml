@@ -1,10 +1,5 @@
 name: CI/CD Pipeline
 
-# Optional Secrets (for coverage reporting):
-# - CODECOV_TOKEN: Get from https://codecov.io after setting up the repository
-#   Add in GitHub: Settings > Secrets and variables > Actions > New repository secret
-#   If not configured, coverage uploads will be skipped (tests still run)
-
 on:
   push:
     branches: [main, develop, 'feature/**']
@@ -113,14 +108,11 @@ jobs:
         run: npm run test:coverage -- --run
 
       - name: Upload coverage to Codecov
-        # Only upload if CODECOV_TOKEN is configured
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/coverage-final.json
           flags: frontend
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   # T208: Code coverage
   coverage:
@@ -158,14 +150,11 @@ jobs:
         run: cargo llvm-cov --lib --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
-        # Only upload if CODECOV_TOKEN is configured
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v4
         with:
           files: src-tauri/lcov.info
           flags: backend
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   # T206 + T209: Multi-platform build with artifacts
   build:
