@@ -1,6 +1,7 @@
 // Scheduling repository (User Story 6)
 // T160-T164: Database operations for schedules
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use rusqlite::params;
@@ -30,10 +31,16 @@ impl SchedulingRepository {
         request.validate()?;
 
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let mut conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+
+        // Use IMMEDIATE transaction to acquire write lock immediately
+        // This ensures atomicity across all operations (check, insert, fetch)
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(SchedulingError::Database)?;
 
         // Verify assessment type exists
-        let assessment_type_exists: bool = conn
+        let assessment_type_exists: bool = tx
             .query_row(
                 "SELECT COUNT(*) FROM assessment_types WHERE id = ?",
                 params![request.assessment_type_id],
@@ -46,7 +53,7 @@ impl SchedulingRepository {
         }
 
         // Insert schedule
-        conn.execute(
+        tx.execute(
             "INSERT INTO assessment_schedules
              (assessment_type_id, frequency, time_of_day, day_of_week, day_of_month, enabled, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
@@ -59,10 +66,26 @@ impl SchedulingRepository {
             ],
         )?;
 
-        let schedule_id = conn.last_insert_rowid() as i32;
+        let schedule_id = tx.last_insert_rowid() as i32;
 
-        // Return created schedule
-        self.get_schedule_with_conn(&conn, schedule_id)
+        // Fetch created schedule within transaction
+        let schedule = tx
+            .query_row(
+                "SELECT s.id, s.assessment_type_id, a.code, a.name, s.frequency, s.time_of_day,
+                        s.day_of_week, s.day_of_month, s.enabled, s.last_triggered_at,
+                        s.created_at, s.updated_at
+                 FROM assessment_schedules s
+                 JOIN assessment_types a ON s.assessment_type_id = a.id
+                 WHERE s.id = ?",
+                params![schedule_id],
+                |row| self.map_schedule_row(row),
+            )
+            .map_err(|_| SchedulingError::NotFound(schedule_id))?;
+
+        // Commit transaction (auto-rollback on drop if not committed or on panic)
+        tx.commit().map_err(SchedulingError::Database)?;
+
+        Ok(schedule)
     }
 
     /// T161: Update an existing schedule
@@ -77,42 +100,50 @@ impl SchedulingRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
 
-        // Build dynamic update query
-        let mut updates = Vec::new();
+        // Build dynamic update query using safe predefined clauses
+        // Each clause is a constant string to prevent SQL injection
+        const FREQUENCY_CLAUSE: &str = "frequency = ?";
+        const TIME_CLAUSE: &str = "time_of_day = ?";
+        const DAY_OF_WEEK_CLAUSE: &str = "day_of_week = ?";
+        const DAY_OF_MONTH_CLAUSE: &str = "day_of_month = ?";
+        const ENABLED_CLAUSE: &str = "enabled = ?";
+        const UPDATED_AT_CLAUSE: &str = "updated_at = CURRENT_TIMESTAMP";
+
+        let mut clauses = Vec::new();
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
         if let Some(ref freq) = request.frequency {
-            updates.push("frequency = ?");
+            clauses.push(FREQUENCY_CLAUSE);
             params_vec.push(Box::new(freq.as_str().to_string()));
         }
         if let Some(ref time) = request.time_of_day {
-            updates.push("time_of_day = ?");
+            clauses.push(TIME_CLAUSE);
             params_vec.push(Box::new(time.clone()));
         }
         if let Some(day) = request.day_of_week {
-            updates.push("day_of_week = ?");
+            clauses.push(DAY_OF_WEEK_CLAUSE);
             params_vec.push(Box::new(day));
         }
         if let Some(day) = request.day_of_month {
-            updates.push("day_of_month = ?");
+            clauses.push(DAY_OF_MONTH_CLAUSE);
             params_vec.push(Box::new(day));
         }
         if let Some(enabled) = request.enabled {
-            updates.push("enabled = ?");
+            clauses.push(ENABLED_CLAUSE);
             params_vec.push(Box::new(enabled));
         }
 
-        if updates.is_empty() {
+        if clauses.is_empty() {
             // Nothing to update, just return current schedule
             return self.get_schedule_with_conn(&conn, id);
         }
 
-        updates.push("updated_at = CURRENT_TIMESTAMP");
+        clauses.push(UPDATED_AT_CLAUSE);
 
-        let query = format!(
-            "UPDATE assessment_schedules SET {} WHERE id = ?",
-            updates.join(", ")
-        );
+        // Build query from safe constant clauses only
+        let mut query = String::from("UPDATE assessment_schedules SET ");
+        query.push_str(&clauses.join(", "));
+        query.push_str(" WHERE id = ?");
 
         params_vec.push(Box::new(id));
 
@@ -151,7 +182,116 @@ impl SchedulingRepository {
     ) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
         let conn = self.db.get_connection();
         let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        self.get_schedules_with_conn(&conn, enabled_only)
+    }
 
+    /// Get a single schedule by ID
+    pub fn get_schedule(&self, id: i32) -> Result<AssessmentSchedule, SchedulingError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+
+        self.get_schedule_with_conn(&conn, id)
+    }
+
+    /// T164: Get schedules that are due for triggering
+    pub fn get_due_schedules(&self) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        self.get_due_schedules_with_conn(&conn)
+    }
+
+    /// Mark a schedule as triggered
+    pub fn mark_triggered(&self, id: i32) -> Result<(), SchedulingError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+
+        let rows_affected = conn.execute(
+            "UPDATE assessment_schedules SET last_triggered_at = CURRENT_TIMESTAMP WHERE id = ?",
+            params![id],
+        )?;
+
+        if rows_affected == 0 {
+            return Err(SchedulingError::NotFound(id));
+        }
+
+        Ok(())
+    }
+
+    /// Mark multiple schedules as triggered in a single transaction
+    /// More efficient than calling mark_triggered in a loop
+    pub fn mark_multiple_triggered(&self, schedule_ids: &[i32]) -> Result<(), SchedulingError> {
+        if schedule_ids.is_empty() {
+            return Ok(());
+        }
+
+        let conn = self.db.get_connection();
+        let mut conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+
+        // Use IMMEDIATE transaction for batch updates
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(SchedulingError::Database)?;
+
+        // Use prepared statement caching for efficiency
+        {
+            let mut stmt = tx
+                .prepare_cached(
+                    "UPDATE assessment_schedules SET last_triggered_at = CURRENT_TIMESTAMP WHERE id = ?",
+                )
+                .map_err(SchedulingError::Database)?;
+
+            for id in schedule_ids {
+                stmt.execute(params![id])?;
+            }
+        } // Drop stmt before committing
+
+        // Commit transaction (auto-rollback on drop if not committed)
+        tx.commit().map_err(SchedulingError::Database)?;
+
+        Ok(())
+    }
+
+    // Helper methods
+
+    fn get_due_schedules_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+    ) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
+        // Get current time - use SQLite's built-in datetime for consistency
+        let now = chrono::Utc::now();
+        let current_time = now.format("%H:%M").to_string();
+
+        // Frequency-aware query to prevent schedules from triggering too frequently
+        // Uses julianday for day calculations to handle all frequency types correctly
+        let query = "SELECT s.id, s.assessment_type_id, a.code, a.name, s.frequency, s.time_of_day,
+                            s.day_of_week, s.day_of_month, s.enabled, s.last_triggered_at,
+                            s.created_at, s.updated_at
+                     FROM assessment_schedules s
+                     JOIN assessment_types a ON s.assessment_type_id = a.id
+                     WHERE s.enabled = 1
+                       AND s.time_of_day <= ?
+                       AND (
+                         s.last_triggered_at IS NULL OR
+                         (s.frequency = 'daily' AND DATE(s.last_triggered_at) < DATE('now')) OR
+                         (s.frequency = 'weekly' AND julianday('now') - julianday(s.last_triggered_at) >= 7) OR
+                         (s.frequency = 'biweekly' AND julianday('now') - julianday(s.last_triggered_at) >= 14) OR
+                         (s.frequency = 'monthly' AND DATE(s.last_triggered_at, '+1 month') <= DATE('now'))
+                       )
+                     ORDER BY s.time_of_day ASC";
+
+        let mut stmt = conn.prepare(query)?;
+        let schedules = stmt
+            .query_map(params![current_time], |row| self.map_schedule_row(row))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(schedules)
+    }
+
+    fn get_schedules_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        enabled_only: bool,
+    ) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
         let query = if enabled_only {
             "SELECT s.id, s.assessment_type_id, a.code, a.name, s.frequency, s.time_of_day,
                     s.day_of_week, s.day_of_month, s.enabled, s.last_triggered_at,
@@ -177,64 +317,6 @@ impl SchedulingRepository {
         Ok(schedules)
     }
 
-    /// Get a single schedule by ID
-    pub fn get_schedule(&self, id: i32) -> Result<AssessmentSchedule, SchedulingError> {
-        let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
-
-        self.get_schedule_with_conn(&conn, id)
-    }
-
-    /// T164: Get schedules that are due for triggering
-    pub fn get_due_schedules(&self) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
-        let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
-
-        // Get current time components
-        let now = chrono::Utc::now();
-        let current_time = now.format("%H:%M").to_string();
-        let current_date = now.format("%Y-%m-%d").to_string();
-
-        let query = "SELECT s.id, s.assessment_type_id, a.code, a.name, s.frequency, s.time_of_day,
-                            s.day_of_week, s.day_of_month, s.enabled, s.last_triggered_at,
-                            s.created_at, s.updated_at
-                     FROM assessment_schedules s
-                     JOIN assessment_types a ON s.assessment_type_id = a.id
-                     WHERE s.enabled = 1
-                       AND (s.last_triggered_at IS NULL
-                            OR DATE(s.last_triggered_at) < ?)
-                       AND s.time_of_day <= ?
-                     ORDER BY s.time_of_day ASC";
-
-        let mut stmt = conn.prepare(query)?;
-        let schedules = stmt
-            .query_map(params![current_date, current_time], |row| {
-                self.map_schedule_row(row)
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(schedules)
-    }
-
-    /// Mark a schedule as triggered
-    pub fn mark_triggered(&self, id: i32) -> Result<(), SchedulingError> {
-        let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
-
-        let rows_affected = conn.execute(
-            "UPDATE assessment_schedules SET last_triggered_at = CURRENT_TIMESTAMP WHERE id = ?",
-            params![id],
-        )?;
-
-        if rows_affected == 0 {
-            return Err(SchedulingError::NotFound(id));
-        }
-
-        Ok(())
-    }
-
-    // Helper methods
-
     fn get_schedule_with_conn(
         &self,
         conn: &rusqlite::Connection,
@@ -250,7 +332,10 @@ impl SchedulingRepository {
             params![id],
             |row| self.map_schedule_row(row),
         )
-        .map_err(|_| SchedulingError::NotFound(id))
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => SchedulingError::NotFound(id),
+            other => SchedulingError::Database(other),
+        })
     }
 
     fn map_schedule_row(&self, row: &rusqlite::Row) -> rusqlite::Result<AssessmentSchedule> {

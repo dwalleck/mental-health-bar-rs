@@ -3,6 +3,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use thiserror::Error;
 
 /// Scheduling-specific errors
@@ -52,8 +53,12 @@ impl ScheduleFrequency {
             ScheduleFrequency::Monthly => "monthly",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Result<Self, SchedulingError> {
+impl FromStr for ScheduleFrequency {
+    type Err = SchedulingError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "daily" => Ok(ScheduleFrequency::Daily),
             "weekly" => Ok(ScheduleFrequency::Weekly),
@@ -177,6 +182,11 @@ fn is_valid_time_format(time: &str) -> bool {
         return false;
     }
 
+    // Check for HH:MM format (exactly 2 digits for hour and minute)
+    if parts[0].len() != 2 || parts[1].len() != 2 {
+        return false;
+    }
+
     let hour: Result<u32, _> = parts[0].parse();
     let minute: Result<u32, _> = parts[1].parse();
 
@@ -202,17 +212,16 @@ pub fn calculate_next_trigger(
     let target_time = NaiveTime::from_hms_opt(hour, minute, 0)
         .ok_or_else(|| SchedulingError::InvalidTimeFormat(schedule.time_of_day.clone()))?;
 
-    let mut next_trigger = from;
-
-    match schedule.frequency {
+    let next_trigger = match schedule.frequency {
         ScheduleFrequency::Daily => {
             // Set to target time today
-            next_trigger = from.date_naive().and_time(target_time).and_utc();
+            let mut trigger = from.date_naive().and_time(target_time).and_utc();
 
             // If time has passed today, move to tomorrow
-            if next_trigger <= from {
-                next_trigger += Duration::days(1);
+            if trigger <= from {
+                trigger += Duration::days(1);
             }
+            trigger
         }
         ScheduleFrequency::Weekly => {
             let target_day = schedule.day_of_week.ok_or_else(|| {
@@ -224,35 +233,75 @@ pub fn calculate_next_trigger(
             let current_day = from.weekday().num_days_from_sunday() as i32;
             let days_until_target = (target_day - current_day + 7) % 7;
 
-            next_trigger = (from + Duration::days(days_until_target as i64))
+            let mut trigger = (from + Duration::days(days_until_target as i64))
                 .date_naive()
                 .and_time(target_time)
                 .and_utc();
 
             // If same day but time passed, move to next week
-            if days_until_target == 0 && next_trigger <= from {
-                next_trigger += Duration::weeks(1);
+            if days_until_target == 0 && trigger <= from {
+                trigger += Duration::weeks(1);
             }
+            trigger
         }
         ScheduleFrequency::Biweekly => {
-            // Similar to weekly but 2 weeks interval
+            // BIWEEKLY SCHEDULING ALGORITHM
+            //
+            // For biweekly schedules, we must maintain strict 14-day intervals to prevent
+            // "drift" where the schedule would trigger every occurrence of the target weekday
+            // instead of maintaining proper 2-week spacing.
+            //
+            // Example problem without this logic:
+            //   Schedule: Every other Monday at 9:00 AM
+            //   Last trigger: Monday, Oct 1
+            //   Without proper tracking: Would trigger again on Oct 8 (only 7 days later!)
+            //   With proper tracking: Correctly triggers on Oct 15 (14 days later)
+
             let target_day = schedule.day_of_week.ok_or_else(|| {
                 SchedulingError::InvalidFrequency(
                     "day_of_week missing for biweekly schedule".to_string(),
                 )
             })?;
 
-            let current_day = from.weekday().num_days_from_sunday() as i32;
-            let days_until_target = (target_day - current_day + 7) % 7;
+            let trigger = if let Some(last_triggered) = &schedule.last_triggered_at {
+                // RECURRING SCHEDULE: Calculate from last trigger to ensure 14-day intervals
+                // This prevents "drift" where the schedule would trigger every occurrence of
+                // the target weekday instead of maintaining strict 2-week spacing.
+                let last_trigger_dt = chrono::DateTime::parse_from_rfc3339(last_triggered)
+                    .map_err(|e| {
+                        SchedulingError::DateParseError(format!(
+                            "Failed to parse last_triggered_at: {}",
+                            e
+                        ))
+                    })?
+                    .with_timezone(&chrono::Utc);
+                let mut t = last_trigger_dt + Duration::weeks(2);
 
-            next_trigger = (from + Duration::days(days_until_target as i64))
-                .date_naive()
-                .and_time(target_time)
-                .and_utc();
+                // CATCH-UP LOGIC: If calculated trigger is in the past (e.g., app was offline
+                // for multiple weeks), keep adding 2-week intervals until we reach a future date.
+                // This ensures we don't miss multiple triggers or create notification spam.
+                while t <= from {
+                    t += Duration::weeks(2);
+                }
+                t
+            } else {
+                // FIRST-TIME SCHEDULE: Find next occurrence of target weekday
+                // Subsequent triggers will use the path above to maintain 14-day spacing.
+                let current_day = from.weekday().num_days_from_sunday() as i32;
+                let days_until_target = (target_day - current_day + 7) % 7;
 
-            if days_until_target == 0 && next_trigger <= from {
-                next_trigger += Duration::weeks(2);
-            }
+                let mut t = (from + Duration::days(days_until_target as i64))
+                    .date_naive()
+                    .and_time(target_time)
+                    .and_utc();
+
+                // If target day is today but time has passed, move to next week
+                if days_until_target == 0 && t <= from {
+                    t += Duration::weeks(1);
+                }
+                t
+            };
+            trigger
         }
         ScheduleFrequency::Monthly => {
             let target_day = schedule.day_of_month.ok_or_else(|| {
@@ -278,30 +327,37 @@ pub fn calculate_next_trigger(
             }
 
             // Handle months with fewer days (e.g., February, April)
-            let day = target_day.min(days_in_month(year, month) as i32);
+            let day = target_day.min(days_in_month(year, month)? as i32);
 
-            next_trigger = chrono::NaiveDate::from_ymd_opt(year, month, day as u32)
+            chrono::NaiveDate::from_ymd_opt(year, month, day as u32)
                 .ok_or_else(|| SchedulingError::DateParseError("Invalid date".to_string()))?
                 .and_time(target_time)
-                .and_utc();
+                .and_utc()
         }
-    }
+    };
 
     Ok(next_trigger)
 }
 
 /// Get number of days in a month
-fn days_in_month(year: i32, month: u32) -> u32 {
+fn days_in_month(year: i32, month: u32) -> Result<u32, SchedulingError> {
     use chrono::NaiveDate;
 
-    if month == 12 {
+    let first_of_next_month = if month == 12 {
         NaiveDate::from_ymd_opt(year + 1, 1, 1)
     } else {
         NaiveDate::from_ymd_opt(year, month + 1, 1)
+    };
+
+    let first_of_month = NaiveDate::from_ymd_opt(year, month, 1);
+
+    match (first_of_next_month, first_of_month) {
+        (Some(next), Some(current)) => Ok(next.signed_duration_since(current).num_days() as u32),
+        _ => Err(SchedulingError::DateParseError(format!(
+            "Invalid year/month combination: year={}, month={}",
+            year, month
+        ))),
     }
-    .unwrap()
-    .signed_duration_since(NaiveDate::from_ymd_opt(year, month, 1).unwrap())
-    .num_days() as u32
 }
 
 #[cfg(test)]

@@ -9,8 +9,8 @@
 	let error = $state<string | null>(null)
 
 	$effect(() => {
-		// Reload when refresh prop changes
-		if (refresh >= 0) {
+		// Reload when refresh prop changes (skip initial mount since onMount handles that)
+		if (refresh > 0) {
 			loadSchedules()
 		}
 	})

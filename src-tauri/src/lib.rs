@@ -93,7 +93,7 @@ pub fn run() {
                 e
             })?;
 
-            // Create database Arc for shared access
+            // Create Arc-wrapped database for shared access between AppState and scheduler
             let db_arc = Arc::new(db);
 
             // Setup managed state

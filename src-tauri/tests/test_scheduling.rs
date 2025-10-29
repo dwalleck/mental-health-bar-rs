@@ -1,5 +1,6 @@
 // Integration tests for scheduling feature
 // Tests repository CRUD operations, validation, and due schedule logic
+use std::str::FromStr;
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::scheduling::models::*;

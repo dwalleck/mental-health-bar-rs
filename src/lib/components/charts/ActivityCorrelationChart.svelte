@@ -48,10 +48,26 @@
 		const labels = sortedData.map((item) => item.activity.name)
 		const values = sortedData.map((item) => item.average_mood)
 
+		// Helper function to convert hex color to RGBA
+		const hexToRgba = (hex: string, alpha: number = 1): string => {
+			const r = parseInt(hex.slice(1, 3), 16)
+			const g = parseInt(hex.slice(3, 5), 16)
+			const b = parseInt(hex.slice(5, 7), 16)
+			return `rgba(${r}, ${g}, ${b}, ${alpha})`
+		}
+
 		// Create background colors based on mood rating
 		const backgroundColors = values.map((value) => {
 			const mood = Math.round(value) as 1 | 2 | 3 | 4 | 5
-			return moodColors[mood] || moodColors[3]
+			const hexColor = moodColors[mood] || moodColors[3]
+			return hexToRgba(hexColor, 0.7)
+		})
+
+		// Create border colors with higher opacity
+		const borderColors = values.map((value) => {
+			const mood = Math.round(value) as 1 | 2 | 3 | 4 | 5
+			const hexColor = moodColors[mood] || moodColors[3]
+			return hexToRgba(hexColor, 1)
 		})
 
 		// Chart configuration
@@ -64,7 +80,7 @@
 						label: 'Average Mood',
 						data: values,
 						backgroundColor: backgroundColors,
-						borderColor: backgroundColors.map((color) => color.replace(')', ', 0.8)')),
+						borderColor: borderColors,
 						borderWidth: 1,
 					},
 				],

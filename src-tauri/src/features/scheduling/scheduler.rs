@@ -18,13 +18,13 @@ pub fn start_scheduler(app_handle: AppHandle, db: Arc<Database>) {
         let repo = SchedulingRepository::new(db);
 
         loop {
-            // Wait 1 minute before next check
-            sleep(Duration::from_secs(60)).await;
-
             // Check for due schedules and send notifications
             if let Err(e) = check_and_notify(&app_handle, &repo).await {
                 eprintln!("Scheduler error: {}", e);
             }
+
+            // Wait 1 minute before next check
+            sleep(Duration::from_secs(60)).await;
         }
     });
 }
@@ -37,12 +37,26 @@ async fn check_and_notify(
     // Get all due schedules
     let due_schedules = repo.get_due_schedules()?;
 
-    for schedule in due_schedules {
-        // Send notification
-        send_notification(app_handle, &schedule.assessment_type_name, schedule.id)?;
+    if due_schedules.is_empty() {
+        return Ok(());
+    }
 
-        // Mark as triggered
-        repo.mark_triggered(schedule.id)?;
+    // Mark all schedules as triggered in a single batch transaction
+    // This is more efficient and ensures all-or-nothing marking
+    let schedule_ids: Vec<i32> = due_schedules.iter().map(|s| s.id).collect();
+    if let Err(e) = repo.mark_multiple_triggered(&schedule_ids) {
+        eprintln!("Failed to mark schedules as triggered: {}", e);
+        return Ok(()); // Skip all notifications if marking failed
+    }
+
+    // Send notifications (failures don't affect database state)
+    for schedule in due_schedules {
+        if let Err(e) = send_notification(app_handle, &schedule.assessment_type_name, schedule.id) {
+            eprintln!(
+                "Failed to send notification for schedule {}: {}",
+                schedule.id, e
+            );
+        }
     }
 
     Ok(())
@@ -84,7 +98,9 @@ mod tests {
 
     fn setup_test_repo() -> (SchedulingRepository, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
-        let db = Arc::new(Database::new(temp_dir.path()).expect("Failed to create database"));
+        let db = Arc::new(
+            Database::new(temp_dir.path().to_path_buf()).expect("Failed to create database"),
+        );
         (SchedulingRepository::new(db), temp_dir)
     }
 

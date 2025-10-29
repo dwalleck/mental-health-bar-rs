@@ -5,7 +5,6 @@
 
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
-use tauri_sveltekit_modern_lib::features::mood::models::*;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
 use tempfile::TempDir;
 
@@ -100,13 +99,13 @@ fn test_get_mood_history_with_date_filtering() {
     let (repo, _temp_dir) = setup_test_repo();
 
     // Create mood check-ins on different days
-    let yesterday = chrono::Utc::now()
+    let _yesterday = chrono::Utc::now()
         .checked_sub_signed(chrono::Duration::days(1))
         .unwrap()
         .format("%Y-%m-%d")
         .to_string();
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    let tomorrow = chrono::Utc::now()
+    let _tomorrow = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::days(1))
         .unwrap()
         .format("%Y-%m-%d")
