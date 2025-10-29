@@ -34,6 +34,7 @@ const theme = writable<Theme>(getInitialTheme())
 
 // Subscribe to changes and update DOM + localStorage
 if (browser) {
+	// Single source of truth: store subscription handles all DOM updates
 	theme.subscribe((value) => {
 		localStorage.setItem('theme', value)
 		const isDark = shouldUseDarkMode(value)
@@ -45,31 +46,13 @@ if (browser) {
 		}
 	})
 
-	// Listen for system theme changes
+	// Listen for system theme changes and trigger store update
 	const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 	mediaQuery.addEventListener('change', () => {
-		theme.update((t) => {
-			// Only update if using system theme
-			if (t === 'system') {
-				const isDark = shouldUseDarkMode(t)
-				if (isDark) {
-					document.documentElement.classList.add('dark')
-				} else {
-					document.documentElement.classList.remove('dark')
-				}
-			}
-			return t
-		})
+		// Force re-evaluation by updating the store
+		// This triggers the subscription above which handles DOM updates
+		theme.update((t) => (t === 'system' ? 'system' : t))
 	})
-
-	// Set initial theme on load
-	const initialTheme = getInitialTheme()
-	const isDark = shouldUseDarkMode(initialTheme)
-	if (isDark) {
-		document.documentElement.classList.add('dark')
-	} else {
-		document.documentElement.classList.remove('dark')
-	}
 }
 
 export { theme, type Theme }

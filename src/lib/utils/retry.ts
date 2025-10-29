@@ -27,7 +27,8 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 	backoffMultiplier: 2,
 	shouldRetry: (error: unknown) => {
 		// Retry on persistence-related errors
-		const errorMessage = String(error).toLowerCase()
+		// Check for Error instance first to access .message property directly
+		const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase()
 		return (
 			errorMessage.includes('database') ||
 			errorMessage.includes('lock') ||

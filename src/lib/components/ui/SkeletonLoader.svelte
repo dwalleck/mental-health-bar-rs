@@ -8,14 +8,13 @@
 	let { type = 'text', count = 1 }: Props = $props()
 </script>
 
-<!-- eslint-disable @typescript-eslint/no-unused-vars -->
 <div class="skeleton-container" role="status" aria-label="Loading content">
 	{#if type === 'text'}
-		{#each Array(count) as _, i (i)}
+		{#each Array.from({ length: count }, (_, i) => i) as i (i)}
 			<div class="skeleton skeleton-text"></div>
 		{/each}
 	{:else if type === 'card'}
-		{#each Array(count) as _, i (i)}
+		{#each Array.from({ length: count }, (_, i) => i) as i (i)}
 			<div class="skeleton skeleton-card">
 				<div class="skeleton skeleton-title"></div>
 				<div class="skeleton skeleton-text"></div>
@@ -23,7 +22,7 @@
 			</div>
 		{/each}
 	{:else if type === 'list'}
-		{#each Array(count) as _, i (i)}
+		{#each Array.from({ length: count }, (_, i) => i) as i (i)}
 			<div class="skeleton skeleton-list-item">
 				<div class="skeleton skeleton-circle"></div>
 				<div class="flex-1">
@@ -36,8 +35,6 @@
 		<div class="skeleton skeleton-chart"></div>
 	{/if}
 </div>
-
-<!-- eslint-enable @typescript-eslint/no-unused-vars -->
 
 <style>
 	.skeleton-container {

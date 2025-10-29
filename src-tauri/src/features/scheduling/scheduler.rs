@@ -21,7 +21,7 @@ pub fn start_scheduler(app_handle: AppHandle, db: Arc<Database>) {
         loop {
             // Check for due schedules and send notifications
             if let Err(e) = check_and_notify(&app_handle, &repo).await {
-                eprintln!("Scheduler error: {}", e);
+                eprintln!("[SCHEDULER][ERROR] Failed to check and notify: {}", e);
             }
 
             // Wait 1 minute before next check
@@ -46,7 +46,10 @@ async fn check_and_notify(
     // This is more efficient and ensures all-or-nothing marking
     let schedule_ids: Vec<i32> = due_schedules.iter().map(|s| s.id).collect();
     if let Err(e) = repo.mark_multiple_triggered(&schedule_ids) {
-        eprintln!("Failed to mark schedules as triggered: {}", e);
+        eprintln!(
+            "[SCHEDULER][WARN] Failed to mark schedules as triggered: {}",
+            e
+        );
         return Ok(()); // Skip all notifications if marking failed
     }
 
@@ -59,8 +62,8 @@ async fn check_and_notify(
             schedule.id,
         ) {
             eprintln!(
-                "Failed to send notification for schedule {}: {}",
-                schedule.id, e
+                "[SCHEDULER][WARN] Failed to send notification for schedule {} ({}): {}",
+                schedule.id, schedule.assessment_type_name, e
             );
         }
     }
@@ -100,13 +103,16 @@ fn send_notification(
     match notification_result {
         Ok(_) => {
             println!(
-                "Notification sent for: {} (code: {})",
-                assessment_name, assessment_type_code
+                "[SCHEDULER][INFO] Notification sent for schedule {} - {} (code: {})",
+                schedule_id, assessment_name, assessment_type_code
             );
             Ok(())
         }
         Err(e) => {
-            eprintln!("Failed to send notification: {}", e);
+            eprintln!(
+                "[SCHEDULER][WARN] Failed to send notification for schedule {} - {} (code: {}): {}",
+                schedule_id, assessment_name, assessment_type_code, e
+            );
             Err(anyhow::anyhow!("Failed to send notification: {}", e))
         }
     }

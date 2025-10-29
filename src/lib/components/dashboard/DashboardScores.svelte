@@ -21,6 +21,7 @@
 	let assessments: SvelteMap<string, AssessmentResponse | null> = new SvelteMap()
 	let loading = $state(true)
 	let error = $state<string | null>(null)
+	let failedAssessments = $state<string[]>([])
 
 	// T213, T221: Fetch latest assessments for all types on mount using Svelte 5 $effect
 	$effect(() => {
@@ -28,6 +29,7 @@
 			try {
 				loading = true
 				error = null
+				failedAssessments = []
 
 				// T221: Use Promise.all for parallel loading of all assessment types
 				const results = await Promise.all(
@@ -36,21 +38,26 @@
 							const result = await invoke<AssessmentResponse | null>('get_latest_assessment', {
 								assessmentTypeCode: code,
 							})
-							return { code, data: result }
+							return { code, data: result, failed: false }
 						} catch (err) {
 							// T225: Handle individual assessment failures gracefully
 							console.error(`Failed to fetch assessment ${code}:`, err)
-							return { code, data: null }
+							return { code, data: null, failed: true }
 						}
 					})
 				)
 
-				// Populate the assessments map
+				// Populate the assessments map and track failures
 				const newAssessments = new SvelteMap<string, AssessmentResponse | null>()
-				results.forEach(({ code, data }) => {
+				const failed: string[] = []
+				results.forEach(({ code, data, failed: hasFailed }) => {
 					newAssessments.set(code, data)
+					if (hasFailed) {
+						failed.push(ASSESSMENT_METADATA[code].name)
+					}
 				})
 				assessments = newAssessments
+				failedAssessments = failed
 			} catch (err) {
 				console.error('Failed to fetch assessments:', err)
 				error = 'Failed to load assessment data. Please try again.'
@@ -76,6 +83,26 @@
 			<p class="text-red-800 text-sm">{error}</p>
 			<button
 				class="mt-2 text-sm text-red-600 underline hover:text-red-800"
+				onclick={() => window.location.reload()}
+			>
+				Retry
+			</button>
+		</div>
+	{/if}
+
+	<!-- Partial error warning for individual assessment failures -->
+	{#if !error && failedAssessments.length > 0}
+		<div
+			class="error-message bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4"
+		>
+			<p class="text-yellow-800 dark:text-yellow-200 text-sm font-medium">
+				Some assessments could not be loaded
+			</p>
+			<p class="text-yellow-700 dark:text-yellow-300 text-sm mt-1">
+				Failed to load: {failedAssessments.join(', ')}
+			</p>
+			<button
+				class="mt-2 text-sm text-yellow-600 dark:text-yellow-400 underline hover:text-yellow-800 dark:hover:text-yellow-200"
 				onclick={() => window.location.reload()}
 			>
 				Retry

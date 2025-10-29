@@ -72,18 +72,4 @@
 			opacity: 1;
 		}
 	}
-
-	/* Ensure smooth spinning */
-	:global(.animate-spin) {
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
 </style>
