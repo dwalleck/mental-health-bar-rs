@@ -87,7 +87,11 @@ describe('Default Chart Options', () => {
 	})
 
 	it('should have animation duration of 500ms', () => {
-		expect(defaultChartOptions.animation?.duration).toBe(500)
+		expect(
+			defaultChartOptions.animation && typeof defaultChartOptions.animation === 'object'
+				? defaultChartOptions.animation.duration
+				: undefined
+		).toBe(500)
 	})
 
 	it('should use index interaction mode', () => {
@@ -104,7 +108,12 @@ describe('Default Chart Options', () => {
 	})
 
 	it('should begin y-axis at zero', () => {
-		expect(defaultChartOptions.scales?.y?.beginAtZero).toBe(true)
+		const yScale = defaultChartOptions.scales?.y
+		expect(
+			yScale && typeof yScale === 'object' && 'beginAtZero' in yScale
+				? yScale.beginAtZero
+				: undefined
+		).toBe(true)
 	})
 
 	it('should hide x-axis grid', () => {
@@ -122,7 +131,11 @@ describe('Bar Chart Options', () => {
 	})
 
 	it('should have same animation as default', () => {
-		expect(defaultBarChartOptions.animation?.duration).toBe(500)
+		expect(
+			defaultBarChartOptions.animation && typeof defaultBarChartOptions.animation === 'object'
+				? defaultBarChartOptions.animation.duration
+				: undefined
+		).toBe(500)
 	})
 })
 

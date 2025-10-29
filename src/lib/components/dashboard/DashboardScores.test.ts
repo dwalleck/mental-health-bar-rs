@@ -3,7 +3,11 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import DashboardScores from './DashboardScores.svelte'
 import type { AssessmentResponse, AssessmentType } from '$lib/bindings'
 import { goto } from '$app/navigation'
-import { invoke } from '@tauri-apps/api/core'
+
+// Mock the invoke module
+vi.mock('@tauri-apps/api/core', () => ({
+	invoke: vi.fn(),
+}))
 
 // T213, T214, T215: Tests for DashboardScores component
 describe('DashboardScores', () => {
@@ -77,26 +81,28 @@ describe('DashboardScores', () => {
 	describe('T213: Fetches latest assessments for all 4 types on mount', () => {
 		it('should call getLatestAssessment for PHQ-9, GAD-7, CES-D, and OASIS in parallel on mount', async () => {
 			// Arrange: Mock successful responses for all assessment types
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						const code = args.assessmentTypeCode
-						switch (code) {
-							case 'PHQ9':
-								return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 8)
-							case 'GAD7':
-								return createMockAssessmentResponse(mockAssessmentTypes.GAD7, 6)
-							case 'CESD':
-								return createMockAssessmentResponse(mockAssessmentTypes.CESD, 15)
-							case 'OASIS':
-								return createMockAssessmentResponse(mockAssessmentTypes.OASIS, 5)
-							default:
-								return null
-						}
-					}
-					return null
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			// Set up responses for each assessment type
+			const mockResponses = new Map([
+				['PHQ9', createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 8)],
+				['GAD7', createMockAssessmentResponse(mockAssessmentTypes.GAD7, 6)],
+				['CESD', createMockAssessmentResponse(mockAssessmentTypes.CESD, 15)],
+				['OASIS', createMockAssessmentResponse(mockAssessmentTypes.OASIS, 5)],
+			])
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					return mockResponses.get(code) || null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component (should trigger fetch on mount)
 			render(DashboardScores)
@@ -124,30 +130,31 @@ describe('DashboardScores', () => {
 
 		it('should use Promise.all for parallel loading of all assessment types', async () => {
 			// Arrange: Track order of invocations
+			const { invoke } = await import('@tauri-apps/api/core')
 			const invocationOrder: string[] = []
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						invocationOrder.push(args.assessmentTypeCode)
-						// Add minimal delay to simulate network
-						await new Promise((resolve) => setTimeout(resolve, 10))
-						const code = args.assessmentTypeCode
-						switch (code) {
-							case 'PHQ9':
-								return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 8)
-							case 'GAD7':
-								return createMockAssessmentResponse(mockAssessmentTypes.GAD7, 6)
-							case 'CESD':
-								return createMockAssessmentResponse(mockAssessmentTypes.CESD, 15)
-							case 'OASIS':
-								return createMockAssessmentResponse(mockAssessmentTypes.OASIS, 5)
-							default:
-								return null
-						}
-					}
-					return null
+
+			const mockResponses = new Map([
+				['PHQ9', createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 8)],
+				['GAD7', createMockAssessmentResponse(mockAssessmentTypes.GAD7, 6)],
+				['CESD', createMockAssessmentResponse(mockAssessmentTypes.CESD, 15)],
+				['OASIS', createMockAssessmentResponse(mockAssessmentTypes.OASIS, 5)],
+			])
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					invocationOrder.push(code)
+					// Add minimal delay to simulate network
+					await new Promise((resolve) => setTimeout(resolve, 10))
+					return mockResponses.get(code) || null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -166,26 +173,27 @@ describe('DashboardScores', () => {
 
 		it('should display all 4 assessment scores when data is available', async () => {
 			// Arrange: Mock all assessments with data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						const code = args.assessmentTypeCode
-						switch (code) {
-							case 'PHQ9':
-								return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 12)
-							case 'GAD7':
-								return createMockAssessmentResponse(mockAssessmentTypes.GAD7, 8)
-							case 'CESD':
-								return createMockAssessmentResponse(mockAssessmentTypes.CESD, 20)
-							case 'OASIS':
-								return createMockAssessmentResponse(mockAssessmentTypes.OASIS, 10)
-							default:
-								return null
-						}
-					}
-					return null
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			const mockResponses = new Map([
+				['PHQ9', createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 12)],
+				['GAD7', createMockAssessmentResponse(mockAssessmentTypes.GAD7, 8)],
+				['CESD', createMockAssessmentResponse(mockAssessmentTypes.CESD, 20)],
+				['OASIS', createMockAssessmentResponse(mockAssessmentTypes.OASIS, 10)],
+			])
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					return mockResponses.get(code) || null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -200,8 +208,9 @@ describe('DashboardScores', () => {
 			expect(screen.getByText('OASIS (Anxiety)')).toBeInTheDocument()
 		})
 
-		it('should show skeleton loaders while fetching data', () => {
+		it('should show skeleton loaders while fetching data', async () => {
 			// Arrange: Mock delayed responses
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockImplementation(
 				async () =>
 					new Promise((resolve) => {
@@ -219,6 +228,7 @@ describe('DashboardScores', () => {
 
 		it('should handle network errors gracefully', async () => {
 			// Arrange: Mock network failure
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockRejectedValue(new Error('Network error'))
 
 			// Act: Render component
@@ -237,6 +247,7 @@ describe('DashboardScores', () => {
 	describe('T214: Shows "Not taken yet" state for assessments without data', () => {
 		it('should display "Not taken yet" when getLatestAssessment returns null', async () => {
 			// Arrange: Mock all assessments returning null (no data)
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockResolvedValue(null)
 
 			// Act: Render component
@@ -251,26 +262,27 @@ describe('DashboardScores', () => {
 
 		it('should display "Not taken yet" for specific assessments without data', async () => {
 			// Arrange: Mix of assessments with and without data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						const code = args.assessmentTypeCode
-						switch (code) {
-							case 'PHQ9':
-								return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)
-							case 'GAD7':
-								return null // No data
-							case 'CESD':
-								return createMockAssessmentResponse(mockAssessmentTypes.CESD, 18)
-							case 'OASIS':
-								return null // No data
-							default:
-								return null
-						}
-					}
-					return null
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			const mockResponses = new Map([
+				['PHQ9', createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)],
+				['GAD7', null], // No data
+				['CESD', createMockAssessmentResponse(mockAssessmentTypes.CESD, 18)],
+				['OASIS', null], // No data
+			])
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					return mockResponses.has(code) ? mockResponses.get(code) : null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -290,6 +302,7 @@ describe('DashboardScores', () => {
 
 		it('should not display AssessmentScoreBar for assessments without data', async () => {
 			// Arrange: All assessments return null
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockResolvedValue(null)
 
 			// Act: Render component
@@ -307,6 +320,7 @@ describe('DashboardScores', () => {
 
 		it('should display proper styling for "Not taken yet" state', async () => {
 			// Arrange: All assessments return null
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockResolvedValue(null)
 
 			// Act: Render component
@@ -321,18 +335,24 @@ describe('DashboardScores', () => {
 
 		it('should transition from "Not taken yet" to score bar when data loads', async () => {
 			// Arrange: Start with null, then update to have data
+			const { invoke } = await import('@tauri-apps/api/core')
 			let shouldReturnData = false
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						if (shouldReturnData && args.assessmentTypeCode === 'PHQ9') {
-							return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 8)
-						}
-						return null
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (shouldReturnData && code === 'PHQ9') {
+						return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 8)
 					}
 					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			const { rerender } = render(DashboardScores)
@@ -354,14 +374,22 @@ describe('DashboardScores', () => {
 	describe('T215: Clicking a score bar navigates to the chart view', () => {
 		it('should navigate to /charts?type=phq9 when PHQ-9 score bar is clicked', async () => {
 			// Arrange: Mock assessment data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
 						return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 12)
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component and click PHQ-9 score bar
 			render(DashboardScores)
@@ -385,14 +413,22 @@ describe('DashboardScores', () => {
 
 		it('should navigate to /charts?type=gad7 when GAD-7 score bar is clicked', async () => {
 			// Arrange: Mock assessment data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'GAD7') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'GAD7') {
 						return createMockAssessmentResponse(mockAssessmentTypes.GAD7, 9)
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component and click GAD-7 score bar
 			render(DashboardScores)
@@ -414,14 +450,22 @@ describe('DashboardScores', () => {
 
 		it('should navigate to /charts?type=cesd when CES-D score bar is clicked', async () => {
 			// Arrange: Mock assessment data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'CESD') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'CESD') {
 						return createMockAssessmentResponse(mockAssessmentTypes.CESD, 22)
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component and click CES-D score bar
 			render(DashboardScores)
@@ -445,14 +489,22 @@ describe('DashboardScores', () => {
 
 		it('should navigate to /charts?type=oasis when OASIS score bar is clicked', async () => {
 			// Arrange: Mock assessment data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'OASIS') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'OASIS') {
 						return createMockAssessmentResponse(mockAssessmentTypes.OASIS, 12)
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component and click OASIS score bar
 			render(DashboardScores)
@@ -474,6 +526,7 @@ describe('DashboardScores', () => {
 
 		it('should not navigate when "Not taken yet" state is clicked', async () => {
 			// Arrange: Mock all assessments returning null
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockResolvedValue(null)
 
 			// Act: Render component
@@ -494,26 +547,27 @@ describe('DashboardScores', () => {
 
 		it('should use correct assessment type code in navigation URL', async () => {
 			// Arrange: Mock assessment data for all types
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						const code = args.assessmentTypeCode
-						switch (code) {
-							case 'PHQ9':
-								return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)
-							case 'GAD7':
-								return createMockAssessmentResponse(mockAssessmentTypes.GAD7, 8)
-							case 'CESD':
-								return createMockAssessmentResponse(mockAssessmentTypes.CESD, 20)
-							case 'OASIS':
-								return createMockAssessmentResponse(mockAssessmentTypes.OASIS, 12)
-							default:
-								return null
-						}
-					}
-					return null
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			const mockResponses = new Map([
+				['PHQ9', createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)],
+				['GAD7', createMockAssessmentResponse(mockAssessmentTypes.GAD7, 8)],
+				['CESD', createMockAssessmentResponse(mockAssessmentTypes.CESD, 20)],
+				['OASIS', createMockAssessmentResponse(mockAssessmentTypes.OASIS, 12)],
+			])
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					return mockResponses.get(code) || null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -564,23 +618,28 @@ describe('DashboardScores', () => {
 	describe('Edge Cases and Error Handling', () => {
 		it('should handle partial data load failures', async () => {
 			// Arrange: Some assessments succeed, others fail
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						const code = args.assessmentTypeCode
-						if (code === 'PHQ9') {
-							return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)
-						} else if (code === 'GAD7') {
-							throw new Error('Network error')
-						} else if (code === 'CESD') {
-							return createMockAssessmentResponse(mockAssessmentTypes.CESD, 20)
-						} else {
-							return null
-						}
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
+						return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)
+					} else if (code === 'GAD7') {
+						throw new Error('Network error')
+					} else if (code === 'CESD') {
+						return createMockAssessmentResponse(mockAssessmentTypes.CESD, 20)
+					} else {
+						return null
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -595,23 +654,28 @@ describe('DashboardScores', () => {
 
 		it('should display correct severity level for each assessment', async () => {
 			// Arrange: Mock assessments with different severity levels
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment') {
-						const code = args.assessmentTypeCode
-						if (code === 'PHQ9') {
-							const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 15)
-							response.severity_level = 'moderate'
-							return response
-						} else if (code === 'GAD7') {
-							const response = createMockAssessmentResponse(mockAssessmentTypes.GAD7, 5)
-							response.severity_level = 'mild'
-							return response
-						}
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
+						const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 15)
+						response.severity_level = 'moderate'
+						return response
+					} else if (code === 'GAD7') {
+						const response = createMockAssessmentResponse(mockAssessmentTypes.GAD7, 5)
+						response.severity_level = 'mild'
+						return response
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -626,16 +690,24 @@ describe('DashboardScores', () => {
 
 		it('should handle very high scores correctly', async () => {
 			// Arrange: Mock maximum scores
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
 						const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 27)
 						response.severity_level = 'severe'
 						return response
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -648,16 +720,24 @@ describe('DashboardScores', () => {
 
 		it('should handle zero scores correctly', async () => {
 			// Arrange: Mock zero scores
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
 						const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 0)
 						response.severity_level = 'minimal'
 						return response
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)
@@ -670,8 +750,9 @@ describe('DashboardScores', () => {
 	})
 
 	describe('Accessibility', () => {
-		it('should have proper ARIA labels for loading states', () => {
+		it('should have proper ARIA labels for loading states', async () => {
 			// Arrange: Mock delayed responses
+			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockImplementation(
 				async () => new Promise((resolve) => setTimeout(() => resolve(null), 1000))
 			)
@@ -686,14 +767,22 @@ describe('DashboardScores', () => {
 
 		it('should have proper keyboard navigation support', async () => {
 			// Arrange: Mock assessment data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
 						return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 10)
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			const { container } = render(DashboardScores)
@@ -709,14 +798,22 @@ describe('DashboardScores', () => {
 
 		it('should have meaningful text alternatives for score visualizations', async () => {
 			// Arrange: Mock assessment data
-			vi.mocked(invoke).mockImplementation(
-				async (command: string, args: { assessmentTypeCode: string }) => {
-					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
+			const { invoke } = await import('@tauri-apps/api/core')
+
+			vi.mocked(invoke).mockImplementation(async (command, args) => {
+				if (
+					command === 'get_latest_assessment' &&
+					args &&
+					typeof args === 'object' &&
+					'assessmentTypeCode' in args
+				) {
+					const code = args.assessmentTypeCode as string
+					if (code === 'PHQ9') {
 						return createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 12)
 					}
-					return null
 				}
-			)
+				return null
+			})
 
 			// Act: Render component
 			render(DashboardScores)

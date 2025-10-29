@@ -91,13 +91,6 @@ describe('AssessmentChart Integration Test', () => {
 		question_count: 9,
 		min_score: 0,
 		max_score: 27,
-		thresholds: {
-			minimal: 4,
-			mild: 9,
-			moderate: 14,
-			moderately_severe: 19,
-			severe: 27,
-		},
 	}
 
 	const createMockChartData = (dataPoints: number): AssessmentChartData => ({

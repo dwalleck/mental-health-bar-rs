@@ -16,7 +16,6 @@ describe('MoodHistoryList', () => {
 			color: '#22C55E',
 			icon: '🏃',
 			created_at: '2024-01-01T00:00:00Z',
-			updated_at: '2024-01-01T00:00:00Z',
 			deleted_at: null,
 		},
 		{
@@ -25,7 +24,6 @@ describe('MoodHistoryList', () => {
 			color: '#3B82F6',
 			icon: '🧘',
 			created_at: '2024-01-02T00:00:00Z',
-			updated_at: '2024-01-02T00:00:00Z',
 			deleted_at: null,
 		},
 		{
@@ -34,7 +32,6 @@ describe('MoodHistoryList', () => {
 			color: null,
 			icon: null,
 			created_at: '2024-01-03T00:00:00Z',
-			updated_at: '2024-01-03T00:00:00Z',
 			deleted_at: '2024-01-10T00:00:00Z', // Deleted
 		},
 	]
@@ -420,7 +417,7 @@ describe('MoodHistoryList', () => {
 		})
 
 		it('should default checkins to empty array', () => {
-			const { container } = render(MoodHistoryList, { props: {} })
+			const { container } = render(MoodHistoryList, { props: { checkins: [] } })
 
 			expect(container.textContent).toContain('No mood check-ins yet')
 		})

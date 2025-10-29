@@ -22,7 +22,7 @@ describe('Theme Store', () => {
 
 		// Mock localStorage
 		mockLocalStorage = {}
-		global.localStorage = {
+		globalThis.localStorage = {
 			getItem: vi.fn((key: string) => mockLocalStorage[key] || null),
 			setItem: vi.fn((key: string, value: string) => {
 				mockLocalStorage[key] = value
@@ -42,7 +42,7 @@ describe('Theme Store', () => {
 			add: vi.fn(),
 			remove: vi.fn(),
 		}
-		Object.defineProperty(global.document, 'documentElement', {
+		Object.defineProperty(globalThis.document, 'documentElement', {
 			value: {
 				classList: mockClassList,
 			},
@@ -52,8 +52,8 @@ describe('Theme Store', () => {
 
 		// Mock window.matchMedia
 		mediaQueryListeners = []
-		global.window = {
-			...global.window,
+		globalThis.window = {
+			...globalThis.window,
 			matchMedia: vi.fn((query: string) => ({
 				matches: false,
 				media: query,
@@ -67,8 +67,8 @@ describe('Theme Store', () => {
 				}),
 				removeEventListener: vi.fn(),
 				dispatchEvent: vi.fn(),
-			})),
-		}
+			})) as typeof window.matchMedia,
+		} as Window & typeof globalThis
 	})
 
 	afterEach(() => {

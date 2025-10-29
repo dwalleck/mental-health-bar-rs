@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest'
 import { render, fireEvent } from '@testing-library/svelte'
 import ActivityList from './ActivityList.svelte'
 import type { Activity } from '$lib/bindings'
@@ -11,7 +11,6 @@ describe('ActivityList', () => {
 			color: '#22C55E',
 			icon: '🏃',
 			created_at: '2024-01-01T00:00:00Z',
-			updated_at: '2024-01-01T00:00:00Z',
 			deleted_at: null,
 		},
 		{
@@ -20,7 +19,6 @@ describe('ActivityList', () => {
 			color: '#3B82F6',
 			icon: '🧘',
 			created_at: '2024-01-02T00:00:00Z',
-			updated_at: '2024-01-02T00:00:00Z',
 			deleted_at: null,
 		},
 		{
@@ -29,7 +27,6 @@ describe('ActivityList', () => {
 			color: null,
 			icon: null,
 			created_at: '2024-01-03T00:00:00Z',
-			updated_at: '2024-01-03T00:00:00Z',
 			deleted_at: null,
 		},
 	]
@@ -300,7 +297,7 @@ describe('ActivityList', () => {
 	})
 
 	describe('Delete Button', () => {
-		let confirmSpy: ReturnType<typeof vi.spyOn>
+		let confirmSpy: MockInstance<(message?: string) => boolean>
 
 		beforeEach(() => {
 			confirmSpy = vi.spyOn(window, 'confirm')
@@ -482,7 +479,7 @@ describe('ActivityList', () => {
 		it('should default activities to empty array', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
-			const { container } = render(ActivityList, { props: { onEdit, onDelete } })
+			const { container } = render(ActivityList, { props: { activities: [], onEdit, onDelete } })
 
 			expect(container.textContent).toContain('No activities yet')
 		})

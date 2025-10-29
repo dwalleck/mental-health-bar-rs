@@ -10,7 +10,6 @@ describe('ActivityForm', () => {
 		color: '#22C55E',
 		icon: '🏃',
 		created_at: '2024-01-01T00:00:00Z',
-		updated_at: '2024-01-01T00:00:00Z',
 		deleted_at: null,
 	}
 
@@ -320,7 +319,7 @@ describe('ActivityForm', () => {
 		})
 
 		it('should show Creating... during submission', async () => {
-			const onSubmit = vi.fn(() => new Promise((resolve) => setTimeout(resolve, 100)))
+			const onSubmit = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 100)))
 			const onCancel = vi.fn()
 			const { container } = render(ActivityForm, { props: { onSubmit, onCancel } })
 
@@ -337,7 +336,7 @@ describe('ActivityForm', () => {
 		})
 
 		it('should show Updating... during edit submission', async () => {
-			const onSubmit = vi.fn(() => new Promise((resolve) => setTimeout(resolve, 100)))
+			const onSubmit = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 100)))
 			const onCancel = vi.fn()
 			const { container } = render(ActivityForm, {
 				props: { activity: mockActivity, onSubmit, onCancel },
@@ -353,7 +352,7 @@ describe('ActivityForm', () => {
 		})
 
 		it('should disable all inputs during submission', async () => {
-			const onSubmit = vi.fn(() => new Promise((resolve) => setTimeout(resolve, 100)))
+			const onSubmit = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 100)))
 			const onCancel = vi.fn()
 			const { container } = render(ActivityForm, { props: { onSubmit, onCancel } })
 
@@ -372,7 +371,7 @@ describe('ActivityForm', () => {
 		})
 
 		it('should disable buttons during submission', async () => {
-			const onSubmit = vi.fn(() => new Promise((resolve) => setTimeout(resolve, 100)))
+			const onSubmit = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 100)))
 			const onCancel = vi.fn()
 			const { container } = render(ActivityForm, { props: { onSubmit, onCancel } })
 

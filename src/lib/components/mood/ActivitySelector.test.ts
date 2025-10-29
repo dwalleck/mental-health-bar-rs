@@ -28,7 +28,6 @@ describe('ActivitySelector', () => {
 			color: '#22C55E',
 			icon: '🏃',
 			created_at: '2024-01-01',
-			updated_at: null,
 			deleted_at: null,
 		},
 		{
@@ -37,7 +36,6 @@ describe('ActivitySelector', () => {
 			color: '#3B82F6',
 			icon: '📚',
 			created_at: '2024-01-02',
-			updated_at: null,
 			deleted_at: null,
 		},
 	]
@@ -414,7 +412,6 @@ describe('ActivitySelector', () => {
 				color: '#3B82F6',
 				icon: null,
 				created_at: '2024-01-03',
-				updated_at: null,
 				deleted_at: null,
 			})
 
@@ -467,7 +464,6 @@ describe('ActivitySelector', () => {
 				color: '#3B82F6',
 				icon: null,
 				created_at: '2024-01-03',
-				updated_at: null,
 				deleted_at: null,
 			})
 
@@ -512,7 +508,6 @@ describe('ActivitySelector', () => {
 				color: '#3B82F6',
 				icon: null,
 				created_at: '2024-01-03',
-				updated_at: null,
 				deleted_at: null,
 			})
 
