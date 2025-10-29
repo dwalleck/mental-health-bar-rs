@@ -18,6 +18,7 @@
 // the in-memory state may be inconsistent. Restarting the application will recover.
 
 use super::models::*;
+use super::repository_trait::MoodRepositoryTrait;
 use crate::db::Database;
 use std::sync::Arc;
 use tracing::info;
@@ -76,7 +77,7 @@ impl MoodRepository {
         }
 
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         // ✅ RAII transaction - automatic rollback on drop if not committed
         let tx = conn
@@ -183,7 +184,7 @@ impl MoodRepository {
         limit: Option<i32>,
     ) -> Result<Vec<MoodCheckin>, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Build date filter using query builder helper
         let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
@@ -239,7 +240,7 @@ impl MoodRepository {
     // T077: get_mood_checkin query
     pub fn get_mood_checkin(&self, id: i32) -> Result<MoodCheckin, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let mood_result = conn.query_row(
             "SELECT id, mood_rating, notes, CAST(created_at AS VARCHAR) FROM mood_checkins WHERE id = ?",
@@ -320,7 +321,7 @@ impl MoodRepository {
         to_date: Option<String>,
     ) -> Result<MoodStats, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Build date filter using query builder helper (used for both queries)
         let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
@@ -475,7 +476,7 @@ impl MoodRepository {
         }
 
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Insert activity and get all fields using RETURNING
         // The partial unique index will enforce uniqueness atomically
@@ -515,7 +516,7 @@ impl MoodRepository {
     // Get a single activity by ID
     pub fn get_activity(&self, id: i32) -> Result<Activity, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         conn.query_row(
             "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE id = ?",
@@ -561,7 +562,7 @@ impl MoodRepository {
         icon: Option<&str>,
     ) -> Result<Activity, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Verify activity exists
         let activity_exists: bool = conn
@@ -657,7 +658,7 @@ impl MoodRepository {
     /// * `Database` - On database errors
     pub fn delete_activity(&self, id: i32) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Verify activity exists
         let activity_exists: bool = conn
@@ -694,7 +695,7 @@ impl MoodRepository {
     /// * `Err(MoodError)` - On database errors
     pub fn get_activities(&self, include_deleted: bool) -> Result<Vec<Activity>, MoodError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let query = if include_deleted {
             "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities ORDER BY name"
@@ -726,7 +727,7 @@ impl MoodRepository {
     // T093b: delete_mood_checkin with transactional cascade
     pub fn delete_mood_checkin(&self, id: i32) -> Result<(), MoodError> {
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| MoodError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         // Verify mood check-in exists
         let checkin_exists: bool = conn
@@ -760,5 +761,44 @@ impl MoodRepository {
 
         info!("Deleted mood check-in ID: {} with cascaded deletions", id);
         Ok(())
+    }
+}
+
+// Trait implementation for testing with mocks
+impl MoodRepositoryTrait for MoodRepository {
+    fn create_mood_checkin(
+        &self,
+        mood_rating: i32,
+        activity_ids: Vec<i32>,
+        notes: Option<String>,
+    ) -> Result<MoodCheckin, MoodError> {
+        self.create_mood_checkin(mood_rating, activity_ids, notes.as_deref())
+    }
+
+    fn create_activity(
+        &self,
+        name: String,
+        color: Option<String>,
+        icon: Option<String>,
+    ) -> Result<Activity, MoodError> {
+        self.create_activity(&name, color.as_deref(), icon.as_deref())
+    }
+
+    fn update_activity(
+        &self,
+        id: i32,
+        name: Option<String>,
+        color: Option<String>,
+        icon: Option<String>,
+    ) -> Result<Activity, MoodError> {
+        self.update_activity(id, name.as_deref(), color.as_deref(), icon.as_deref())
+    }
+
+    fn delete_activity(&self, id: i32) -> Result<(), MoodError> {
+        self.delete_activity(id)
+    }
+
+    fn delete_mood_checkin(&self, id: i32) -> Result<(), MoodError> {
+        self.delete_mood_checkin(id)
     }
 }

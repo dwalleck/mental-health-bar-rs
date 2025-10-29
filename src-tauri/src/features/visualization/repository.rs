@@ -26,7 +26,7 @@ impl VisualizationRepository {
         to_date: Option<&str>,
     ) -> Result<AssessmentChartData, VisualizationError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| VisualizationError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Get assessment type
         let assessment_type = self.get_assessment_type_by_code(&conn, code)?;
@@ -91,7 +91,7 @@ impl VisualizationRepository {
         group_by_activity: bool,
     ) -> Result<MoodChartData, VisualizationError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| VisualizationError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Build date filter using query builder helper
         let (date_filter, params) = crate::db::query_builder::DateFilterBuilder::new()

@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
+use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tracing::{info, warn};
 
 pub mod migrations;
@@ -90,10 +91,7 @@ impl Database {
 
     /// Execute a query that returns no results
     pub fn execute(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<usize> {
-        let conn = self
-            .conn
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+        let conn = self.conn.lock();
         conn.execute(sql, params).context("Failed to execute query")
     }
 

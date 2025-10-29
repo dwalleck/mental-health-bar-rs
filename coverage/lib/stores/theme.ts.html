@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">20.58% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/34</span>
+                <span class='fraction'>7/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">20% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>1/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>1/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">20.58% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/34</span>
+                <span class='fraction'>7/34</span>
             </div>
         
             
@@ -122,30 +122,17 @@
 <a name='L57'></a><a href='#L57'>57</a>
 <a name='L58'></a><a href='#L58'>58</a>
 <a name='L59'></a><a href='#L59'>59</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -154,9 +141,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -180,17 +180,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// T185: Dark mode theme store with localStorage persistence
-<span class="cstat-no" title="statement not covered" >import { writable } from 'svelte/store'</span>
-<span class="cstat-no" title="statement not covered" >import { browser } from '$app/environment'</span>
+import { writable } from 'svelte/store'
+import { browser } from '$app/environment'
 &nbsp;
 type Theme = 'light' | 'dark' | 'system'
 &nbsp;
 // Get initial theme from localStorage or default to system
-<span class="cstat-no" title="statement not covered" >function getInitialTheme(): Theme {</span>
-<span class="cstat-no" title="statement not covered" >	if (!browser) return 'system'</span>
+function getInitialTheme(): Theme {
+	if (!browser) return <span class="branch-0 cbranch-no" title="branch not covered" >'system'</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >	const stored = localStorage.getItem('theme')</span>
-<span class="cstat-no" title="statement not covered" >	if (stored === 'light' || stored === 'dark' || stored === 'system') {</span>
+	if (stored === 'light' || stored === <span class="branch-0 cbranch-no" title="branch not covered" >'dark' || stored === 'system') <span class="branch-0 cbranch-no" title="branch not covered" >{</span></span>
 <span class="cstat-no" title="statement not covered" >		return stored</span>
 <span class="cstat-no" title="statement not covered" >	}</span>
 &nbsp;
@@ -198,7 +198,7 @@ type Theme = 'light' | 'dark' | 'system'
 <span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
 // Check if dark mode should be active
-<span class="cstat-no" title="statement not covered" >function shouldUseDarkMode(theme: Theme): boolean {</span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function shouldUseDarkMode(theme: Theme): boolean {</span></span>
 <span class="cstat-no" title="statement not covered" >	if (theme === 'dark') return true</span>
 <span class="cstat-no" title="statement not covered" >	if (theme === 'light') return false</span>
 &nbsp;
@@ -211,10 +211,10 @@ type Theme = 'light' | 'dark' | 'system'
 <span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
 // Create the store
-<span class="cstat-no" title="statement not covered" >const theme = writable&lt;Theme&gt;(getInitialTheme())</span>
+const theme = writable&lt;Theme&gt;(getInitialTheme())
 &nbsp;
 // Subscribe to changes and update DOM + localStorage
-<span class="cstat-no" title="statement not covered" >if (browser) {</span>
+if (browser) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
 	// Single source of truth: store subscription handles all DOM updates
 <span class="cstat-no" title="statement not covered" >	theme.subscribe((value) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >		localStorage.setItem('theme', value)</span>
@@ -244,7 +244,7 @@ export { theme, type Theme }
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-29T15:28:02.243Z
+                at 2025-10-29T16:20:18.041Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

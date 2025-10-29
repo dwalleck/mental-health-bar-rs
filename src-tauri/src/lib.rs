@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 

@@ -18,7 +18,7 @@ fn setup_test_db() -> (Arc<Database>, TempDir) {
 fn test_foreign_keys_pragma_enabled() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Query the foreign_keys pragma - should return 1 (enabled)
     let fk_enabled: i32 = conn
@@ -36,7 +36,7 @@ fn test_foreign_keys_pragma_enabled() {
 fn test_busy_timeout_configured() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Query the busy_timeout pragma - should be 5000ms (5 seconds)
     let timeout: i32 = conn
@@ -54,7 +54,7 @@ fn test_busy_timeout_configured() {
 fn test_journal_mode_wal() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Query the journal_mode pragma - should be "wal"
     let journal_mode: String = conn
@@ -73,7 +73,7 @@ fn test_journal_mode_wal() {
 fn test_synchronous_normal() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Query the synchronous pragma - should be 1 (NORMAL)
     // 0 = OFF, 1 = NORMAL, 2 = FULL, 3 = EXTRA
@@ -92,7 +92,7 @@ fn test_synchronous_normal() {
 fn test_cache_size_configured() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Query the cache_size pragma
     let cache_size: i32 = conn
@@ -111,7 +111,7 @@ fn test_cache_size_configured() {
 fn test_foreign_key_constraint_enforced() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Try to insert an assessment response with a non-existent assessment_type_id
     let result = conn.execute(
@@ -173,7 +173,7 @@ fn test_cascade_delete_works() {
 fn test_check_constraint_enforced() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Try to insert a mood check-in with invalid rating (0)
     let result = conn.execute(
@@ -203,7 +203,7 @@ fn test_check_constraint_enforced() {
 fn test_statement_cache_configured() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Try to use prepare_cached - it should work without error
     let stmt = conn.prepare_cached("SELECT 1");
@@ -225,7 +225,7 @@ fn test_statement_cache_configured() {
 fn test_temp_store_memory() {
     let (db, _temp_dir) = setup_test_db();
     let conn = db.get_connection();
-    let conn = conn.lock().expect("Failed to acquire lock");
+    let conn = conn.lock();
 
     // Query the temp_store pragma - should be 2 (MEMORY)
     // 0 = DEFAULT, 1 = FILE, 2 = MEMORY

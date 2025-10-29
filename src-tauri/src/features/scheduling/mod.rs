@@ -4,6 +4,7 @@ pub mod commands;
 pub mod models;
 pub mod queries;
 pub mod repository;
+pub mod repository_trait;
 pub mod scheduler;
 
 // Re-export commonly used types
@@ -12,4 +13,5 @@ pub use models::{
     UpdateScheduleRequest,
 };
 pub use repository::SchedulingRepository;
+pub use repository_trait::SchedulingRepositoryTrait;
 pub use scheduler::start_scheduler;

@@ -40,9 +40,7 @@ pub fn run_migrations(db: &Database) -> Result<()> {
 /// Get the current schema version
 fn get_current_version(db: &Database) -> Result<i32> {
     let conn = db.get_connection();
-    let conn = conn
-        .lock()
-        .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+    let conn = conn.lock();
 
     let version: Result<i32, _> = conn.query_row(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations",
@@ -67,9 +65,7 @@ fn apply_migration_001(db: &Database) -> Result<()> {
     let schema_sql = include_str!("migrations/001_initial_schema.sql");
 
     let conn = db.get_connection();
-    let conn = conn
-        .lock()
-        .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+    let conn = conn.lock();
 
     conn.execute_batch(schema_sql)
         .context("Failed to apply migration 001")?;
@@ -82,9 +78,7 @@ fn apply_migration_002(db: &Database) -> Result<()> {
     let schema_sql = include_str!("migrations/002_add_schedule_index.sql");
 
     let conn = db.get_connection();
-    let conn = conn
-        .lock()
-        .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+    let conn = conn.lock();
 
     conn.execute_batch(schema_sql)
         .context("Failed to apply migration 002")?;

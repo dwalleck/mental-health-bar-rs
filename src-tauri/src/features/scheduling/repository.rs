@@ -31,7 +31,7 @@ impl SchedulingRepository {
         request.validate()?;
 
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         // Use IMMEDIATE transaction to acquire write lock immediately
         // This ensures atomicity across all operations (check, insert, fetch)
@@ -98,7 +98,7 @@ impl SchedulingRepository {
         request.validate()?;
 
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Build dynamic update query using safe predefined clauses
         // Each clause is a constant string to prevent SQL injection
@@ -163,7 +163,7 @@ impl SchedulingRepository {
     /// T162: Delete a schedule
     pub fn delete_schedule(&self, id: i32) -> Result<(), SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let rows_affected =
             conn.execute("DELETE FROM assessment_schedules WHERE id = ?", params![id])?;
@@ -181,14 +181,14 @@ impl SchedulingRepository {
         enabled_only: bool,
     ) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
         self.get_schedules_with_conn(&conn, enabled_only)
     }
 
     /// Get a single schedule by ID
     pub fn get_schedule(&self, id: i32) -> Result<AssessmentSchedule, SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         self.get_schedule_with_conn(&conn, id)
     }
@@ -196,14 +196,14 @@ impl SchedulingRepository {
     /// T164: Get schedules that are due for triggering
     pub fn get_due_schedules(&self) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
         self.get_due_schedules_with_conn(&conn)
     }
 
     /// Mark a schedule as triggered
     pub fn mark_triggered(&self, id: i32) -> Result<(), SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let rows_affected = conn.execute(
             "UPDATE assessment_schedules SET last_triggered_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -225,7 +225,7 @@ impl SchedulingRepository {
         }
 
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         // Use IMMEDIATE transaction for batch updates
         let tx = conn
@@ -357,5 +357,29 @@ impl SchedulingRepository {
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
         })
+    }
+}
+
+// Trait implementation for testing with mocks
+use super::repository_trait::SchedulingRepositoryTrait;
+
+impl SchedulingRepositoryTrait for SchedulingRepository {
+    fn create_schedule(
+        &self,
+        request: CreateScheduleRequest,
+    ) -> Result<AssessmentSchedule, SchedulingError> {
+        self.create_schedule(&request)
+    }
+
+    fn update_schedule(
+        &self,
+        id: i32,
+        request: UpdateScheduleRequest,
+    ) -> Result<AssessmentSchedule, SchedulingError> {
+        self.update_schedule(id, &request)
+    }
+
+    fn delete_schedule(&self, id: i32) -> Result<(), SchedulingError> {
+        self.delete_schedule(id)
     }
 }

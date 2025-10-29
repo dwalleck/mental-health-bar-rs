@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use thiserror::Error;
+use validator::Validate;
 
 /// Scheduling-specific errors
 #[derive(Error, Debug)]
@@ -87,12 +88,15 @@ pub struct AssessmentSchedule {
 }
 
 /// Request to create a new schedule
-#[derive(Serialize, Deserialize, specta::Type, Clone, Debug)]
+#[derive(Serialize, Deserialize, specta::Type, Clone, Debug, Validate)]
 pub struct CreateScheduleRequest {
     pub assessment_type_id: i32,
     pub frequency: ScheduleFrequency,
-    pub time_of_day: String,       // HH:MM format
-    pub day_of_week: Option<i32>,  // Required for weekly/biweekly
+    #[validate(custom(function = "validate_time_format"))]
+    pub time_of_day: String, // HH:MM format
+    #[validate(range(min = 0, max = 6))]
+    pub day_of_week: Option<i32>, // Required for weekly/biweekly
+    #[validate(range(min = 1, max = 31))]
     pub day_of_month: Option<i32>, // Required for monthly
 }
 
@@ -138,11 +142,14 @@ impl CreateScheduleRequest {
 }
 
 /// Request to update an existing schedule
-#[derive(Serialize, Deserialize, specta::Type, Clone, Debug)]
+#[derive(Serialize, Deserialize, specta::Type, Clone, Debug, Validate)]
 pub struct UpdateScheduleRequest {
     pub frequency: Option<ScheduleFrequency>,
+    #[validate(custom(function = "validate_time_format"))]
     pub time_of_day: Option<String>,
+    #[validate(range(min = 0, max = 6))]
     pub day_of_week: Option<i32>,
+    #[validate(range(min = 1, max = 31))]
     pub day_of_month: Option<i32>,
     pub enabled: Option<bool>,
 }
@@ -191,6 +198,18 @@ fn is_valid_time_format(time: &str) -> bool {
     let minute: Result<u32, _> = parts[1].parse();
 
     matches!((hour, minute), (Ok(h), Ok(m)) if h < 24 && m < 60)
+}
+
+/// Custom validator for time format (for use with validator crate)
+fn validate_time_format(time: &str) -> Result<(), validator::ValidationError> {
+    if !is_valid_time_format(time) {
+        let mut error = validator::ValidationError::new("time_format");
+        error.message = Some(std::borrow::Cow::from(
+            "Must be in HH:MM format (e.g., 09:00)",
+        ));
+        return Err(error);
+    }
+    Ok(())
 }
 
 /// Calculate next trigger time for a schedule

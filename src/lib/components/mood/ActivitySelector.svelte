@@ -2,7 +2,6 @@
 	// T087: ActivitySelector component - Multi-select activity picker with create new capability
 
 	import { invoke } from '@tauri-apps/api/core'
-	import { onMount } from 'svelte'
 	import type { Activity } from '$lib/bindings'
 
 	interface Props {
@@ -12,7 +11,7 @@
 
 	let { selectedIds = [], onChange }: Props = $props()
 
-	let activities: Activity[] = $state([])
+	let activities = $state<Activity[]>([])
 	let loading = $state(true)
 	let error = $state<string | null>(null)
 	let showCreateForm = $state(false)
@@ -21,22 +20,34 @@
 	let newActivityIcon = $state('')
 	let creating = $state(false)
 
-	onMount(async () => {
-		await loadActivities()
-	})
+	$effect(() => {
+		let isMounted = true
 
-	async function loadActivities() {
-		try {
-			loading = true
-			error = null
-			activities = await invoke('get_activities', { includeDeleted: false })
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
-			console.error('Failed to load activities:', e)
-		} finally {
-			loading = false
+		async function loadActivities() {
+			try {
+				loading = true
+				error = null
+				const data = await invoke<Activity[]>('get_activities', { includeDeleted: false })
+
+				if (!isMounted) return
+
+				activities = data
+				loading = false
+			} catch (e) {
+				if (!isMounted) return
+
+				error = e instanceof Error ? e.message : String(e)
+				console.error('Failed to load activities:', e)
+				loading = false
+			}
 		}
-	}
+
+		loadActivities()
+
+		return () => {
+			isMounted = false
+		}
+	})
 
 	function toggleActivity(id: number) {
 		if (selectedIds.includes(id)) {

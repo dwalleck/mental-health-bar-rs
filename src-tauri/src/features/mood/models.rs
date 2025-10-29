@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use validator::Validate;
 
 /// Mood feature errors
 #[derive(Error, Debug)]
@@ -63,26 +64,34 @@ pub struct MoodCheckin {
 }
 
 /// Request to log a mood check-in
-#[derive(Debug, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Serialize, Deserialize, specta::Type, Validate)]
 pub struct LogMoodRequest {
+    #[validate(range(min = 1, max = 5))]
     pub mood_rating: i32,
     pub activity_ids: Vec<i32>,
+    #[validate(length(max = 5000))]
     pub notes: Option<String>,
 }
 
 /// Request to create an activity
-#[derive(Debug, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Serialize, Deserialize, specta::Type, Validate)]
 pub struct CreateActivityRequest {
+    #[validate(custom(function = "validate_trimmed_name"))]
     pub name: String,
+    #[validate(custom(function = "validate_hex_color"))]
     pub color: Option<String>,
+    #[validate(length(max = 20))]
     pub icon: Option<String>,
 }
 
 /// Request to update an activity
-#[derive(Debug, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Serialize, Deserialize, specta::Type, Validate)]
 pub struct UpdateActivityRequest {
+    #[validate(custom(function = "validate_trimmed_name"))]
     pub name: Option<String>,
+    #[validate(custom(function = "validate_hex_color"))]
     pub color: Option<String>,
+    #[validate(length(max = 20))]
     pub icon: Option<String>,
 }
 
@@ -150,6 +159,35 @@ pub fn validate_color(color: &str) -> Result<(), MoodError> {
         }
     }
 
+    Ok(())
+}
+
+/// Custom validator function for hex color (for use with validator crate)
+fn validate_hex_color(color: &str) -> Result<(), validator::ValidationError> {
+    validate_color(color).map_err(|_| {
+        let mut error = validator::ValidationError::new("hex_color");
+        error.message = Some(std::borrow::Cow::from(
+            "Must be valid hex color format: #RGB, #RRGGBB, or #RRGGBBAA",
+        ));
+        error
+    })
+}
+
+/// Custom validator function for activity name (for use with validator crate)
+fn validate_trimmed_name(name: &str) -> Result<(), validator::ValidationError> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        let mut error = validator::ValidationError::new("empty_name");
+        error.message = Some(std::borrow::Cow::from("Activity name cannot be empty"));
+        return Err(error);
+    }
+    if trimmed.len() > 100 {
+        let mut error = validator::ValidationError::new("name_too_long");
+        error.message = Some(std::borrow::Cow::from(
+            "Activity name too long (max 100 characters)",
+        ));
+        return Err(error);
+    }
     Ok(())
 }
 
