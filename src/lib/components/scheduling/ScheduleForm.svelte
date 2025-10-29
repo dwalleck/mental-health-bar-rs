@@ -5,7 +5,6 @@
 		type CreateScheduleRequest,
 		type ScheduleFrequency,
 	} from '$lib/bindings'
-	import { onMount } from 'svelte'
 
 	let { onSuccess }: { onSuccess?: () => void } = $props()
 
@@ -32,8 +31,9 @@
 
 	const daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1)
 
-	onMount(async () => {
-		await loadAssessmentTypes()
+	// Load assessment types on mount
+	$effect(() => {
+		loadAssessmentTypes()
 	})
 
 	async function loadAssessmentTypes() {
