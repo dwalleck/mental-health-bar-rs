@@ -49,9 +49,16 @@ if (browser) {
 	// Listen for system theme changes and trigger store update
 	const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 	mediaQuery.addEventListener('change', () => {
-		// Force re-evaluation by updating the store
-		// This triggers the subscription above which handles DOM updates
-		theme.update((t) => (t === 'system' ? 'system' : t))
+		theme.update((t) => {
+			if (t === 'system') {
+				// Force re-evaluation of shouldUseDarkMode by reassigning 'system'
+				// This triggers the subscription above which re-checks the media query
+				// and updates the DOM with the new system preference
+				return 'system'
+			}
+			// If user has explicit light/dark preference, don't change it
+			return t
+		})
 	})
 }
 
