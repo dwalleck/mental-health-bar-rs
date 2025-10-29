@@ -1,6 +1,7 @@
 // Scheduling feature models (User Story 6)
 // T156-T159: Models for assessment scheduling
 
+use crate::CommandError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -33,6 +34,82 @@ pub enum SchedulingError {
 
     #[error("Date parsing error: {0}")]
     DateParseError(String),
+}
+
+impl SchedulingError {
+    /// Convert to structured CommandError for frontend consumption
+    pub fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            SchedulingError::InvalidTimeFormat(time) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "time_of_day",
+                        "value": time
+                    }),
+                )
+            }
+            SchedulingError::InvalidFrequency(freq) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "frequency",
+                        "value": freq
+                    }),
+                )
+            }
+            SchedulingError::InvalidDayOfWeek(day) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "day_of_week",
+                        "value": day
+                    }),
+                )
+            }
+            SchedulingError::InvalidDayOfMonth(day) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "day_of_month",
+                        "value": day
+                    }),
+                )
+            }
+            SchedulingError::DateParseError(msg) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "details": msg
+                    }),
+                )
+            }
+
+            // Not found errors - not retryable
+            SchedulingError::NotFound(id) => CommandError::permanent(self.to_string(), "not_found")
+                .with_details(serde_json::json!({
+                    "resource": "schedule",
+                    "id": id
+                })),
+
+            // Database lock/transient errors - retryable
+            SchedulingError::LockPoisoned => {
+                CommandError::retryable(self.to_string(), "lock_poisoned")
+            }
+            SchedulingError::Database(e) => {
+                // Classify SQLite errors as retryable or permanent
+                match e {
+                    rusqlite::Error::SqliteFailure(err, _) => {
+                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
+                        if err.code == rusqlite::ErrorCode::DatabaseBusy
+                            || err.code == rusqlite::ErrorCode::DatabaseLocked
+                        {
+                            CommandError::retryable(self.to_string(), "database_locked")
+                        } else {
+                            CommandError::permanent(self.to_string(), "database")
+                        }
+                    }
+                    _ => CommandError::permanent(self.to_string(), "database"),
+                }
+            }
+        }
+    }
 }
 
 /// Schedule frequency options

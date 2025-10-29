@@ -11,7 +11,7 @@ export const commands = {
 	 */
 	async submitAssessment(
 		request: SubmitAssessmentRequest
-	): Promise<Result<AssessmentResponse, string>> {
+	): Promise<Result<AssessmentResponse, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('submit_assessment', { request }) }
 		} catch (e) {
@@ -22,7 +22,7 @@ export const commands = {
 	/**
 	 * Delete an assessment response
 	 */
-	async deleteAssessment(id: number): Promise<Result<null, string>> {
+	async deleteAssessment(id: number): Promise<Result<null, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('delete_assessment', { id }) }
 		} catch (e) {
@@ -33,7 +33,7 @@ export const commands = {
 	/**
 	 * Delete an assessment type (defensive - prevents deletion if children exist)
 	 */
-	async deleteAssessmentType(id: number): Promise<Result<null, string>> {
+	async deleteAssessmentType(id: number): Promise<Result<null, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('delete_assessment_type', { id }) }
 		} catch (e) {
@@ -119,7 +119,7 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
-	async logMood(request: LogMoodRequest): Promise<Result<MoodCheckin, string>> {
+	async logMood(request: LogMoodRequest): Promise<Result<MoodCheckin, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('log_mood', { request }) }
 		} catch (e) {
@@ -127,7 +127,7 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
-	async createActivity(request: CreateActivityRequest): Promise<Result<Activity, string>> {
+	async createActivity(request: CreateActivityRequest): Promise<Result<Activity, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('create_activity', { request }) }
 		} catch (e) {
@@ -138,7 +138,7 @@ export const commands = {
 	async updateActivity(
 		id: number,
 		request: UpdateActivityRequest
-	): Promise<Result<Activity, string>> {
+	): Promise<Result<Activity, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('update_activity', { id, request }) }
 		} catch (e) {
@@ -146,7 +146,7 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
-	async deleteActivity(id: number): Promise<Result<null, string>> {
+	async deleteActivity(id: number): Promise<Result<null, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('delete_activity', { id }) }
 		} catch (e) {
@@ -154,7 +154,7 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
-	async deleteMoodCheckin(id: number): Promise<Result<null, string>> {
+	async deleteMoodCheckin(id: number): Promise<Result<null, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('delete_mood_checkin', { id }) }
 		} catch (e) {
@@ -257,7 +257,7 @@ export const commands = {
 	 */
 	async createSchedule(
 		request: CreateScheduleRequest
-	): Promise<Result<AssessmentSchedule, string>> {
+	): Promise<Result<AssessmentSchedule, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('create_schedule', { request }) }
 		} catch (e) {
@@ -271,7 +271,7 @@ export const commands = {
 	async updateSchedule(
 		id: number,
 		request: UpdateScheduleRequest
-	): Promise<Result<AssessmentSchedule, string>> {
+	): Promise<Result<AssessmentSchedule, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('update_schedule', { id, request }) }
 		} catch (e) {
@@ -282,7 +282,7 @@ export const commands = {
 	/**
 	 * T167: Delete a schedule
 	 */
-	async deleteSchedule(id: number): Promise<Result<null, string>> {
+	async deleteSchedule(id: number): Promise<Result<null, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('delete_schedule', { id }) }
 		} catch (e) {
@@ -414,6 +414,34 @@ export type ChartStatistics = {
 	average: number
 	trend: TrendDirection
 	total_assessments: number
+}
+/**
+ * Structured error response for Tauri commands that provides:
+ * - Human-readable error message
+ * - Machine-readable error type for conditional logic
+ * - Retry flag to guide client-side retry behavior
+ *
+ * This enables the frontend to:
+ * - Make type-safe decisions about error handling
+ * - Implement smart retry logic without string parsing
+ * - Display appropriate error messages to users
+ */
+export type CommandError = {
+	/**
+	 * Human-readable error message
+	 */
+	message: string
+	/**
+	 * Machine-readable error type for conditional logic
+	 * Examples: "validation", "not_found", "database_locked", "transient"
+	 */
+	error_type: string
+	/**
+	 * Whether this error is retryable (e.g., database locks, transient network issues)
+	 * - true: Client should retry the operation (e.g., SQLITE_BUSY, lock timeout)
+	 * - false: Client should not retry (e.g., validation error, not found)
+	 */
+	retryable: boolean
 }
 /**
  * Request to create an activity

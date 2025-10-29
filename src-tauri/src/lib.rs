@@ -13,7 +13,7 @@ pub mod features;
 pub use config::AppConfig;
 pub use constants::*;
 pub use db::Database;
-pub use errors::{AppError, AppResult};
+pub use errors::{AppError, AppResult, CommandError};
 
 /// Application state managed by Tauri
 pub struct AppState {

@@ -4,8 +4,7 @@
 use super::models::*;
 use super::repository::MoodRepository;
 use super::repository_trait::MoodRepositoryTrait;
-use crate::AppState;
-use anyhow::Context;
+use crate::{AppState, CommandError};
 use tauri::State;
 use tracing::error;
 
@@ -15,11 +14,11 @@ use tracing::error;
 pub async fn log_mood(
     request: LogMoodRequest,
     state: State<'_, AppState>,
-) -> Result<MoodCheckin, String> {
+) -> Result<MoodCheckin, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     log_mood_impl(&repo, request).map_err(|e| {
         error!("log_mood error: {}", e);
-        e.to_string()
+        e.to_command_error()
     })
 }
 
@@ -27,9 +26,8 @@ pub async fn log_mood(
 fn log_mood_impl(
     repo: &impl MoodRepositoryTrait,
     request: LogMoodRequest,
-) -> anyhow::Result<MoodCheckin> {
+) -> Result<MoodCheckin, MoodError> {
     repo.create_mood_checkin(request.mood_rating, request.activity_ids, request.notes)
-        .context("Failed to log mood")
 }
 
 // T106: create_activity command
@@ -38,11 +36,11 @@ fn log_mood_impl(
 pub async fn create_activity(
     request: CreateActivityRequest,
     state: State<'_, AppState>,
-) -> Result<Activity, String> {
+) -> Result<Activity, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     create_activity_impl(&repo, request).map_err(|e| {
         error!("create_activity error: {}", e);
-        e.to_string()
+        e.to_command_error()
     })
 }
 
@@ -50,9 +48,8 @@ pub async fn create_activity(
 fn create_activity_impl(
     repo: &impl MoodRepositoryTrait,
     request: CreateActivityRequest,
-) -> anyhow::Result<Activity> {
+) -> Result<Activity, MoodError> {
     repo.create_activity(request.name, request.color, request.icon)
-        .context("Failed to create activity")
 }
 
 // T107: update_activity command
@@ -62,11 +59,11 @@ pub async fn update_activity(
     id: i32,
     request: UpdateActivityRequest,
     state: State<'_, AppState>,
-) -> Result<Activity, String> {
+) -> Result<Activity, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     update_activity_impl(&repo, id, request).map_err(|e| {
         error!("update_activity error: {}", e);
-        e.to_string()
+        e.to_command_error()
     })
 }
 
@@ -75,43 +72,40 @@ fn update_activity_impl(
     repo: &impl MoodRepositoryTrait,
     id: i32,
     request: UpdateActivityRequest,
-) -> anyhow::Result<Activity> {
+) -> Result<Activity, MoodError> {
     repo.update_activity(id, request.name, request.color, request.icon)
-        .context("Failed to update activity")
 }
 
 // T108: delete_activity command
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_activity(id: i32, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_activity(id: i32, state: State<'_, AppState>) -> Result<(), CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     delete_activity_impl(&repo, id).map_err(|e| {
         error!("delete_activity error: {}", e);
-        e.to_string()
+        e.to_command_error()
     })
 }
 
 /// Business logic for deleting activity - uses trait bound for testability
-fn delete_activity_impl(repo: &impl MoodRepositoryTrait, id: i32) -> anyhow::Result<()> {
+fn delete_activity_impl(repo: &impl MoodRepositoryTrait, id: i32) -> Result<(), MoodError> {
     repo.delete_activity(id)
-        .context("Failed to delete activity")
 }
 
 // T093c: delete_mood_checkin command (cascade deletion)
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<(), CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     delete_mood_checkin_impl(&repo, id).map_err(|e| {
         error!("delete_mood_checkin error: {}", e);
-        e.to_string()
+        e.to_command_error()
     })
 }
 
 /// Business logic for deleting mood check-in - uses trait bound for testability
-fn delete_mood_checkin_impl(repo: &impl MoodRepositoryTrait, id: i32) -> anyhow::Result<()> {
+fn delete_mood_checkin_impl(repo: &impl MoodRepositoryTrait, id: i32) -> Result<(), MoodError> {
     repo.delete_mood_checkin(id)
-        .context("Failed to delete mood check-in")
 }
 
 #[cfg(test)]

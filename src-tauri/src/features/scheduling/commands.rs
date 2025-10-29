@@ -3,12 +3,11 @@
 
 use tauri::State;
 
-use crate::AppState;
+use crate::{AppState, CommandError};
 
 use super::models::{AssessmentSchedule, CreateScheduleRequest, UpdateScheduleRequest};
 use super::repository::SchedulingRepository;
 use super::repository_trait::SchedulingRepositoryTrait;
-use anyhow::Context;
 
 /// T165: Create a new assessment schedule
 #[tauri::command]
@@ -16,18 +15,18 @@ use anyhow::Context;
 pub fn create_schedule(
     request: CreateScheduleRequest,
     state: State<AppState>,
-) -> Result<AssessmentSchedule, String> {
+) -> Result<AssessmentSchedule, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
-    create_schedule_impl(&repo, request).map_err(|e| e.to_string())
+    create_schedule_impl(&repo, request)
 }
 
 /// Business logic for creating schedule - uses trait bound for testability
 fn create_schedule_impl(
     repo: &impl SchedulingRepositoryTrait,
     request: CreateScheduleRequest,
-) -> anyhow::Result<AssessmentSchedule> {
+) -> Result<AssessmentSchedule, CommandError> {
     repo.create_schedule(request)
-        .context("Failed to create schedule")
+        .map_err(|e| e.to_command_error())
 }
 
 /// T166: Update an existing schedule
@@ -37,9 +36,9 @@ pub fn update_schedule(
     id: i32,
     request: UpdateScheduleRequest,
     state: State<AppState>,
-) -> Result<AssessmentSchedule, String> {
+) -> Result<AssessmentSchedule, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
-    update_schedule_impl(&repo, id, request).map_err(|e| e.to_string())
+    update_schedule_impl(&repo, id, request)
 }
 
 /// Business logic for updating schedule - uses trait bound for testability
@@ -47,23 +46,25 @@ fn update_schedule_impl(
     repo: &impl SchedulingRepositoryTrait,
     id: i32,
     request: UpdateScheduleRequest,
-) -> anyhow::Result<AssessmentSchedule> {
+) -> Result<AssessmentSchedule, CommandError> {
     repo.update_schedule(id, request)
-        .context("Failed to update schedule")
+        .map_err(|e| e.to_command_error())
 }
 
 /// T167: Delete a schedule
 #[tauri::command]
 #[specta::specta]
-pub fn delete_schedule(id: i32, state: State<AppState>) -> Result<(), String> {
+pub fn delete_schedule(id: i32, state: State<AppState>) -> Result<(), CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
-    delete_schedule_impl(&repo, id).map_err(|e| e.to_string())
+    delete_schedule_impl(&repo, id)
 }
 
 /// Business logic for deleting schedule - uses trait bound for testability
-fn delete_schedule_impl(repo: &impl SchedulingRepositoryTrait, id: i32) -> anyhow::Result<()> {
-    repo.delete_schedule(id)
-        .context("Failed to delete schedule")
+fn delete_schedule_impl(
+    repo: &impl SchedulingRepositoryTrait,
+    id: i32,
+) -> Result<(), CommandError> {
+    repo.delete_schedule(id).map_err(|e| e.to_command_error())
 }
 
 #[cfg(test)]

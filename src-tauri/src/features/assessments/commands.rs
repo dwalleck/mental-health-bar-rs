@@ -2,7 +2,7 @@
 use super::models::*;
 use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
-use crate::{AppState, MAX_NOTES_LENGTH, MAX_TYPE_CODE_LENGTH};
+use crate::{AppState, CommandError, MAX_NOTES_LENGTH, MAX_TYPE_CODE_LENGTH};
 use tauri::State;
 
 /// Submit a completed assessment
@@ -11,22 +11,28 @@ use tauri::State;
 pub async fn submit_assessment(
     request: SubmitAssessmentRequest,
     state: State<'_, AppState>,
-) -> Result<AssessmentResponse, String> {
+) -> Result<AssessmentResponse, CommandError> {
     // Validate notes field length and content
     if let Some(ref notes) = request.notes {
         if notes.len() > MAX_NOTES_LENGTH {
-            return Err(format!(
-                "Notes exceed maximum length of {} characters",
-                MAX_NOTES_LENGTH
+            return Err(CommandError::permanent(
+                format!(
+                    "Notes exceed maximum length of {} characters",
+                    MAX_NOTES_LENGTH
+                ),
+                "validation",
             ));
         }
 
         // Validate no control characters except newlines and tabs
         for ch in notes.chars() {
             if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
-                return Err(format!(
-                    "Notes contain invalid control character (code {}). Only newlines and tabs are allowed.",
-                    ch as u32
+                return Err(CommandError::permanent(
+                    format!(
+                        "Notes contain invalid control character (code {}). Only newlines and tabs are allowed.",
+                        ch as u32
+                    ),
+                    "validation",
                 ));
             }
         }
@@ -34,9 +40,12 @@ pub async fn submit_assessment(
 
     // Validate assessment type code length
     if request.assessment_type_code.len() > MAX_TYPE_CODE_LENGTH {
-        return Err(format!(
-            "Assessment type code exceeds maximum length of {} characters",
-            MAX_TYPE_CODE_LENGTH
+        return Err(CommandError::permanent(
+            format!(
+                "Assessment type code exceeds maximum length of {} characters",
+                MAX_TYPE_CODE_LENGTH
+            ),
+            "validation",
         ));
     }
 
@@ -46,7 +55,10 @@ pub async fn submit_assessment(
         .chars()
         .all(|c| c.is_alphanumeric())
     {
-        return Err("Assessment type code must contain only alphanumeric characters".to_string());
+        return Err(CommandError::permanent(
+            "Assessment type code must contain only alphanumeric characters",
+            "validation",
+        ));
     }
 
     let repo = AssessmentRepository::new(state.db.clone());
@@ -57,56 +69,40 @@ pub async fn submit_assessment(
 fn submit_assessment_impl(
     repo: &impl AssessmentRepositoryTrait,
     request: SubmitAssessmentRequest,
-) -> Result<AssessmentResponse, String> {
+) -> Result<AssessmentResponse, CommandError> {
     // Get assessment type
     let assessment_type = repo
         .get_assessment_type_by_code(request.assessment_type_code.clone())
-        .map_err(|e| {
-            format!(
-                "Failed to retrieve assessment type '{}': {}. Use get_assessment_types() to check available types.",
-                request.assessment_type_code, e
-            )
-        })?;
+        .map_err(|e| e.to_command_error())?;
 
     // Calculate score based on type
     let (total_score, severity_level) = match assessment_type.code.as_str() {
         "PHQ9" => {
-            let score = calculate_phq9_score(&request.responses).map_err(|e| {
-                format!(
-                    "Failed to calculate PHQ-9 score: {}. Ensure 9 responses are provided with values 0-3.",
-                    e
-                )
-            })?;
+            let score =
+                calculate_phq9_score(&request.responses).map_err(|e| e.to_command_error())?;
             (score, get_phq9_severity(score).to_string())
         }
         "GAD7" => {
-            let score = calculate_gad7_score(&request.responses).map_err(|e| {
-                format!(
-                    "Failed to calculate GAD-7 score: {}. Ensure 7 responses are provided with values 0-3.",
-                    e
-                )
-            })?;
+            let score =
+                calculate_gad7_score(&request.responses).map_err(|e| e.to_command_error())?;
             (score, get_gad7_severity(score).to_string())
         }
         "CESD" => {
-            let score = calculate_cesd_score(&request.responses).map_err(|e| {
-                format!(
-                    "Failed to calculate CES-D score: {}. Ensure 20 responses are provided with values 0-3.",
-                    e
-                )
-            })?;
+            let score =
+                calculate_cesd_score(&request.responses).map_err(|e| e.to_command_error())?;
             (score, get_cesd_severity(score).to_string())
         }
         "OASIS" => {
-            let score = calculate_oasis_score(&request.responses).map_err(|e| {
-                format!(
-                    "Failed to calculate OASIS score: {}. Ensure 5 responses are provided with values 0-4.",
-                    e
-                )
-            })?;
+            let score =
+                calculate_oasis_score(&request.responses).map_err(|e| e.to_command_error())?;
             (score, get_oasis_severity(score).to_string())
         }
-        _ => return Err(format!("Unknown assessment type: {}", assessment_type.code)),
+        _ => {
+            return Err(CommandError::permanent(
+                format!("Unknown assessment type: {}", assessment_type.code),
+                "validation",
+            ))
+        }
     };
 
     // Save to database
@@ -118,45 +114,36 @@ fn submit_assessment_impl(
             severity_level.clone(),
             request.notes.clone(),
         )
-        .map_err(|e| {
-            format!(
-                "Failed to save assessment to database: {}. The assessment was calculated successfully but could not be saved.",
-                e
-            )
-        })?;
+        .map_err(|e| e.to_command_error())?;
 
     // Return the complete response
     repo.get_assessment_response(id)
-        .map_err(|e| {
-            format!(
-                "Failed to retrieve saved assessment (ID: {}): {}. The assessment was saved but could not be retrieved.",
-                id, e
-            )
-        })
+        .map_err(|e| e.to_command_error())
 }
 
 /// Delete an assessment response
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<(), CommandError> {
     let repo = AssessmentRepository::new(state.db.clone());
     delete_assessment_impl(&repo, id)
 }
 
 /// Business logic for deleting assessment - uses trait bound for testability
-fn delete_assessment_impl(repo: &impl AssessmentRepositoryTrait, id: i32) -> Result<(), String> {
-    repo.delete_assessment(id).map_err(|e| {
-        format!(
-            "Failed to delete assessment (ID: {}): {}. Verify the assessment exists using get_assessment_response().",
-            id, e
-        )
-    })
+fn delete_assessment_impl(
+    repo: &impl AssessmentRepositoryTrait,
+    id: i32,
+) -> Result<(), CommandError> {
+    repo.delete_assessment(id).map_err(|e| e.to_command_error())
 }
 
 /// Delete an assessment type (defensive - prevents deletion if children exist)
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_assessment_type(id: i32, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_assessment_type(
+    id: i32,
+    state: State<'_, AppState>,
+) -> Result<(), CommandError> {
     let repo = AssessmentRepository::new(state.db.clone());
     delete_assessment_type_impl(&repo, id)
 }
@@ -165,25 +152,9 @@ pub async fn delete_assessment_type(id: i32, state: State<'_, AppState>) -> Resu
 fn delete_assessment_type_impl(
     repo: &impl AssessmentRepositoryTrait,
     id: i32,
-) -> Result<(), String> {
-    repo.delete_assessment_type(id).map_err(|e| match e {
-        AssessmentError::HasChildren(msg) => {
-            format!(
-                "Cannot delete assessment type (ID: {}): {}. Delete all associated assessment responses first using delete_assessment().",
-                id, msg
-            )
-        }
-        AssessmentError::NotFound(aid) => {
-            format!(
-                "Assessment type not found (ID: {}). Use get_assessment_types() to check available types.",
-                aid
-            )
-        }
-        _ => format!(
-            "Failed to delete assessment type (ID: {}): {}",
-            id, e
-        ),
-    })
+) -> Result<(), CommandError> {
+    repo.delete_assessment_type(id)
+        .map_err(|e| e.to_command_error())
 }
 
 #[cfg(test)]

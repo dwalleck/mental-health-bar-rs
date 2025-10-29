@@ -1,3 +1,4 @@
+use crate::CommandError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -37,6 +38,84 @@ pub enum AssessmentError {
 
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
+}
+
+impl AssessmentError {
+    /// Convert to structured CommandError for frontend consumption
+    pub fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            AssessmentError::InvalidType(code) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "assessment_type_code",
+                        "value": code
+                    }),
+                )
+            }
+            AssessmentError::IncompleteResponses { expected, actual } => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "responses",
+                        "expected": expected,
+                        "actual": actual
+                    }),
+                )
+            }
+            AssessmentError::InvalidResponse(msg) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "responses",
+                        "details": msg
+                    }),
+                )
+            }
+            AssessmentError::Deserialization(msg) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "details": msg
+                    }),
+                )
+            }
+
+            // Not found errors - not retryable
+            AssessmentError::NotFound(id) => CommandError::permanent(self.to_string(), "not_found")
+                .with_details(serde_json::json!({
+                    "resource": "assessment",
+                    "id": id
+                })),
+
+            // Constraint errors - not retryable
+            AssessmentError::HasChildren(msg) => {
+                CommandError::permanent(self.to_string(), "constraint_violation").with_details(
+                    serde_json::json!({
+                        "details": msg
+                    }),
+                )
+            }
+
+            // Database lock/transient errors - retryable
+            AssessmentError::LockPoisoned => {
+                CommandError::retryable(self.to_string(), "lock_poisoned")
+            }
+            AssessmentError::Database(e) => {
+                // Classify SQLite errors as retryable or permanent
+                match e {
+                    rusqlite::Error::SqliteFailure(err, _) => {
+                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
+                        if err.code == rusqlite::ErrorCode::DatabaseBusy
+                            || err.code == rusqlite::ErrorCode::DatabaseLocked
+                        {
+                            CommandError::retryable(self.to_string(), "database_locked")
+                        } else {
+                            CommandError::permanent(self.to_string(), "database")
+                        }
+                    }
+                    _ => CommandError::permanent(self.to_string(), "database"),
+                }
+            }
+        }
+    }
 }
 
 /// Assessment type (PHQ-9, GAD-7, CES-D, OASIS)

@@ -654,6 +654,68 @@ Each increment:
 
 ---
 
+## Post-Implementation: Structured Error Handling (PR Feedback)
+
+**Status**: Partially Complete (Commands Done, Queries Pending)
+
+### Completed
+- [X] Created `CommandError` struct in `src-tauri/src/errors.rs` with:
+  - `message`: Human-readable error message
+  - `error_type`: Machine-readable type ("validation", "not_found", "database_locked", etc.)
+  - `retryable`: Boolean flag for client-side retry logic
+  - TypeScript types auto-generated via tauri-specta
+
+- [X] Implemented `to_command_error()` methods on all error types:
+  - `MoodError::to_command_error()` in `src-tauri/src/features/mood/models.rs`
+  - `AssessmentError::to_command_error()` in `src-tauri/src/features/assessments/models.rs`
+  - `SchedulingError::to_command_error()` in `src-tauri/src/features/scheduling/models.rs`
+
+- [X] Updated all command handlers (mutations) to return `Result<T, CommandError>`:
+  - Mood commands: `log_mood`, `create_activity`, `update_activity`, `delete_activity`, `delete_mood_checkin`
+  - Assessment commands: `submit_assessment`, `delete_assessment`, `delete_assessment_type`
+  - Scheduling commands: `create_schedule`, `update_schedule`, `delete_schedule`
+
+### Remaining Work
+- [ ] Update query handlers to return `Result<T, CommandError>`:
+  - Mood queries: `get_mood_history`, `get_mood_checkin`, `get_mood_stats`, `get_activities`
+  - Assessment queries: `get_assessment_types`, `get_assessment_questions`, `get_assessment_history`, `get_assessment_response`, `get_latest_assessment`
+  - Scheduling queries: `get_schedules`, `get_schedule`
+  - Visualization queries: `get_assessment_chart_data`, `get_mood_chart_data`
+
+- [ ] Frontend implementation in `src/lib/api.ts` or similar:
+  - Create retry utility that checks `error.retryable` flag
+  - Implement type-safe error handling based on `error_type`
+  - Example retry logic:
+    ```typescript
+    async function withRetry<T>(
+      fn: () => Promise<T>,
+      maxRetries = 3
+    ): Promise<T> {
+      try {
+        return await fn();
+      } catch (error) {
+        if (error.retryable && maxRetries > 0) {
+          await sleep(1000);
+          return withRetry(fn, maxRetries - 1);
+        }
+        throw error;
+      }
+    }
+    ```
+
+- [ ] Error display components:
+  - Create `<ErrorMessage>` component that formats errors by type
+  - Different UI for retryable vs permanent errors
+  - Show user-friendly messages based on `error_type`
+
+### Benefits
+- **Type Safety**: Frontend can handle errors without string parsing
+- **Smart Retry**: Client automatically retries transient errors (database locks, SQLITE_BUSY)
+- **Better UX**: Different UI for retryable vs permanent errors
+- **Debugging**: `details` field provides structured context for developers
+
+---
+
 ## Task Summary
 
 **Total Tasks**: 250 (updated from 228 after dashboard score visualization addition)

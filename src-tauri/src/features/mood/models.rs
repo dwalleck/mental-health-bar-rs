@@ -1,4 +1,4 @@
-use crate::MAX_NOTES_LENGTH;
+use crate::{CommandError, MAX_NOTES_LENGTH};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
@@ -41,6 +41,79 @@ pub enum MoodError {
 
     #[error("Transaction rollback failed: {0}. Database may be in inconsistent state")]
     TransactionFailure(String),
+}
+
+impl MoodError {
+    /// Convert to structured CommandError for frontend consumption
+    pub fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            MoodError::InvalidRating(_) => CommandError::permanent(self.to_string(), "validation"),
+            MoodError::EmptyActivityName => CommandError::permanent(self.to_string(), "validation"),
+            MoodError::ActivityNameTooLong(_) => {
+                CommandError::permanent(self.to_string(), "validation")
+            }
+            MoodError::InvalidColorFormat(_) => {
+                CommandError::permanent(self.to_string(), "validation")
+            }
+            MoodError::ActivityIconTooLong(_) => {
+                CommandError::permanent(self.to_string(), "validation")
+            }
+            MoodError::NotesLengthExceeded(_, _) => {
+                CommandError::permanent(self.to_string(), "validation")
+            }
+
+            // Not found errors - not retryable
+            MoodError::ActivityNotFound(id) => {
+                CommandError::permanent(self.to_string(), "not_found").with_details(
+                    serde_json::json!({
+                        "resource": "activity",
+                        "id": id
+                    }),
+                )
+            }
+            MoodError::MoodCheckinNotFound(id) => {
+                CommandError::permanent(self.to_string(), "not_found").with_details(
+                    serde_json::json!({
+                        "resource": "mood_checkin",
+                        "id": id
+                    }),
+                )
+            }
+
+            // Duplicate errors - not retryable
+            MoodError::DuplicateActivityName(name) => {
+                CommandError::permanent(self.to_string(), "duplicate").with_details(
+                    serde_json::json!({
+                        "field": "name",
+                        "value": name
+                    }),
+                )
+            }
+
+            // Database lock/transient errors - retryable
+            MoodError::LockPoisoned => CommandError::retryable(self.to_string(), "lock_poisoned"),
+            MoodError::TransactionFailure(_) => {
+                CommandError::retryable(self.to_string(), "transaction_failure")
+            }
+            MoodError::Database(e) => {
+                // Classify SQLite errors as retryable or permanent
+                match e {
+                    rusqlite::Error::SqliteFailure(err, _) => {
+                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
+                        if err.code == rusqlite::ErrorCode::DatabaseBusy
+                            || err.code == rusqlite::ErrorCode::DatabaseLocked
+                        {
+                            CommandError::retryable(self.to_string(), "database_locked")
+                        } else {
+                            CommandError::permanent(self.to_string(), "database")
+                        }
+                    }
+                    _ => CommandError::permanent(self.to_string(), "database"),
+                }
+            }
+        }
+    }
 }
 
 /// Activity model
