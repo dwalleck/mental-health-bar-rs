@@ -281,22 +281,21 @@ describe('MoodScaleInput', () => {
 		})
 	})
 
-	describe('Default Value', () => {
-		it('should render with default value of 3', () => {
-			const onChange = vi.fn()
-			// Not passing value prop, should default to 3
-			const { container } = render(MoodScaleInput, { props: { onChange } })
-
-			const buttons = container.querySelectorAll('button')
-			expect(buttons[2]).toHaveAttribute('aria-pressed', 'true')
-		})
-
+	describe('Value Prop', () => {
 		it('should accept different starting values', () => {
 			const onChange = vi.fn()
 			const { container } = render(MoodScaleInput, { props: { value: 1, onChange } })
 
 			const buttons = container.querySelectorAll('button')
 			expect(buttons[0]).toHaveAttribute('aria-pressed', 'true')
+		})
+
+		it('should render with provided value', () => {
+			const onChange = vi.fn()
+			const { container } = render(MoodScaleInput, { props: { value: 5, onChange } })
+
+			const buttons = container.querySelectorAll('button')
+			expect(buttons[4]).toHaveAttribute('aria-pressed', 'true')
 		})
 	})
 })

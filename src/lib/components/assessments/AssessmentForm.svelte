@@ -122,7 +122,7 @@
 		</div>
 
 		<form onsubmit={handleSubmit} class="space-y-6">
-			{#each questions as question, i (question.id)}
+			{#each questions as question, i (question.number)}
 				<Card>
 					<h3 id="question-{i}-label" class="font-medium text-gray-800 mb-3">
 						{question.number}. {question.text}

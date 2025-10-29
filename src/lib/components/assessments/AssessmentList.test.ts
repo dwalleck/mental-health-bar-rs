@@ -33,6 +33,7 @@ describe('AssessmentList', () => {
 
 	const mockAssessmentTypes: AssessmentType[] = [
 		{
+			id: 1,
 			code: 'PHQ9',
 			name: 'Patient Health Questionnaire-9',
 			description: 'Depression screening',
@@ -41,6 +42,7 @@ describe('AssessmentList', () => {
 			max_score: 27,
 		},
 		{
+			id: 2,
 			code: 'GAD7',
 			name: 'Generalized Anxiety Disorder-7',
 			description: 'Anxiety screening',
@@ -148,6 +150,7 @@ describe('AssessmentList', () => {
 		it('should use default description when none provided', async () => {
 			const assessmentWithoutDescription: AssessmentType[] = [
 				{
+					id: 3,
 					code: 'TEST',
 					name: 'Test Assessment',
 					description: null,

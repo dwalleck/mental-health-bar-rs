@@ -239,7 +239,7 @@ describe('ScheduleList', () => {
 	it('should display error on toggle failure', async () => {
 		vi.mocked(commands.updateSchedule).mockResolvedValue({
 			status: 'error',
-			error: 'Update failed',
+			error: { message: 'Update failed', error_type: 'database', retryable: false },
 		})
 
 		render(ScheduleList)
@@ -262,7 +262,7 @@ describe('ScheduleList', () => {
 
 		vi.mocked(commands.deleteSchedule).mockResolvedValue({
 			status: 'error',
-			error: 'Delete failed',
+			error: { message: 'Delete failed', error_type: 'database', retryable: false },
 		})
 
 		render(ScheduleList)

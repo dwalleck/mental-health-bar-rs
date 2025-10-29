@@ -33,15 +33,11 @@ describe('AssessmentForm', () => {
 
 	const mockQuestions: AssessmentQuestion[] = [
 		{
-			id: 1,
-			assessment_type_code: 'PHQ9',
 			number: 1,
 			text: 'Little interest or pleasure in doing things',
 			options: ['Not at all', 'Several days', 'More than half the days', 'Nearly every day'],
 		},
 		{
-			id: 2,
-			assessment_type_code: 'PHQ9',
 			number: 2,
 			text: 'Feeling down, depressed, or hopeless',
 			options: ['Not at all', 'Several days', 'More than half the days', 'Nearly every day'],
@@ -50,8 +46,8 @@ describe('AssessmentForm', () => {
 
 	const mockSubmitResponse: AssessmentResponse = {
 		id: 123,
-		assessment_type_code: 'PHQ9',
 		assessment_type: {
+			id: 1,
 			code: 'PHQ9',
 			name: 'PHQ-9',
 			description: 'Depression screening',
@@ -59,15 +55,11 @@ describe('AssessmentForm', () => {
 			min_score: 0,
 			max_score: 8,
 		},
-		responses: [
-			{ question_id: 1, question_text: 'Q1', score: 1 },
-			{ question_id: 2, question_text: 'Q2', score: 2 },
-		],
+		responses: [1, 2],
 		total_score: 3,
 		severity_level: 'minimal',
 		completed_at: '2024-01-15T10:30:00Z',
 		notes: null,
-		created_at: '2024-01-15T10:25:00Z',
 	}
 
 	describe('Props', () => {

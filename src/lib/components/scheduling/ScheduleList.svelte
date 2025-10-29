@@ -20,6 +20,7 @@
 			if (result.status === 'ok') {
 				schedules = result.data
 			} else {
+				// getSchedules is a query command - still returns string error
 				error = result.error
 			}
 		} catch (e) {
@@ -41,7 +42,7 @@
 			if (result.status === 'ok') {
 				await loadSchedules()
 			} else {
-				error = result.error
+				error = result.error.message
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to update schedule'
@@ -57,7 +58,7 @@
 			if (result.status === 'ok') {
 				await loadSchedules()
 			} else {
-				error = result.error
+				error = result.error.message
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to delete schedule'

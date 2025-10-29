@@ -45,6 +45,7 @@
 					selectedAssessmentTypeId = assessmentTypes[0].id
 				}
 			} else {
+				// getAssessmentTypes is a query command - still returns string error
 				error = result.error
 			}
 		} catch (e) {
@@ -80,7 +81,7 @@
 				}
 				onSuccess?.()
 			} else {
-				error = result.error
+				error = result.error.message
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to create schedule'
