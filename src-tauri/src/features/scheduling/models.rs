@@ -182,7 +182,7 @@ impl CreateScheduleRequest {
     /// Combines validator crate's derive validation with custom frequency logic
     pub fn validate(&self) -> Result<(), SchedulingError> {
         // First, run validator crate's derive validations (range checks, custom validators)
-        
+
         <Self as validator::Validate>::validate(self).map_err(|e| {
             // Convert validator::ValidationErrors to SchedulingError
             let errors = e.field_errors();
@@ -254,7 +254,7 @@ impl UpdateScheduleRequest {
     /// Combines validator crate's derive validation with custom logic
     pub fn validate(&self) -> Result<(), SchedulingError> {
         // First, run validator crate's derive validations (range checks, custom validators)
-        
+
         <Self as validator::Validate>::validate(self).map_err(|e| {
             // Convert validator::ValidationErrors to SchedulingError
             let errors = e.field_errors();
