@@ -1,6 +1,5 @@
 <script lang="ts">
 	// T147, T147b, T181: Mood chart component with empty state and loading animations
-	import { onMount } from 'svelte'
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { MoodChartData } from '$lib/bindings'
 	import { defaultChartOptions, moodColors } from '$lib/utils/chart-config'
@@ -19,16 +18,7 @@
 	// T147b: Empty state check
 	const hasInsufficientData = $derived(!data || !data.data_points || data.data_points.length < 2)
 
-	onMount(() => {
-		return () => {
-			// Cleanup chart on unmount
-			if (chart) {
-				chart.destroy()
-			}
-		}
-	})
-
-	// Reactive chart rendering
+	// Reactive chart rendering with cleanup
 	$effect(() => {
 		if (!canvas || !data || hasInsufficientData) {
 			if (chart) {
@@ -156,6 +146,14 @@
 		const ctx = canvas.getContext('2d')
 		if (ctx) {
 			chart = new Chart(ctx, config)
+		}
+
+		// Cleanup function for unmount
+		return () => {
+			if (chart) {
+				chart.destroy()
+				chart = null
+			}
 		}
 	})
 </script>

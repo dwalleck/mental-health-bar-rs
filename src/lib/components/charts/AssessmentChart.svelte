@@ -1,6 +1,5 @@
 <script lang="ts">
 	// T129, T130, T132b, T181: Assessment chart component with threshold lines, empty state, and loading animations
-	import { onMount } from 'svelte'
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { AssessmentChartData } from '$lib/bindings'
 	import { defaultChartOptions } from '$lib/utils/chart-config'
@@ -19,16 +18,7 @@
 	// T132b: Empty state check
 	const hasInsufficientData = $derived(!data || !data.data_points || data.data_points.length < 2)
 
-	onMount(() => {
-		return () => {
-			// Cleanup chart on unmount
-			if (chart) {
-				chart.destroy()
-			}
-		}
-	})
-
-	// Reactive chart rendering
+	// Reactive chart rendering with cleanup
 	$effect(() => {
 		if (!canvas || !data || hasInsufficientData) {
 			if (chart) {
@@ -152,6 +142,14 @@
 		const ctx = canvas.getContext('2d')
 		if (ctx) {
 			chart = new Chart(ctx, config)
+		}
+
+		// Cleanup function for unmount
+		return () => {
+			if (chart) {
+				chart.destroy()
+				chart = null
+			}
 		}
 	})
 </script>
