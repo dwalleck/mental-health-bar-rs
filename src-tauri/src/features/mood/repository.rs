@@ -20,11 +20,9 @@
 use super::models::*;
 use super::repository_trait::MoodRepositoryTrait;
 use crate::db::Database;
+use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
 use tracing::info;
-
-/// Maximum number of records that can be retrieved in a single query
-const MAX_QUERY_LIMIT: i32 = 1000;
 
 /// Minimum number of check-ins required to establish activity-mood correlation
 const MIN_CORRELATION_SAMPLE_SIZE: i32 = 3;
@@ -52,7 +50,7 @@ impl MoodRepository {
     /// # Arguments
     /// * `mood_rating` - Mood rating from 1 (worst) to 5 (best)
     /// * `activity_ids` - List of activity IDs to associate with this check-in
-    /// * `notes` - Optional text notes (max 5000 characters)
+    /// * `notes` - Optional text notes (max MAX_NOTES_LENGTH characters)
     ///
     /// # Returns
     /// * `Ok(MoodCheckin)` - The created check-in with all associated activities
@@ -60,7 +58,7 @@ impl MoodRepository {
     ///
     /// # Errors
     /// * `InvalidRating` - If mood_rating is not between 1-5
-    /// * `NotesLengthExceeded` - If notes exceed 5000 characters
+    /// * `NotesLengthExceeded` - If notes exceed MAX_NOTES_LENGTH characters
     /// * `ActivityNotFound` - If any activity_id doesn't exist
     /// * `Database` - On database errors
     // T075: create_mood_checkin method

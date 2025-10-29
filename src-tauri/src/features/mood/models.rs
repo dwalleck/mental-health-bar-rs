@@ -1,3 +1,4 @@
+use crate::MAX_NOTES_LENGTH;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
@@ -26,8 +27,8 @@ pub enum MoodError {
     #[error("Activity icon too long: {0} characters. Maximum 20 characters allowed")]
     ActivityIconTooLong(usize),
 
-    #[error("Notes too long: {0} characters. Maximum 5000 characters allowed")]
-    NotesLengthExceeded(usize),
+    #[error("Notes too long: {0} characters. Maximum {1} characters allowed")]
+    NotesLengthExceeded(usize, usize),
 
     #[error("Database lock poisoned - a panic occurred while holding the database lock. The application should restart.")]
     LockPoisoned,
@@ -132,10 +133,13 @@ pub fn validate_activity_name(name: &str) -> Result<String, MoodError> {
     Ok(trimmed)
 }
 
-/// Validate notes length (max 5000 characters)
+/// Validate notes length (uses centralized MAX_NOTES_LENGTH constant)
 pub fn validate_notes(notes: &str) -> Result<(), MoodError> {
-    if notes.len() > 5000 {
-        return Err(MoodError::NotesLengthExceeded(notes.len()));
+    if notes.len() > MAX_NOTES_LENGTH {
+        return Err(MoodError::NotesLengthExceeded(
+            notes.len(),
+            MAX_NOTES_LENGTH,
+        ));
     }
     Ok(())
 }

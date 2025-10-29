@@ -1,14 +1,12 @@
 // Assessment repository - database access layer
 use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
+use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
 use tracing::error;
 
 /// Minimum limit for query results
 const MIN_QUERY_LIMIT: i32 = 1;
-
-/// Maximum limit for query results to prevent excessive memory usage
-const MAX_QUERY_LIMIT: i32 = 1000;
 
 pub struct AssessmentRepository {
     db: Arc<Database>,

@@ -1,14 +1,8 @@
 // Assessment commands (mutations)
 use super::models::*;
 use super::repository::AssessmentRepository;
-use crate::AppState;
+use crate::{AppState, MAX_NOTES_LENGTH, MAX_TYPE_CODE_LENGTH};
 use tauri::State;
-
-/// Maximum length for assessment notes field
-const MAX_NOTES_LENGTH: usize = 10_000;
-
-/// Maximum length for assessment type code
-const MAX_TYPE_CODE_LENGTH: usize = 10;
 
 /// Submit a completed assessment
 #[tauri::command]
