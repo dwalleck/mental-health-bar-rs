@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { commands, type AssessmentSchedule } from '$lib/bindings'
-	import { onMount } from 'svelte'
 
 	let { refresh = $bindable(0) }: { refresh?: number } = $props()
 
@@ -8,15 +7,9 @@
 	let loading = $state(true)
 	let error = $state<string | null>(null)
 
+	// Load schedules on mount and when refresh prop changes
 	$effect(() => {
-		// Reload when refresh prop changes (skip initial mount since onMount handles that)
-		if (refresh > 0) {
-			loadSchedules()
-		}
-	})
-
-	onMount(async () => {
-		await loadSchedules()
+		loadSchedules()
 	})
 
 	async function loadSchedules() {
