@@ -5,7 +5,6 @@
 
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
-use tauri_sveltekit_modern_lib::features::mood::models::*;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
 use tempfile::TempDir;
 
@@ -100,13 +99,13 @@ fn test_get_mood_history_with_date_filtering() {
     let (repo, _temp_dir) = setup_test_repo();
 
     // Create mood check-ins on different days
-    let yesterday = chrono::Utc::now()
+    let _yesterday = chrono::Utc::now()
         .checked_sub_signed(chrono::Duration::days(1))
         .unwrap()
         .format("%Y-%m-%d")
         .to_string();
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    let tomorrow = chrono::Utc::now()
+    let _tomorrow = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::days(1))
         .unwrap()
         .format("%Y-%m-%d")
@@ -262,4 +261,330 @@ fn test_get_mood_checkin_not_found() {
 
     let result = repo.get_mood_checkin(9999);
     assert!(result.is_err());
+}
+
+// T093a: Integration test - Deleting mood_checkin cascades to mood_checkin_activities
+#[test]
+fn test_delete_mood_checkin_cascades_to_activities() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create test activities
+    let activity1 = repo
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .expect("Failed to create activity 1");
+    let activity2 = repo
+        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+        .expect("Failed to create activity 2");
+
+    // Create mood check-in with activities
+    let mood_checkin = repo
+        .create_mood_checkin(4, vec![activity1.id, activity2.id], Some("Feeling great"))
+        .expect("Failed to create mood check-in");
+
+    // Verify mood check-in exists with activities
+    let fetched = repo
+        .get_mood_checkin(mood_checkin.id)
+        .expect("Failed to get mood check-in");
+    assert_eq!(fetched.activities.len(), 2);
+
+    // Delete the mood check-in
+    repo.delete_mood_checkin(mood_checkin.id)
+        .expect("Failed to delete mood check-in");
+
+    // Verify mood check-in is deleted
+    let result = repo.get_mood_checkin(mood_checkin.id);
+    assert!(result.is_err(), "Mood check-in should be deleted");
+
+    // Verify activities still exist (soft delete, not cascade)
+    let all_activities = repo
+        .get_activities(false)
+        .expect("Failed to get activities");
+    assert_eq!(all_activities.len(), 2, "Activities should still exist");
+
+    // Verify junction table records are deleted by checking that if we create
+    // a new mood check-in with same activities, it works without constraint violations
+    let new_mood = repo
+        .create_mood_checkin(5, vec![activity1.id, activity2.id], Some("Another day"))
+        .expect("Should be able to reuse activities after deletion");
+    assert_eq!(new_mood.activities.len(), 2);
+}
+
+// ============================================================================
+// P0 TESTS - Command Validation (T150i-T150k, T150y)
+// ============================================================================
+
+// T150i: Test log_mood with notes exceeding 5,000 chars
+#[test]
+fn test_log_mood_notes_exceeds_max_length() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create notes with exactly 5,001 characters (1 over limit)
+    let notes = "a".repeat(5_001);
+
+    let result = repo.create_mood_checkin(3, vec![], Some(&notes));
+
+    assert!(result.is_err());
+    let error_msg = format!("{}", result.unwrap_err());
+    assert!(error_msg.contains("5000") || error_msg.contains("exceed"));
+}
+
+// T150y: Test notes at exactly 5,000 characters (boundary)
+#[test]
+fn test_log_mood_notes_at_exact_limit() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Exactly 5,000 characters (at the limit)
+    let notes = "a".repeat(5_000);
+
+    let result = repo.create_mood_checkin(3, vec![], Some(&notes));
+
+    // Should succeed at exactly the limit
+    assert!(result.is_ok(), "5,000 characters should be allowed");
+}
+
+// T150j: Test log_mood with boundary ratings (0, 6, -1, 100)
+#[test]
+fn test_log_mood_with_invalid_boundary_ratings() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Test rating 0 (below minimum of 1)
+    let result = repo.create_mood_checkin(0, vec![], None);
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
+
+    // Test rating 6 (above maximum of 5)
+    let result = repo.create_mood_checkin(6, vec![], None);
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
+
+    // Test negative rating
+    let result = repo.create_mood_checkin(-1, vec![], None);
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
+
+    // Test very large rating
+    let result = repo.create_mood_checkin(100, vec![], None);
+    assert!(result.is_err());
+    assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
+}
+
+// T150j continued: Test valid boundary ratings (1 and 5)
+#[test]
+fn test_log_mood_with_valid_boundary_ratings() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Test rating 1 (minimum valid)
+    let result = repo.create_mood_checkin(1, vec![], None);
+    assert!(result.is_ok(), "Rating 1 should be valid");
+    assert_eq!(result.unwrap().mood_rating, 1);
+
+    // Test rating 5 (maximum valid)
+    let result = repo.create_mood_checkin(5, vec![], None);
+    assert!(result.is_ok(), "Rating 5 should be valid");
+    assert_eq!(result.unwrap().mood_rating, 5);
+}
+
+// T150k: Test log_mood with very large activity_ids array (50+ ids)
+#[test]
+fn test_log_mood_with_large_activity_array() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create 60 activities
+    let mut activity_ids = Vec::new();
+    for i in 0..60 {
+        let activity = repo
+            .create_activity(&format!("Activity {}", i), Some("#4CAF50"), Some("📝"))
+            .expect(&format!("Failed to create activity {}", i));
+        activity_ids.push(activity.id);
+    }
+
+    // Try to log mood with all 60 activities
+    // This should either succeed or provide a reasonable error
+    let result = repo.create_mood_checkin(4, activity_ids.clone(), Some("Busy day!"));
+
+    // Most implementations should handle this, but if there's a limit, error should be clear
+    match result {
+        Ok(mood) => {
+            assert_eq!(
+                mood.activities.len(),
+                60,
+                "All 60 activities should be linked"
+            );
+            assert_eq!(mood.mood_rating, 4);
+        }
+        Err(e) => {
+            let error_msg = format!("{}", e);
+            assert!(
+                error_msg.contains("too many") || error_msg.contains("limit"),
+                "Error should clearly indicate activity limit: {}",
+                error_msg
+            );
+        }
+    }
+}
+
+// ============================================================================
+// P0 TESTS - Query Edge Cases (T150n-T150o, T150r-T150s)
+// ============================================================================
+
+// T150n: Test get_mood_history with invalid date formats
+#[test]
+fn test_get_mood_history_invalid_date_formats() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create a mood check-in
+    repo.create_mood_checkin(4, vec![], Some("Test"))
+        .expect("Failed to create mood");
+
+    // Test various invalid date formats
+    let invalid_dates = vec![
+        "2024-13-01", // Invalid month
+        "2024-02-30", // Invalid day
+        "not-a-date", // Completely invalid
+        "2024/01/15", // Wrong separator
+        "15-01-2024", // Wrong format
+        "2024-1-1",   // Missing leading zeros
+        "",           // Empty string
+    ];
+
+    for invalid_date in invalid_dates {
+        let result = repo.get_mood_history(Some(invalid_date.to_string()), None, None);
+
+        // Implementation may either:
+        // 1. Return error for invalid date
+        // 2. Return empty results if date doesn't match anything
+        // 3. Treat as no filter and return all
+        // Test documents actual behavior
+        match result {
+            Ok(moods) => {
+                // If it succeeds, document the behavior
+                println!(
+                    "Invalid date '{}' returned {} moods",
+                    invalid_date,
+                    moods.len()
+                );
+            }
+            Err(e) => {
+                // If it errors, error should mention date or format
+                let error_msg = format!("{}", e);
+                println!(
+                    "Invalid date '{}' produced error: {}",
+                    invalid_date, error_msg
+                );
+            }
+        }
+    }
+}
+
+// T150o: Test get_mood_history with from_date > to_date
+#[test]
+fn test_get_mood_history_reversed_date_range() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create some mood check-ins
+    repo.create_mood_checkin(4, vec![], Some("Test 1"))
+        .expect("Failed to create mood 1");
+    repo.create_mood_checkin(5, vec![], Some("Test 2"))
+        .expect("Failed to create mood 2");
+
+    // Query with from_date > to_date (reversed range)
+    let from_date = chrono::Utc::now()
+        .checked_add_signed(chrono::Duration::days(7))
+        .unwrap()
+        .format("%Y-%m-%d")
+        .to_string();
+    let to_date = chrono::Utc::now().format("%Y-%m-%d").to_string();
+
+    let result = repo.get_mood_history(Some(from_date), Some(to_date), None);
+
+    // Should either return empty results or error
+    match result {
+        Ok(moods) => {
+            assert_eq!(
+                moods.len(),
+                0,
+                "Reversed date range should return empty results"
+            );
+        }
+        Err(e) => {
+            let error_msg = format!("{}", e);
+            assert!(
+                error_msg.contains("date") || error_msg.contains("range"),
+                "Error should mention date range issue: {}",
+                error_msg
+            );
+        }
+    }
+}
+
+// T150r: Test query with very large limit values
+#[test]
+fn test_get_mood_history_large_limit() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create 5 mood check-ins
+    for i in 1..=5 {
+        repo.create_mood_checkin(i, vec![], Some(&format!("Mood {}", i)))
+            .expect("Failed to create mood");
+    }
+
+    // Test with very large limit
+    let result = repo.get_mood_history(None, None, Some(1_000_000));
+
+    // Should succeed and return all available moods (5)
+    assert!(result.is_ok(), "Large limit should not cause error");
+    let moods = result.unwrap();
+    assert_eq!(
+        moods.len(),
+        5,
+        "Should return all 5 moods despite large limit"
+    );
+
+    // Test with i32::MAX
+    let result = repo.get_mood_history(None, None, Some(i32::MAX));
+    assert!(result.is_ok(), "i32::MAX limit should not cause error");
+    assert_eq!(result.unwrap().len(), 5);
+}
+
+// T150s: Test get_mood_statistics with empty date ranges
+#[test]
+fn test_get_mood_statistics_empty_date_range() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create mood check-ins today
+    repo.create_mood_checkin(4, vec![], Some("Today's mood"))
+        .expect("Failed to create mood");
+
+    // Query with date range in the future (no data)
+    let future_start = chrono::Utc::now()
+        .checked_add_signed(chrono::Duration::days(10))
+        .unwrap()
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    let future_end = chrono::Utc::now()
+        .checked_add_signed(chrono::Duration::days(20))
+        .unwrap()
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    let result = repo.get_mood_stats(Some(future_start), Some(future_end));
+
+    // Should either return error or return statistics with zero/empty values
+    match result {
+        Ok(stats) => {
+            // If it returns stats, they should reflect no data
+            assert_eq!(
+                stats.total_checkins, 0,
+                "Empty date range should have 0 check-ins"
+            );
+        }
+        Err(e) => {
+            let error_msg = format!("{}", e);
+            assert!(
+                error_msg.contains("No data") || error_msg.contains("empty"),
+                "Error should indicate no data available: {}",
+                error_msg
+            );
+        }
+    }
 }

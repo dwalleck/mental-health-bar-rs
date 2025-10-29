@@ -27,6 +27,12 @@ pub fn run_migrations(db: &Database) -> Result<()> {
         info!("Applied migration 001: Initial schema");
     }
 
+    if current_version < 2 {
+        apply_migration_002(db)?;
+        record_migration(db, 2)?;
+        info!("Applied migration 002: Add schedule index");
+    }
+
     info!("All migrations applied successfully");
     Ok(())
 }
@@ -67,6 +73,21 @@ fn apply_migration_001(db: &Database) -> Result<()> {
 
     conn.execute_batch(schema_sql)
         .context("Failed to apply migration 001")?;
+
+    Ok(())
+}
+
+/// Migration 002: Add performance index for schedule queries
+fn apply_migration_002(db: &Database) -> Result<()> {
+    let schema_sql = include_str!("migrations/002_add_schedule_index.sql");
+
+    let conn = db.get_connection();
+    let conn = conn
+        .lock()
+        .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+
+    conn.execute_batch(schema_sql)
+        .context("Failed to apply migration 002")?;
 
     Ok(())
 }

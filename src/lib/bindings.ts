@@ -204,6 +204,114 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
+	/**
+	 * T126: Get assessment chart data for visualization
+	 */
+	async getAssessmentChartData(
+		code: string,
+		timeRange: TimeRange,
+		fromDate: string | null,
+		toDate: string | null
+	): Promise<Result<AssessmentChartData, string>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('get_assessment_chart_data', {
+					code,
+					timeRange,
+					fromDate,
+					toDate,
+				}),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	/**
+	 * T144: Get mood chart data for visualization
+	 */
+	async getMoodChartData(
+		timeRange: TimeRange,
+		fromDate: string | null,
+		toDate: string | null,
+		groupByActivity: boolean
+	): Promise<Result<MoodChartData, string>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('get_mood_chart_data', {
+					timeRange,
+					fromDate,
+					toDate,
+					groupByActivity,
+				}),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	/**
+	 * T165: Create a new assessment schedule
+	 */
+	async createSchedule(
+		request: CreateScheduleRequest
+	): Promise<Result<AssessmentSchedule, string>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('create_schedule', { request }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	/**
+	 * T166: Update an existing schedule
+	 */
+	async updateSchedule(
+		id: number,
+		request: UpdateScheduleRequest
+	): Promise<Result<AssessmentSchedule, string>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('update_schedule', { id, request }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	/**
+	 * T167: Delete a schedule
+	 */
+	async deleteSchedule(id: number): Promise<Result<null, string>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('delete_schedule', { id }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	/**
+	 * T168: Get all schedules (optionally filtered to enabled only)
+	 */
+	async getSchedules(enabledOnly: boolean): Promise<Result<AssessmentSchedule[], string>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('get_schedules', { enabledOnly }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	/**
+	 * T169: Get a single schedule by ID
+	 */
+	async getSchedule(id: number): Promise<Result<AssessmentSchedule, string>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('get_schedule', { id }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
 }
 
 /** user-defined events **/
@@ -232,6 +340,23 @@ export type ActivityCorrelation = {
 	checkin_count: number
 }
 /**
+ * Activity-specific mood data for correlation analysis
+ */
+export type ActivityMoodData = {
+	activity: Activity
+	average_mood: number
+	data_points: ChartDataPoint[]
+}
+/**
+ * Assessment chart data with thresholds and statistics
+ */
+export type AssessmentChartData = {
+	assessment_type: AssessmentType
+	data_points: ChartDataPoint[]
+	thresholds: ThresholdLine[]
+	statistics: ChartStatistics
+}
+/**
  * Assessment question
  */
 export type AssessmentQuestion = { number: number; text: string; options: string[] }
@@ -248,6 +373,23 @@ export type AssessmentResponse = {
 	notes: string | null
 }
 /**
+ * Assessment schedule configuration
+ */
+export type AssessmentSchedule = {
+	id: number
+	assessment_type_id: number
+	assessment_type_code: string
+	assessment_type_name: string
+	frequency: ScheduleFrequency
+	time_of_day: string
+	day_of_week: number | null
+	day_of_month: number | null
+	enabled: boolean
+	last_triggered_at: string | null
+	created_at: string
+	updated_at: string
+}
+/**
  * Assessment type (PHQ-9, GAD-7, CES-D, OASIS)
  */
 export type AssessmentType = {
@@ -260,13 +402,45 @@ export type AssessmentType = {
 	max_score: number
 }
 /**
+ * Chart data point for time-series visualization
+ */
+export type ChartDataPoint = { timestamp: string; value: number; label: string | null }
+/**
+ * Chart statistics (min, max, average, trend)
+ */
+export type ChartStatistics = {
+	min: number
+	max: number
+	average: number
+	trend: TrendDirection
+	total_assessments: number
+}
+/**
  * Request to create an activity
  */
 export type CreateActivityRequest = { name: string; color: string | null; icon: string | null }
 /**
+ * Request to create a new schedule
+ */
+export type CreateScheduleRequest = {
+	assessment_type_id: number
+	frequency: ScheduleFrequency
+	time_of_day: string
+	day_of_week: number | null
+	day_of_month: number | null
+}
+/**
  * Request to log a mood check-in
  */
 export type LogMoodRequest = { mood_rating: number; activity_ids: number[]; notes: string | null }
+/**
+ * Mood chart data with activity breakdown
+ */
+export type MoodChartData = {
+	data_points: ChartDataPoint[]
+	activity_breakdown: ActivityMoodData[]
+	statistics: MoodStatistics
+}
 /**
  * Mood check-in model
  */
@@ -278,6 +452,18 @@ export type MoodCheckin = {
 	created_at: string
 }
 /**
+ * Mood statistics (min, max, average, median, mode)
+ */
+export type MoodStatistics = {
+	min: number
+	max: number
+	average: number
+	median: number
+	mode: number
+	total_checkins: number
+	checkins_per_day: number
+}
+/**
  * Mood statistics
  */
 export type MoodStats = {
@@ -287,6 +473,10 @@ export type MoodStats = {
 	activity_correlations: ActivityCorrelation[]
 }
 /**
+ * Schedule frequency options
+ */
+export type ScheduleFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly'
+/**
  * Request to submit assessment
  */
 export type SubmitAssessmentRequest = {
@@ -295,12 +485,34 @@ export type SubmitAssessmentRequest = {
 	notes: string | null
 }
 /**
+ * Threshold line for severity level visualization
+ */
+export type ThresholdLine = { label: string; value: number; color: string }
+/**
+ * Time range for chart data queries
+ */
+export type TimeRange = 'week' | 'month' | 'quarter' | 'year' | 'alltime' | 'custom'
+/**
+ * Trend direction for assessment scores
+ */
+export type TrendDirection = 'improving' | 'worsening' | 'stable'
+/**
  * Request to update an activity
  */
 export type UpdateActivityRequest = {
 	name: string | null
 	color: string | null
 	icon: string | null
+}
+/**
+ * Request to update an existing schedule
+ */
+export type UpdateScheduleRequest = {
+	frequency: ScheduleFrequency | null
+	time_of_day: string | null
+	day_of_week: number | null
+	day_of_month: number | null
+	enabled: boolean | null
 }
 
 /** tauri-specta globals **/

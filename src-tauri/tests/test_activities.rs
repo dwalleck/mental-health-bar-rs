@@ -333,3 +333,146 @@ fn test_duplicate_name_even_after_soft_delete() {
         "Should be a new activity with different ID"
     );
 }
+
+// ============================================================================
+// P0 TESTS - Command Validation (T150l-T150m) and Boundary Conditions (T150v-T150w)
+// ============================================================================
+
+// T150l: Test create_activity with icon exceeding 20 chars
+#[test]
+fn test_create_activity_icon_exceeds_max_length() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create icon with more than 20 characters
+    // Using compound emoji to exceed limit
+    let long_icon = "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"; // 11 emojis = 44 bytes
+
+    let result = repo.create_activity("Art", Some("#E91E63"), Some(long_icon));
+
+    // Should either error or truncate
+    match result {
+        Ok(activity) => {
+            // If implementation truncates, verify it's within limit
+            assert!(
+                activity.icon.as_ref().unwrap().len() <= 20,
+                "Icon should be truncated to 20 chars"
+            );
+        }
+        Err(e) => {
+            // If implementation errors, message should mention icon and limit
+            let error_msg = format!("{}", e);
+            assert!(
+                error_msg.contains("icon")
+                    && (error_msg.contains("20") || error_msg.contains("length")),
+                "Error should mention icon length limit: {}",
+                error_msg
+            );
+        }
+    }
+}
+
+// T150l continued: Test icon at exactly 20 characters (boundary)
+#[test]
+fn test_create_activity_icon_at_exact_limit() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create icon with exactly 20 ASCII characters
+    let icon_20_chars = "12345678901234567890"; // Exactly 20 chars
+
+    let result = repo.create_activity("Test", Some("#4CAF50"), Some(icon_20_chars));
+
+    // Should succeed at exactly the limit
+    assert!(result.is_ok(), "20 characters should be allowed for icon");
+    assert_eq!(result.unwrap().icon.unwrap(), icon_20_chars);
+}
+
+// T150m: Test create_activity with various color formats
+#[test]
+fn test_create_activity_color_format_validation() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Valid formats that should succeed
+    let valid_colors = vec![
+        "#abc",      // 3-digit hex (lowercase)
+        "#123",      // 3-digit hex (numbers)
+        "#F0F",      // 3-digit hex (uppercase)
+        "#ABC123",   // 6-digit hex (mixed case)
+        "#ff00ff",   // 6-digit hex (lowercase)
+        "#FF00FF80", // 8-digit hex with alpha
+    ];
+
+    for (i, color) in valid_colors.iter().enumerate() {
+        let result = repo.create_activity(&format!("Activity{}", i), Some(color), None);
+        assert!(
+            result.is_ok(),
+            "Valid color format '{}' should be accepted",
+            color
+        );
+    }
+
+    // Invalid formats that should fail
+    let invalid_colors = vec![
+        "RGB",        // Missing #
+        "#12345",     // 5 digits (invalid)
+        "#GGG",       // Invalid hex characters
+        "##AABBCC",   // Double #
+        "#",          // Just #
+        "red",        // Color name
+        "#12",        // Too short
+        "#123456789", // Too long
+    ];
+
+    for color in invalid_colors.iter() {
+        let result = repo.create_activity("Test", Some(color), None);
+        assert!(
+            result.is_err(),
+            "Invalid color format '{}' should be rejected",
+            color
+        );
+    }
+}
+
+// T150v: Test create_activity with name at exactly 100 characters
+#[test]
+fn test_create_activity_name_at_exact_limit() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Create name with exactly 100 characters
+    let name_100_chars = "a".repeat(100);
+
+    let result = repo.create_activity(&name_100_chars, Some("#4CAF50"), Some("📝"));
+
+    // Should succeed at exactly the limit
+    assert!(result.is_ok(), "100 characters should be allowed");
+    assert_eq!(result.unwrap().name, name_100_chars);
+}
+
+// T150w: Test create_activity with name boundary conditions
+#[test]
+fn test_create_activity_name_boundary_conditions() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // 99 characters - should succeed
+    let name_99_chars = "a".repeat(99);
+    let result = repo.create_activity(&name_99_chars, Some("#4CAF50"), None);
+    assert!(result.is_ok(), "99 characters should be valid");
+    assert_eq!(result.unwrap().name.len(), 99);
+
+    // 100 characters - should succeed (at boundary)
+    let name_100_chars = "b".repeat(100);
+    let result = repo.create_activity(&name_100_chars, Some("#2196F3"), None);
+    assert!(result.is_ok(), "100 characters should be valid");
+    assert_eq!(result.unwrap().name.len(), 100);
+
+    // 101 characters - should fail (over limit)
+    let name_101_chars = "c".repeat(101);
+    let result = repo.create_activity(&name_101_chars, Some("#FF9800"), None);
+    assert!(result.is_err(), "101 characters should be rejected");
+
+    let error_msg = format!("{}", result.unwrap_err());
+    assert!(
+        error_msg.contains("100") || error_msg.contains("length") || error_msg.contains("name"),
+        "Error should indicate name length violation: {}",
+        error_msg
+    );
+}

@@ -304,3 +304,132 @@ fn test_scoring_validation_errors() {
     let result = calculate_oasis_score(&vec![0, 1, 2, 3, 5]); // 5 is invalid
     assert!(result.is_err());
 }
+
+// ============================================================================
+// P0 TESTS - Query Edge Cases (T150p, T150q)
+// ============================================================================
+
+// T150p: Test get_assessment_history with from_date > to_date
+#[test]
+fn test_get_assessment_history_reversed_date_range() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Get PHQ-9 assessment type
+    let phq9_type = repo
+        .get_assessment_type_by_code("PHQ9")
+        .expect("Failed to get PHQ-9");
+
+    // Create some assessments
+    let responses1 = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+    repo.save_assessment(phq9_type.id, &responses1, 9, "minimal", None)
+        .expect("Failed to save assessment 1");
+
+    let responses2 = vec![2, 2, 2, 2, 2, 2, 2, 2, 2];
+    repo.save_assessment(phq9_type.id, &responses2, 18, "mild", None)
+        .expect("Failed to save assessment 2");
+
+    // Query with from_date > to_date (reversed range)
+    let from_date = chrono::Utc::now()
+        .checked_add_signed(chrono::Duration::days(7))
+        .unwrap()
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    let to_date = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let result = repo.get_assessment_history(
+        Some("PHQ9".to_string()),
+        Some(from_date),
+        Some(to_date),
+        None,
+    );
+
+    // Should either return empty results or error
+    match result {
+        Ok(assessments) => {
+            assert_eq!(
+                assessments.len(),
+                0,
+                "Reversed date range should return empty results"
+            );
+        }
+        Err(e) => {
+            let error_msg = format!("{}", e);
+            assert!(
+                error_msg.contains("date") || error_msg.contains("range"),
+                "Error should mention date range issue: {}",
+                error_msg
+            );
+        }
+    }
+}
+
+// T150q: Test queries with SQL injection attempts
+#[test]
+fn test_sql_injection_protection() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Test SQL injection in assessment type code
+    let sql_injections = vec![
+        "PHQ9'; DROP TABLE assessments; --",
+        "PHQ9' OR '1'='1",
+        "PHQ9'; DELETE FROM assessment_responses WHERE '1'='1",
+        "' UNION SELECT * FROM assessment_types --",
+        "PHQ9\"; DROP TABLE assessments; --",
+    ];
+
+    for injection in sql_injections {
+        // Attempt to get assessment type with SQL injection
+        let result = repo.get_assessment_type_by_code(injection);
+
+        // Should either return NotFound error or safely handle it
+        match result {
+            Ok(_) => {
+                panic!(
+                    "SQL injection should not succeed in finding an assessment: '{}'",
+                    injection
+                );
+            }
+            Err(e) => {
+                // Should be a normal "not found" error, not a SQL error
+                let error_msg = format!("{}", e);
+                assert!(
+                    !error_msg.contains("SQL") && !error_msg.contains("syntax"),
+                    "Error should not expose SQL details: {}",
+                    error_msg
+                );
+            }
+        }
+    }
+
+    // Test SQL injection in notes field
+    let phq9_type = repo
+        .get_assessment_type_by_code("PHQ9")
+        .expect("Failed to get PHQ-9");
+
+    let malicious_notes = "Test'; DROP TABLE assessment_responses; --";
+    let responses = vec![1; 9];
+    let result = repo.save_assessment(
+        phq9_type.id,
+        &responses,
+        9,
+        "minimal",
+        Some(malicious_notes.to_string()),
+    );
+
+    // Should succeed (parameterized queries should sanitize)
+    assert!(
+        result.is_ok(),
+        "Parameterized queries should handle SQL injection attempts safely"
+    );
+
+    // Verify the ID was returned
+    let saved_id = result.unwrap();
+    assert!(saved_id > 0, "Should return valid assessment ID");
+
+    // Verify database integrity - tables should still exist
+    let history = repo.get_assessment_history(Some("PHQ9".to_string()), None, None, None);
+    assert!(
+        history.is_ok(),
+        "Database should remain intact after SQL injection attempt"
+    );
+}

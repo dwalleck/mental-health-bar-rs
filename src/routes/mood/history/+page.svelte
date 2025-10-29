@@ -75,8 +75,8 @@
 
 <div class="max-w-4xl mx-auto">
 	<div class="mb-6">
-		<h1 class="text-3xl font-bold text-gray-900 dark:text-white">Mood History</h1>
-		<p class="text-gray-600 dark:text-gray-400 mt-1">
+		<h1 class="text-3xl font-bold text-gray-900">Mood History</h1>
+		<p class="text-gray-600 mt-1">
 			Review your mood patterns and track your emotional well-being over time.
 		</p>
 	</div>
@@ -84,16 +84,16 @@
 	{#if stats}
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 			<Card title="Average Mood">
-				<div class="text-4xl font-bold text-blue-600 dark:text-blue-400">
+				<div class="text-4xl font-bold text-blue-600">
 					{stats.average_mood.toFixed(1)}
 				</div>
-				<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">out of 5.0</div>
+				<div class="text-sm text-gray-500 mt-1">out of 5.0</div>
 			</Card>
 			<Card title="Total Check-Ins">
-				<div class="text-4xl font-bold text-green-600 dark:text-green-400">
+				<div class="text-4xl font-bold text-green-600">
 					{stats.total_checkins}
 				</div>
-				<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">logged moods</div>
+				<div class="text-sm text-gray-500 mt-1">logged moods</div>
 			</Card>
 			<Card title="Activity Correlations">
 				<div class="text-sm space-y-1">
@@ -104,17 +104,15 @@
 									{#if correlation.activity.icon}
 										<span>{correlation.activity.icon}</span>
 									{/if}
-									<span class="text-gray-700 dark:text-gray-300">{correlation.activity.name}</span>
+									<span class="text-gray-700">{correlation.activity.name}</span>
 								</div>
-								<span class="font-semibold text-blue-600 dark:text-blue-400">
+								<span class="font-semibold text-blue-600">
 									{correlation.average_mood.toFixed(1)}
 								</span>
 							</div>
 						{/each}
 					{:else}
-						<div class="text-gray-500 dark:text-gray-400 italic">
-							Log moods with activities to see correlations
-						</div>
+						<div class="text-gray-500 italic">Log moods with activities to see correlations</div>
 					{/if}
 				</div>
 			</Card>
@@ -127,7 +125,7 @@
 				class="px-4 py-2 rounded-md font-medium transition-colors
 					{selectedFilter === 'all'
 					? 'bg-blue-600 text-white'
-					: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}"
+					: 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
 				onclick={() => handleFilterChange('all')}
 			>
 				All Time
@@ -136,7 +134,7 @@
 				class="px-4 py-2 rounded-md font-medium transition-colors
 					{selectedFilter === 'week'
 					? 'bg-blue-600 text-white'
-					: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}"
+					: 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
 				onclick={() => handleFilterChange('week')}
 			>
 				Last Week
@@ -145,7 +143,7 @@
 				class="px-4 py-2 rounded-md font-medium transition-colors
 					{selectedFilter === 'month'
 					? 'bg-blue-600 text-white'
-					: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}"
+					: 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
 				onclick={() => handleFilterChange('month')}
 			>
 				Last Month
