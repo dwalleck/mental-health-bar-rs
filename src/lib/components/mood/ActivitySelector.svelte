@@ -104,6 +104,7 @@
 				class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md mb-2
 					focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 				maxlength="100"
+				aria-label="Activity name"
 			/>
 			<div class="flex gap-2 items-center mb-2">
 				<input
@@ -119,6 +120,7 @@
 					class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
 						focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 					maxlength="20"
+					aria-label="Activity icon (emoji)"
 				/>
 			</div>
 			<button
@@ -151,6 +153,7 @@
 						: 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'}"
 					onclick={() => toggleActivity(activity.id)}
 					aria-pressed={selectedIds.includes(activity.id)}
+					aria-label={`${selectedIds.includes(activity.id) ? 'Deselect' : 'Select'} activity: ${activity.name}`}
 					style={activity.color ? `border-color: ${activity.color}` : ''}
 				>
 					{#if activity.icon}

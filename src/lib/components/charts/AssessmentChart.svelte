@@ -1,9 +1,10 @@
 <script lang="ts">
-	// T129, T130, T132b: Assessment chart component with threshold lines and empty state
+	// T129, T130, T132b, T181: Assessment chart component with threshold lines, empty state, and loading animations
 	import { onMount } from 'svelte'
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { AssessmentChartData } from '$lib/bindings'
 	import { defaultChartOptions } from '$lib/utils/chart-config'
+	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
 	interface Props {
 		data: AssessmentChartData | null
@@ -157,12 +158,13 @@
 
 <div class="assessment-chart">
 	{#if loading}
-		<div class="flex items-center justify-center h-64">
-			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-		</div>
+		<!-- T181: Loading skeleton with smooth transition -->
+		<SkeletonLoader type="chart" />
 	{:else if hasInsufficientData}
 		<!-- T132b: Empty state for <2 data points -->
-		<div class="empty-state flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+		<div
+			class="empty-state flex flex-col items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg"
+		>
 			<svg
 				class="w-16 h-16 text-gray-400 mb-4"
 				fill="none"
@@ -176,8 +178,8 @@
 					d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
 				/>
 			</svg>
-			<h3 class="text-lg font-semibold text-gray-700 mb-2">Not Enough Data</h3>
-			<p class="text-gray-600 text-center max-w-md">
+			<h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Not Enough Data</h3>
+			<p class="text-gray-600 dark:text-gray-400 text-center max-w-md">
 				Complete at least 2 assessments to view trends and patterns over time.
 			</p>
 		</div>

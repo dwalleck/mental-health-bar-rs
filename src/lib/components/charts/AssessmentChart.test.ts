@@ -43,6 +43,17 @@ vi.mock('chartjs-plugin-annotation', () => ({
 describe('AssessmentChart', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+
+		// T181: Mock Element.prototype.animate for Svelte transitions
+		Element.prototype.animate = vi.fn(() => ({
+			finished: Promise.resolve(),
+			cancel: vi.fn(),
+			pause: vi.fn(),
+			play: vi.fn(),
+			reverse: vi.fn(),
+			finish: vi.fn(),
+		})) as unknown as typeof Element.prototype.animate
+
 		// Mock canvas context - using type assertion for test mock
 		HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
 			canvas: {},
@@ -106,12 +117,13 @@ describe('AssessmentChart', () => {
 	}
 
 	describe('Loading State', () => {
-		it('should display loading spinner when loading is true', () => {
+		it('should display loading skeleton when loading is true', () => {
 			render(AssessmentChart, { props: { data: null, loading: true } })
 
-			const spinner = document.querySelector('.animate-spin')
-			expect(spinner).toBeInTheDocument()
-			expect(spinner).toHaveClass('border-blue-600')
+			// T181: Check for skeleton loader instead of spinner
+			const loadingStatus = screen.getByRole('status')
+			expect(loadingStatus).toBeInTheDocument()
+			expect(loadingStatus).toHaveAttribute('aria-label', 'Loading content')
 		})
 
 		it('should not render chart canvas when loading', () => {
@@ -293,11 +305,12 @@ describe('AssessmentChart', () => {
 		it('should handle transition from loading to data', async () => {
 			const { rerender } = render(AssessmentChart, { props: { data: null, loading: true } })
 
-			expect(document.querySelector('.animate-spin')).toBeInTheDocument()
+			// T181: Check for skeleton loader
+			expect(screen.getByRole('status')).toBeInTheDocument()
 
 			await rerender({ data: mockChartData, loading: false })
 
-			expect(document.querySelector('.animate-spin')).not.toBeInTheDocument()
+			expect(screen.queryByRole('status')).not.toBeInTheDocument()
 		})
 
 		it('should handle transition from empty to data', async () => {
@@ -307,6 +320,7 @@ describe('AssessmentChart', () => {
 
 			await rerender({ data: mockChartData, loading: false })
 
+			// T181: Element updates immediately without transitions
 			expect(screen.queryByText('Not Enough Data')).not.toBeInTheDocument()
 		})
 
@@ -319,6 +333,7 @@ describe('AssessmentChart', () => {
 
 			await rerender({ data: null, loading: false })
 
+			// T181: Element updates immediately without transitions
 			expect(container.querySelector('canvas')).not.toBeInTheDocument()
 			expect(screen.getByText('Not Enough Data')).toBeInTheDocument()
 		})
