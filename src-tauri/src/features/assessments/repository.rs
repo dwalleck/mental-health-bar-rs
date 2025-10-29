@@ -322,6 +322,15 @@ impl AssessmentRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock();
 
+        self.count_assessment_responses_with_conn(&conn, assessment_type_id)
+    }
+
+    /// Helper: Count assessment responses with provided connection
+    fn count_assessment_responses_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        assessment_type_id: i32,
+    ) -> Result<i32, AssessmentError> {
         let count: i32 = conn.query_row(
             "SELECT COUNT(*) FROM assessment_responses WHERE assessment_type_id = ?",
             [assessment_type_id],
@@ -339,6 +348,15 @@ impl AssessmentRepository {
         let conn = self.db.get_connection();
         let conn = conn.lock();
 
+        self.count_assessment_schedules_with_conn(&conn, assessment_type_id)
+    }
+
+    /// Helper: Count assessment schedules with provided connection
+    fn count_assessment_schedules_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        assessment_type_id: i32,
+    ) -> Result<i32, AssessmentError> {
         let count: i32 = conn.query_row(
             "SELECT COUNT(*) FROM assessment_schedules WHERE assessment_type_id = ?",
             [assessment_type_id],
@@ -350,9 +368,22 @@ impl AssessmentRepository {
 
     /// Delete an assessment type with defensive checks (prevents deletion if children exist)
     pub fn delete_assessment_type(&self, id: i32) -> Result<(), AssessmentError> {
-        // Count child records
-        let response_count = self.count_assessment_responses(id)?;
-        let schedule_count = self.count_assessment_schedules(id)?;
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        self.delete_assessment_type_with_conn(&conn, id)
+    }
+
+    /// Helper: Delete assessment type with provided connection
+    /// Uses single lock acquisition for atomic operation (prevents race conditions)
+    fn delete_assessment_type_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        id: i32,
+    ) -> Result<(), AssessmentError> {
+        // Count child records atomically within same lock
+        let response_count = self.count_assessment_responses_with_conn(conn, id)?;
+        let schedule_count = self.count_assessment_schedules_with_conn(conn, id)?;
 
         // Block deletion if children exist
         if response_count > 0 || schedule_count > 0 {
@@ -363,9 +394,6 @@ impl AssessmentRepository {
         }
 
         // Safe to delete - no children
-        let conn = self.db.get_connection();
-        let conn = conn.lock();
-
         conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
 
         Ok(())
