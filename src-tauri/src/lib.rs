@@ -1,16 +1,19 @@
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
 mod config;
+pub mod constants;
 pub mod db;
 mod errors;
 pub mod features;
 
 // Re-export for easier access
 pub use config::AppConfig;
+pub use constants::*;
 pub use db::Database;
-pub use errors::{AppError, AppResult};
+pub use errors::{AppError, AppResult, CommandError};
 
 /// Application state managed by Tauri
 pub struct AppState {

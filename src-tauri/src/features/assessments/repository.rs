@@ -1,14 +1,12 @@
 // Assessment repository - database access layer
 use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
+use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
 use tracing::error;
 
 /// Minimum limit for query results
 const MIN_QUERY_LIMIT: i32 = 1;
-
-/// Maximum limit for query results to prevent excessive memory usage
-const MAX_QUERY_LIMIT: i32 = 1000;
 
 pub struct AssessmentRepository {
     db: Arc<Database>,
@@ -29,7 +27,7 @@ impl AssessmentRepository {
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         let responses_json = serde_json::to_string(responses).map_err(|e| {
             AssessmentError::InvalidResponse(format!("Failed to serialize responses: {}", e))
@@ -63,7 +61,7 @@ impl AssessmentRepository {
     /// Get all assessment types
     pub fn get_assessment_types(&self) -> Result<Vec<AssessmentType>, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let mut stmt = conn.prepare(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -102,7 +100,7 @@ impl AssessmentRepository {
         code: &str,
     ) -> Result<AssessmentType, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let result = conn.query_row(
             "SELECT id, code, name, description, question_count, min_score, max_score, thresholds
@@ -148,7 +146,7 @@ impl AssessmentRepository {
         limit: Option<i32>,
     ) -> Result<Vec<AssessmentResponse>, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Build date filter using query builder helper
         let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
@@ -248,7 +246,7 @@ impl AssessmentRepository {
     /// Get a single assessment response by ID
     pub fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let result = conn.query_row(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
@@ -309,7 +307,7 @@ impl AssessmentRepository {
     /// Delete an assessment response
     pub fn delete_assessment(&self, id: i32) -> Result<(), AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
         conn.execute("DELETE FROM assessment_responses WHERE id = ?", [id])?;
 
@@ -322,8 +320,17 @@ impl AssessmentRepository {
         assessment_type_id: i32,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
+        self.count_assessment_responses_with_conn(&conn, assessment_type_id)
+    }
+
+    /// Helper: Count assessment responses with provided connection
+    fn count_assessment_responses_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        assessment_type_id: i32,
+    ) -> Result<i32, AssessmentError> {
         let count: i32 = conn.query_row(
             "SELECT COUNT(*) FROM assessment_responses WHERE assessment_type_id = ?",
             [assessment_type_id],
@@ -339,8 +346,17 @@ impl AssessmentRepository {
         assessment_type_id: i32,
     ) -> Result<i32, AssessmentError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
+        let conn = conn.lock();
 
+        self.count_assessment_schedules_with_conn(&conn, assessment_type_id)
+    }
+
+    /// Helper: Count assessment schedules with provided connection
+    fn count_assessment_schedules_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        assessment_type_id: i32,
+    ) -> Result<i32, AssessmentError> {
         let count: i32 = conn.query_row(
             "SELECT COUNT(*) FROM assessment_schedules WHERE assessment_type_id = ?",
             [assessment_type_id],
@@ -352,9 +368,22 @@ impl AssessmentRepository {
 
     /// Delete an assessment type with defensive checks (prevents deletion if children exist)
     pub fn delete_assessment_type(&self, id: i32) -> Result<(), AssessmentError> {
-        // Count child records
-        let response_count = self.count_assessment_responses(id)?;
-        let schedule_count = self.count_assessment_schedules(id)?;
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        self.delete_assessment_type_with_conn(&conn, id)
+    }
+
+    /// Helper: Delete assessment type with provided connection
+    /// Uses single lock acquisition for atomic operation (prevents race conditions)
+    fn delete_assessment_type_with_conn(
+        &self,
+        conn: &rusqlite::Connection,
+        id: i32,
+    ) -> Result<(), AssessmentError> {
+        // Count child records atomically within same lock
+        let response_count = self.count_assessment_responses_with_conn(conn, id)?;
+        let schedule_count = self.count_assessment_schedules_with_conn(conn, id)?;
 
         // Block deletion if children exist
         if response_count > 0 || schedule_count > 0 {
@@ -365,11 +394,46 @@ impl AssessmentRepository {
         }
 
         // Safe to delete - no children
-        let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| AssessmentError::LockPoisoned)?;
-
         conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
 
         Ok(())
+    }
+}
+
+// Trait implementation for testing with mocks
+use super::repository_trait::AssessmentRepositoryTrait;
+
+impl AssessmentRepositoryTrait for AssessmentRepository {
+    fn save_assessment(
+        &self,
+        assessment_type_id: i32,
+        responses: Vec<i32>,
+        total_score: i32,
+        severity_level: String,
+        notes: Option<String>,
+    ) -> Result<i32, AssessmentError> {
+        self.save_assessment(
+            assessment_type_id,
+            &responses,
+            total_score,
+            &severity_level,
+            notes,
+        )
+    }
+
+    fn get_assessment_type_by_code(&self, code: String) -> Result<AssessmentType, AssessmentError> {
+        self.get_assessment_type_by_code(&code)
+    }
+
+    fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
+        self.get_assessment_response(id)
+    }
+
+    fn delete_assessment(&self, id: i32) -> Result<(), AssessmentError> {
+        self.delete_assessment(id)
+    }
+
+    fn delete_assessment_type(&self, id: i32) -> Result<(), AssessmentError> {
+        self.delete_assessment_type(id)
     }
 }

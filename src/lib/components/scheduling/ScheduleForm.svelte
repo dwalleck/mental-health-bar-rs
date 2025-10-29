@@ -5,7 +5,6 @@
 		type CreateScheduleRequest,
 		type ScheduleFrequency,
 	} from '$lib/bindings'
-	import { onMount } from 'svelte'
 
 	let { onSuccess }: { onSuccess?: () => void } = $props()
 
@@ -32,8 +31,9 @@
 
 	const daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1)
 
-	onMount(async () => {
-		await loadAssessmentTypes()
+	// Load assessment types on mount
+	$effect(() => {
+		loadAssessmentTypes()
 	})
 
 	async function loadAssessmentTypes() {
@@ -45,6 +45,7 @@
 					selectedAssessmentTypeId = assessmentTypes[0].id
 				}
 			} else {
+				// getAssessmentTypes is a query command - still returns string error
 				error = result.error
 			}
 		} catch (e) {
@@ -80,7 +81,7 @@
 				}
 				onSuccess?.()
 			} else {
-				error = result.error
+				error = result.error.message
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to create schedule'

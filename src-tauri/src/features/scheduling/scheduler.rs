@@ -14,13 +14,14 @@ use super::repository::SchedulingRepository;
 /// Start the background scheduler
 /// Checks for due schedules every minute and sends notifications
 pub fn start_scheduler(app_handle: AppHandle, db: Arc<Database>) {
-    tokio::spawn(async move {
+    // Use Tauri's async runtime instead of tokio::spawn directly
+    tauri::async_runtime::spawn(async move {
         let repo = SchedulingRepository::new(db);
 
         loop {
             // Check for due schedules and send notifications
             if let Err(e) = check_and_notify(&app_handle, &repo).await {
-                eprintln!("Scheduler error: {}", e);
+                eprintln!("[SCHEDULER][ERROR] Failed to check and notify: {}", e);
             }
 
             // Wait 1 minute before next check
@@ -45,16 +46,24 @@ async fn check_and_notify(
     // This is more efficient and ensures all-or-nothing marking
     let schedule_ids: Vec<i32> = due_schedules.iter().map(|s| s.id).collect();
     if let Err(e) = repo.mark_multiple_triggered(&schedule_ids) {
-        eprintln!("Failed to mark schedules as triggered: {}", e);
+        eprintln!(
+            "[SCHEDULER][WARN] Failed to mark schedules as triggered: {}",
+            e
+        );
         return Ok(()); // Skip all notifications if marking failed
     }
 
     // Send notifications (failures don't affect database state)
     for schedule in due_schedules {
-        if let Err(e) = send_notification(app_handle, &schedule.assessment_type_name, schedule.id) {
+        if let Err(e) = send_notification(
+            app_handle,
+            &schedule.assessment_type_name,
+            &schedule.assessment_type_code,
+            schedule.id,
+        ) {
             eprintln!(
-                "Failed to send notification for schedule {}: {}",
-                schedule.id, e
+                "[SCHEDULER][WARN] Failed to send notification for schedule {} ({}): {}",
+                schedule.id, schedule.assessment_type_name, e
             );
         }
     }
@@ -63,27 +72,47 @@ async fn check_and_notify(
 }
 
 /// Send a notification using tauri-plugin-notification
+/// T179: Notification stores assessment type code for click navigation
 fn send_notification(
     app_handle: &AppHandle,
     assessment_name: &str,
-    _schedule_id: i32,
+    assessment_type_code: &str,
+    schedule_id: i32,
 ) -> anyhow::Result<()> {
     use tauri_plugin_notification::NotificationExt;
+
+    // T179: Store the assessment type code in the notification
+    // The frontend listener will use this to navigate to the correct assessment
+    let notification_body = format!(
+        "Time to complete: {}. Click to open assessment.",
+        assessment_name
+    );
 
     let notification_result = app_handle
         .notification()
         .builder()
         .title("Assessment Reminder")
-        .body(format!("Time to complete: {}", assessment_name))
+        .body(notification_body)
+        .icon("icon") // Use app icon
+        // T179: Store assessment info using extra key-value pairs
+        .extra("assessment_type_code", assessment_type_code)
+        .extra("assessment_name", assessment_name)
+        .extra("schedule_id", schedule_id)
         .show();
 
     match notification_result {
         Ok(_) => {
-            println!("Notification sent for: {}", assessment_name);
+            println!(
+                "[SCHEDULER][INFO] Notification sent for schedule {} - {} (code: {})",
+                schedule_id, assessment_name, assessment_type_code
+            );
             Ok(())
         }
         Err(e) => {
-            eprintln!("Failed to send notification: {}", e);
+            eprintln!(
+                "[SCHEDULER][WARN] Failed to send notification for schedule {} - {} (code: {}): {}",
+                schedule_id, assessment_name, assessment_type_code, e
+            );
             Err(anyhow::anyhow!("Failed to send notification: {}", e))
         }
     }

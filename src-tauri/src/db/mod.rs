@@ -1,11 +1,36 @@
 use anyhow::{Context, Result};
+use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tracing::{info, warn};
 
 pub mod migrations;
 pub mod query_builder;
+
+/// RAII guard for temporarily setting umask on Unix systems
+/// Automatically restores previous umask when dropped
+#[cfg(unix)]
+struct UmaskGuard {
+    old_umask: libc::mode_t,
+}
+
+#[cfg(unix)]
+impl UmaskGuard {
+    fn new(new_umask: libc::mode_t) -> Self {
+        let old_umask = unsafe { libc::umask(new_umask) };
+        Self { old_umask }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for UmaskGuard {
+    fn drop(&mut self) {
+        unsafe {
+            libc::umask(self.old_umask);
+        }
+    }
+}
 
 /// Database connection manager
 pub struct Database {
@@ -22,18 +47,19 @@ impl Database {
         let db_path = app_data_dir.join("mental_health_tracker.db");
         info!("Initializing database at: {:?}", db_path);
 
-        // Set file permissions to 0600 (user-only read/write) on Unix
+        // Set secure umask for database file creation on Unix
+        // This ensures new files are created with 0600 permissions
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
+        let _umask_guard = {
+            // If file exists, fix permissions immediately
             if db_path.exists() {
-                let metadata = std::fs::metadata(&db_path)?;
-                let mut permissions = metadata.permissions();
-                permissions.set_mode(0o600);
-                std::fs::set_permissions(&db_path, permissions)?;
-                info!("Database file permissions set to 0600");
+                Self::set_secure_permissions(&db_path)?;
             }
-        }
+
+            // Set restrictive umask for file creation
+            // umask(0o077) means created files get 0600 (rw-------)
+            Some(UmaskGuard::new(0o077))
+        };
 
         // Open database connection
         let conn = Connection::open(&db_path).context("Failed to open database connection")?;
@@ -62,25 +88,54 @@ impl Database {
         // Run migrations
         migrations::run_migrations(&db)?;
 
-        // Set permissions after creation if file was just created
+        // Ensure secure permissions on all database files (including WAL files)
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            let metadata = std::fs::metadata(&db.db_path)?;
-            let mut permissions = metadata.permissions();
-            if permissions.mode() & 0o777 != 0o600 {
-                permissions.set_mode(0o600);
-                std::fs::set_permissions(&db.db_path, permissions)?;
-                info!("Database file permissions set to 0600 after creation");
+            Self::set_secure_permissions(&db.db_path)?;
+
+            // Also secure WAL and SHM files if they exist (created by WAL mode)
+            let wal_path = db.db_path.with_extension("db-wal");
+            let shm_path = db.db_path.with_extension("db-shm");
+
+            if wal_path.exists() {
+                Self::set_secure_permissions(&wal_path)?;
+            }
+            if shm_path.exists() {
+                Self::set_secure_permissions(&shm_path)?;
             }
         }
 
         #[cfg(not(unix))]
         {
-            warn!("File permission enforcement is only supported on Unix systems");
+            info!(
+                "Database stored in user profile directory with inherited ACLs. \
+                 On Windows, AppData directory ACLs typically restrict access to the current user. \
+                 For additional security, manually verify file permissions in Windows Explorer \
+                 (Properties > Security tab)."
+            );
         }
 
         Ok(db)
+    }
+
+    /// Set secure file permissions (0600) on a file - Unix only
+    #[cfg(unix)]
+    fn set_secure_permissions(path: &std::path::Path) -> Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let metadata =
+            std::fs::metadata(path).context(format!("Failed to read metadata for {:?}", path))?;
+        let mut permissions = metadata.permissions();
+        let current_mode = permissions.mode() & 0o777;
+
+        if current_mode != 0o600 {
+            permissions.set_mode(0o600);
+            std::fs::set_permissions(path, permissions)
+                .context(format!("Failed to set permissions on {:?}", path))?;
+            info!("Set secure permissions (0600) on {:?}", path);
+        }
+
+        Ok(())
     }
 
     /// Get a clone of the connection Arc for use in commands
@@ -90,10 +145,7 @@ impl Database {
 
     /// Execute a query that returns no results
     pub fn execute(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<usize> {
-        let conn = self
-            .conn
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+        let conn = self.conn.lock();
         conn.execute(sql, params).context("Failed to execute query")
     }
 

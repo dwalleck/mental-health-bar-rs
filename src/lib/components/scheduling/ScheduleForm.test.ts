@@ -282,7 +282,7 @@ describe('ScheduleForm', () => {
 	it('should display error on failed submission', async () => {
 		vi.mocked(commands.createSchedule).mockResolvedValue({
 			status: 'error',
-			error: 'Invalid time format',
+			error: { message: 'Invalid time format', error_type: 'validation', retryable: false },
 		})
 
 		render(ScheduleForm)

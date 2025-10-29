@@ -1,12 +1,29 @@
 <script lang="ts">
-	export let type: 'text' | 'number' | 'email' | 'password' | 'date' | 'time' = 'text';
-	export let value: string | number = '';
-	export let placeholder = '';
-	export let label: string | undefined = undefined;
-	export let required = false;
-	export let disabled = false;
-	export let error: string | undefined = undefined;
-	export let id: string = `input-${Math.random().toString(36).substring(2, 11)}`;
+	let {
+		type = 'text',
+		value = $bindable(''),
+		placeholder = '',
+		label = undefined,
+		required = false,
+		disabled = false,
+		error = undefined,
+		id = `input-${Math.random().toString(36).substring(2, 11)}`,
+		oninput,
+		onchange,
+		onblur,
+	}: {
+		type?: 'text' | 'number' | 'email' | 'password' | 'date' | 'time'
+		value?: string | number
+		placeholder?: string
+		label?: string
+		required?: boolean
+		disabled?: boolean
+		error?: string
+		id?: string
+		oninput?: (event: Event) => void
+		onchange?: (event: Event) => void
+		onblur?: (event: FocusEvent) => void
+	} = $props()
 </script>
 
 <div class="w-full">
@@ -26,12 +43,12 @@
 		{required}
 		{disabled}
 		bind:value
+		{oninput}
+		{onchange}
+		{onblur}
 		class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed {error
 			? 'border-red-500'
 			: 'border-gray-300'}"
-		on:input
-		on:change
-		on:blur
 	/>
 
 	{#if error}

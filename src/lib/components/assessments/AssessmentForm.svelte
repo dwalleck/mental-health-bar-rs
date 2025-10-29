@@ -1,72 +1,93 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { invoke } from '@tauri-apps/api/core';
-	import type { AssessmentQuestion, AssessmentResponse, SubmitAssessmentRequest } from '$lib/bindings';
-	import Card from '$lib/components/ui/Card.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { goto } from '$app/navigation'
+	import { invoke } from '@tauri-apps/api/core'
+	import type {
+		AssessmentQuestion,
+		AssessmentResponse,
+		SubmitAssessmentRequest,
+	} from '$lib/bindings'
+	import Card from '$lib/components/ui/Card.svelte'
+	import Button from '$lib/components/ui/Button.svelte'
 
-	export let assessmentCode: string;
+	let { assessmentCode }: { assessmentCode: string } = $props()
 
-	let questions: AssessmentQuestion[] = [];
-	let responses: number[] = [];
-	let notes = '';
-	let loading = true;
-	let submitting = false;
-	let error = '';
+	let questions = $state<AssessmentQuestion[]>([])
+	let responses = $state<number[]>([])
+	let notes = $state('')
+	let loading = $state(true)
+	let submitting = $state(false)
+	let error = $state('')
 
-	onMount(async () => {
-		try {
-			questions = await invoke('get_assessment_questions', {
-				assessmentTypeCode: assessmentCode
-			});
-			responses = new Array(questions.length).fill(-1);
-		} catch (e) {
-			error = String(e);
-		} finally {
-			loading = false;
+	$effect(() => {
+		let isMounted = true
+
+		async function fetchQuestions() {
+			try {
+				const fetchedQuestions = await invoke<AssessmentQuestion[]>('get_assessment_questions', {
+					assessmentTypeCode: assessmentCode,
+				})
+
+				if (!isMounted) return
+
+				questions = fetchedQuestions
+				responses = new Array(fetchedQuestions.length).fill(-1)
+				loading = false
+			} catch (e) {
+				if (!isMounted) return
+
+				error = String(e)
+				loading = false
+			}
 		}
-	});
 
-	async function handleSubmit() {
+		fetchQuestions()
+
+		return () => {
+			isMounted = false
+		}
+	})
+
+	async function handleSubmit(event: Event) {
+		event.preventDefault()
+
 		// Prevent double-submission
 		if (submitting) {
-			return;
+			return
 		}
 
 		// Validate all questions answered
 		if (responses.some((r) => r === -1)) {
-			error = 'Please answer all questions';
-			return;
+			error = 'Please answer all questions'
+			return
 		}
 
-		submitting = true;
-		error = '';
+		submitting = true
+		error = ''
 
 		try {
 			const request: SubmitAssessmentRequest = {
 				assessment_type_code: assessmentCode,
 				responses: responses,
-				notes: notes || null
-			};
+				notes: notes || null,
+			}
 
-			const result = await invoke<AssessmentResponse>('submit_assessment', { request });
+			const result = await invoke<AssessmentResponse>('submit_assessment', { request })
 
 			// Navigate to results
-			await goto(`/assessments/${assessmentCode}/result/${result.id}`);
+			await goto(`/assessments/${assessmentCode}/result/${result.id}`)
 		} catch (e) {
-			error = String(e);
+			error = String(e)
 		} finally {
-			submitting = false;
+			submitting = false
 		}
 	}
 
 	function selectOption(questionIndex: number, optionIndex: number) {
-		responses[questionIndex] = optionIndex;
+		responses[questionIndex] = optionIndex
 	}
 
-	$: progress = responses.filter((r) => r !== -1).length;
-	$: progressPercent = (progress / questions.length) * 100;
+	const progress = $derived(responses.filter((r) => r !== -1).length)
+	const progressPercent = $derived((progress / questions.length) * 100)
 </script>
 
 <div class="max-w-3xl mx-auto space-y-6">
@@ -94,26 +115,30 @@
 			aria-valuemax="100"
 			aria-label="Assessment completion progress"
 		>
-			<div class="bg-blue-600 h-2 rounded-full transition-all" style="width: {progressPercent}%"></div>
+			<div
+				class="bg-blue-600 h-2 rounded-full transition-all"
+				style="width: {progressPercent}%"
+			></div>
 		</div>
 
-		<form on:submit|preventDefault={handleSubmit} class="space-y-6">
-			{#each questions as question, i}
+		<form onsubmit={handleSubmit} class="space-y-6">
+			{#each questions as question, i (question.number)}
 				<Card>
 					<h3 id="question-{i}-label" class="font-medium text-gray-800 mb-3">
 						{question.number}. {question.text}
 					</h3>
 					<div role="radiogroup" aria-labelledby="question-{i}-label" class="space-y-2">
-						{#each question.options as option, optionIndex}
+						{#each question.options as option, optionIndex (optionIndex)}
 							<button
 								type="button"
 								role="radio"
 								aria-checked={responses[i] === optionIndex}
-								class="w-full text-left px-4 py-3 border rounded-lg transition-colors {responses[i] ===
-								optionIndex
+								class="w-full text-left px-4 py-3 border rounded-lg transition-colors {responses[
+									i
+								] === optionIndex
 									? 'border-blue-600 bg-blue-50'
 									: 'border-gray-300 hover:border-gray-400'}"
-								on:click={() => selectOption(i, optionIndex)}
+								onclick={() => selectOption(i, optionIndex)}
 							>
 								<div class="flex items-center">
 									<div
@@ -150,7 +175,12 @@
 				</div>
 			{/if}
 
-			<Button type="submit" variant="primary" fullWidth disabled={submitting || progress < questions.length}>
+			<Button
+				type="submit"
+				variant="primary"
+				fullWidth
+				disabled={submitting || progress < questions.length}
+			>
 				{submitting ? 'Submitting...' : 'Submit Assessment'}
 			</Button>
 		</form>

@@ -1,8 +1,10 @@
 <script lang="ts">
-	// T088: MoodHistoryList component - Display past mood check-ins with activities
+	// T088, T181: MoodHistoryList component - Display past mood check-ins with activities and loading animations
 
+	import { fade } from 'svelte/transition'
 	import { MOOD_COLORS, MOOD_LABELS } from '$lib/utils/colors'
 	import type { MoodCheckin } from '$lib/bindings'
+	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
 	interface Props {
 		checkins: MoodCheckin[]
@@ -47,16 +49,21 @@
 
 <div class="mood-history-list">
 	{#if error}
-		<div class="p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg">
+		<div
+			class="p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg"
+			transition:fade={{ duration: 200 }}
+		>
 			<div class="font-semibold">Error loading mood history</div>
 			<div class="text-sm mt-1">{error}</div>
 		</div>
 	{:else if loading}
-		<div class="text-center py-8 text-gray-500 dark:text-gray-400">
-			<div class="animate-pulse">Loading mood history...</div>
-		</div>
+		<!-- T181: Loading skeleton for list items -->
+		<SkeletonLoader type="list" count={3} />
 	{:else if checkins.length === 0}
-		<div class="text-center py-8 text-gray-500 dark:text-gray-400">
+		<div
+			class="text-center py-8 text-gray-500 dark:text-gray-400"
+			transition:fade={{ duration: 200 }}
+		>
 			<div class="text-4xl mb-2">📊</div>
 			<div class="font-medium">No mood check-ins yet</div>
 			<div class="text-sm mt-1">Start tracking your mood to see your history here</div>

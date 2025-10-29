@@ -2,11 +2,11 @@
 	// T090: /mood route - Quick mood check-in page
 
 	import { invoke } from '@tauri-apps/api/core'
-	import { onMount } from 'svelte'
 	import Card from '$lib/components/ui/Card.svelte'
 	import MoodScaleInput from '$lib/components/mood/MoodScaleInput.svelte'
 	import ActivitySelector from '$lib/components/mood/ActivitySelector.svelte'
 	import { getMoodLabel } from '$lib/utils/colors'
+	import { formatUserError } from '$lib/utils/errors'
 	import type { MoodCheckin } from '$lib/bindings'
 
 	let moodRating = $state(3)
@@ -17,8 +17,9 @@
 	let successMessage = $state<string | null>(null)
 	let recentCheckins: MoodCheckin[] = $state([])
 
-	onMount(async () => {
-		await loadRecentCheckins()
+	// Load recent check-ins on mount
+	$effect(() => {
+		loadRecentCheckins()
 	})
 
 	async function loadRecentCheckins() {
@@ -68,7 +69,7 @@
 				successMessage = null
 			}, 3000)
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
+			error = formatUserError(e)
 			console.error('Failed to log mood:', e)
 		} finally {
 			isSubmitting = false

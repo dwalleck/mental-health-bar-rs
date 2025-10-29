@@ -1,6 +1,5 @@
 <script lang="ts">
 	// T148: Activity correlation chart component (horizontal bar chart)
-	import { onMount } from 'svelte'
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { ActivityMoodData } from '$lib/bindings'
 	import { defaultBarChartOptions, moodColors } from '$lib/utils/chart-config'
@@ -17,16 +16,7 @@
 
 	const hasData = $derived(data && data.length > 0)
 
-	onMount(() => {
-		return () => {
-			// Cleanup chart on unmount
-			if (chart) {
-				chart.destroy()
-			}
-		}
-	})
-
-	// Reactive chart rendering
+	// Reactive chart rendering with cleanup
 	$effect(() => {
 		if (!canvas || !data || data.length === 0) {
 			if (chart) {
@@ -166,6 +156,14 @@
 		const ctx = canvas.getContext('2d')
 		if (ctx) {
 			chart = new Chart(ctx, config)
+		}
+
+		// Cleanup function for unmount
+		return () => {
+			if (chart) {
+				chart.destroy()
+				chart = null
+			}
 		}
 	})
 </script>

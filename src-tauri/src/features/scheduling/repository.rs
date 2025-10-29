@@ -27,11 +27,11 @@ impl SchedulingRepository {
         &self,
         request: &CreateScheduleRequest,
     ) -> Result<AssessmentSchedule, SchedulingError> {
-        // Validate request
+        // Validate request (defense-in-depth - commands also validate)
         request.validate()?;
 
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         // Use IMMEDIATE transaction to acquire write lock immediately
         // This ensures atomicity across all operations (check, insert, fetch)
@@ -94,11 +94,11 @@ impl SchedulingRepository {
         id: i32,
         request: &UpdateScheduleRequest,
     ) -> Result<AssessmentSchedule, SchedulingError> {
-        // Validate request
+        // Validate request (defense-in-depth - commands also validate)
         request.validate()?;
 
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         // Build dynamic update query using safe predefined clauses
         // Each clause is a constant string to prevent SQL injection
@@ -163,7 +163,7 @@ impl SchedulingRepository {
     /// T162: Delete a schedule
     pub fn delete_schedule(&self, id: i32) -> Result<(), SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let rows_affected =
             conn.execute("DELETE FROM assessment_schedules WHERE id = ?", params![id])?;
@@ -181,14 +181,14 @@ impl SchedulingRepository {
         enabled_only: bool,
     ) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
         self.get_schedules_with_conn(&conn, enabled_only)
     }
 
     /// Get a single schedule by ID
     pub fn get_schedule(&self, id: i32) -> Result<AssessmentSchedule, SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         self.get_schedule_with_conn(&conn, id)
     }
@@ -196,14 +196,14 @@ impl SchedulingRepository {
     /// T164: Get schedules that are due for triggering
     pub fn get_due_schedules(&self) -> Result<Vec<AssessmentSchedule>, SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
         self.get_due_schedules_with_conn(&conn)
     }
 
     /// Mark a schedule as triggered
     pub fn mark_triggered(&self, id: i32) -> Result<(), SchedulingError> {
         let conn = self.db.get_connection();
-        let conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let conn = conn.lock();
 
         let rows_affected = conn.execute(
             "UPDATE assessment_schedules SET last_triggered_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -225,7 +225,7 @@ impl SchedulingRepository {
         }
 
         let conn = self.db.get_connection();
-        let mut conn = conn.lock().map_err(|_| SchedulingError::LockPoisoned)?;
+        let mut conn = conn.lock();
 
         // Use IMMEDIATE transaction for batch updates
         let tx = conn
@@ -253,6 +253,49 @@ impl SchedulingRepository {
 
     // Helper methods
 
+    /// Get schedules that are due for triggering based on frequency and last trigger time.
+    ///
+    /// This method implements frequency-aware logic to prevent schedules from triggering
+    /// too frequently. It uses SQLite's julianday function for accurate day calculations
+    /// across all frequency types.
+    ///
+    /// # Frequency Logic
+    ///
+    /// - **Daily**: Triggers if last_triggered_at is NULL or on a different date than today
+    ///   - Example: Schedule at 09:00, last triggered 2024-10-28 08:00 → triggers again on 2024-10-29
+    ///
+    /// - **Weekly**: Triggers if ≥7 days have elapsed since last_triggered_at
+    ///   - Example: Last triggered 2024-10-22 → triggers again on/after 2024-10-29
+    ///
+    /// - **Biweekly**: Triggers if ≥14 days have elapsed since last_triggered_at
+    ///   - Example: Last triggered 2024-10-15 → triggers again on/after 2024-10-29
+    ///
+    /// - **Monthly**: Triggers if DATE(last_triggered_at, '+1 month') ≤ DATE('now')
+    ///   - Example: Last triggered 2024-09-28 → triggers again on/after 2024-10-28
+    ///
+    /// # Time-of-Day Filtering
+    ///
+    /// Only returns schedules where `time_of_day <= current_time` to prevent premature triggers.
+    /// For example, if current time is 14:30, schedules set for 09:00 and 14:00 are returned,
+    /// but schedules set for 15:00 are not.
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// Current date/time: 2024-10-29 14:30
+    ///
+    /// Schedule A (Daily, 09:00, last_triggered: 2024-10-28 09:05):
+    ///   → RETURNED (different date, time passed)
+    ///
+    /// Schedule B (Weekly, 14:00, last_triggered: 2024-10-22 14:05):
+    ///   → RETURNED (≥7 days elapsed, time passed)
+    ///
+    /// Schedule C (Daily, 15:00, last_triggered: 2024-10-28 15:05):
+    ///   → NOT RETURNED (time hasn't arrived yet)
+    ///
+    /// Schedule D (Weekly, 09:00, last_triggered: 2024-10-27 09:05):
+    ///   → NOT RETURNED (only 2 days elapsed, need 7)
+    /// ```
     fn get_due_schedules_with_conn(
         &self,
         conn: &rusqlite::Connection,
@@ -357,5 +400,29 @@ impl SchedulingRepository {
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
         })
+    }
+}
+
+// Trait implementation for testing with mocks
+use super::repository_trait::SchedulingRepositoryTrait;
+
+impl SchedulingRepositoryTrait for SchedulingRepository {
+    fn create_schedule(
+        &self,
+        request: CreateScheduleRequest,
+    ) -> Result<AssessmentSchedule, SchedulingError> {
+        self.create_schedule(&request)
+    }
+
+    fn update_schedule(
+        &self,
+        id: i32,
+        request: UpdateScheduleRequest,
+    ) -> Result<AssessmentSchedule, SchedulingError> {
+        self.update_schedule(id, &request)
+    }
+
+    fn delete_schedule(&self, id: i32) -> Result<(), SchedulingError> {
+        self.delete_schedule(id)
     }
 }

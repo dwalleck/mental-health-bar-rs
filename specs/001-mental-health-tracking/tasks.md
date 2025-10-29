@@ -243,7 +243,7 @@
 - [X] T130 [P] [US4] Implement threshold line annotations in AssessmentChart using Chart.js annotation plugin
 - [X] T131 [P] [US4] Create TimeRangeSelector component in src/lib/components/charts/TimeRangeSelector.svelte
 - [X] T132 [P] [US4] Create ChartStatistics component in src/lib/components/charts/ChartStatistics.svelte to show min/max/avg/trend
-- [X] T132b [US4] Implement empty state UI in AssessmentChart component for <2 data points in src/lib/components/charts/AssessmentChart.svelte (show message: "Complete at least 2 assessments to view trends")
+- [X] T132b [US4] Implement empty state UI in AssessmentChart component for <2 data points in src/lib/components/charts/AssessmentChart.svelte (show message: "Complete at least 2 assessments to view trends") ✅ IMPLEMENTED
 - [X] T133 [US4] Create /charts route in src/routes/charts/+page.svelte with assessment type selector and chart display
 - [X] T134 [US4] Add charts navigation link to sidebar (already present)
 - [X] T135 [US4] Configure Chart.js defaults in src/lib/utils/chart-config.ts (responsive, animations, colors)
@@ -275,7 +275,7 @@
 - [X] T145 [US5] Register mood chart commands in src-tauri/src/lib.rs invoke_handler
 - [X] T146 [US5] Regenerate TypeScript bindings
 - [X] T147 [P] [US5] Create MoodChart component in src/lib/components/charts/MoodChart.svelte with mood color gradient
-- [X] T147b [US5] Implement empty state UI in MoodChart component for <2 data points in src/lib/components/charts/MoodChart.svelte (show message: "Log at least 2 moods to view patterns")
+- [X] T147b [US5] Implement empty state UI in MoodChart component for <2 data points in src/lib/components/charts/MoodChart.svelte (show message: "Log at least 2 moods to view patterns") ✅ IMPLEMENTED
 - [X] T148 [P] [US5] Create ActivityCorrelationChart component in src/lib/components/charts/ActivityCorrelationChart.svelte (horizontal bar chart)
 - [X] T149 [US5] Add mood chart section to /charts route page with time range selector and tab-based navigation
 - [X] T150 [US5] Add activity correlation visualization to /charts route page with mood statistics panel
@@ -390,9 +390,57 @@
 - [X] T176 [P] [US6] Create ScheduleList component in src/lib/components/scheduling/ScheduleList.svelte with enable/disable/edit/delete actions
 - [X] T177 [US6] Create /settings route in src/routes/settings/+page.svelte with schedules tab
 - [X] T178 [US6] Add settings navigation link to sidebar
-- [ ] T179 [US6] Handle notification click to navigate to assessment page
+- [X] T179 [US6] Handle notification click to navigate to assessment page
 
 **Checkpoint**: All 6 user stories complete - Full application functional
+
+---
+
+## Phase 8.5: User Story 7 - Dashboard Assessment Score Overview (Priority: P2)
+
+**Goal**: Users can quickly see their most recent assessment scores on the main dashboard with visual progress bars showing severity ranges
+
+**Independent Test**: Complete assessments of various types, navigate to dashboard, verify scores are displayed with progress bars and severity indicators
+
+### Tests for User Story 7 (TDD - Write First, Verify Fail)
+
+- [ ] T211 [P] [US7] Component test: AssessmentScoreBar renders progress bar with score in src/lib/components/dashboard/AssessmentScoreBar.test.ts
+- [ ] T212 [P] [US7] Component test: AssessmentScoreBar displays severity segments with correct colors in src/lib/components/dashboard/AssessmentScoreBar.test.ts
+- [ ] T213 [P] [US7] Component test: DashboardScores fetches latest assessments on mount in src/lib/components/dashboard/DashboardScores.test.ts
+- [ ] T214 [P] [US7] Component test: DashboardScores shows "Not taken yet" for assessments without data in src/lib/components/dashboard/DashboardScores.test.ts
+- [ ] T215 [P] [US7] Component test: Clicking score bar navigates to chart view in src/lib/components/dashboard/DashboardScores.test.ts
+
+### Implementation for User Story 7
+
+**Backend**: No new backend work required - leverages existing `get_latest_assessment` command from User Story 1
+
+**Frontend Components**:
+
+- [ ] T216 [P] [US7] Create AssessmentScoreBar component in src/lib/components/dashboard/AssessmentScoreBar.svelte with progress bar visualization
+- [ ] T217 [P] [US7] Implement severity range segments in AssessmentScoreBar using TailwindCSS gradients and markers
+- [ ] T218 [P] [US7] Add score value overlay to progress bar in AssessmentScoreBar component
+- [ ] T219 [P] [US7] Implement severity color mapping in AssessmentScoreBar (reuse from AssessmentResults.svelte getSeverityColor function)
+- [ ] T220 [US7] Create DashboardScores component in src/lib/components/dashboard/DashboardScores.svelte with assessment type iteration
+- [ ] T221 [US7] Implement get_latest_assessment calls for all 4 assessment types in DashboardScores using Promise.all for parallel loading
+- [ ] T222 [US7] Add loading skeleton states to DashboardScores using existing SkeletonLoader component
+- [ ] T223 [US7] Implement "Not taken yet" empty state for each assessment type in DashboardScores
+- [ ] T224 [US7] Add click handlers to navigate to chart view (/charts?type=<assessment_type>) for each score bar
+- [ ] T225 [US7] Add error handling with user-friendly messages in DashboardScores component
+
+**Integration**:
+
+- [ ] T226 [US7] Update src/routes/+page.svelte to import and render DashboardScores component
+- [ ] T227 [US7] Replace or update assessment list section in dashboard with DashboardScores component
+- [ ] T228 [US7] Ensure responsive layout for mobile/tablet/desktop viewports (stack vertically on mobile, 2-column on tablet, 4-column on desktop)
+- [ ] T229 [US7] Add accessibility labels (ARIA) to progress bars and interactive elements
+- [ ] T230 [US7] Test navigation flow: dashboard → click score bar → verify chart page loads with correct assessment type
+
+**Documentation**:
+
+- [ ] T231 [P] [US7] Update README.md to mention dashboard score overview feature
+- [ ] T232 [P] [US7] Add dashboard screenshot to docs showing score visualizations
+
+**Checkpoint**: User Story 7 complete - Dashboard shows current assessment scores with visual indicators
 
 ---
 
@@ -400,20 +448,26 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T180 [P] Add comprehensive error boundaries in src/routes/+error.svelte
+- [X] T180 [P] Add comprehensive error boundaries in src/routes/+error.svelte ✅ IMPLEMENTED (handles 404, 500, 503 with user-friendly UI)
 - [ ] T181 [P] Implement loading states for all async operations with Svelte transitions
-- [ ] T182 [P] Add empty state UI for lists (no assessments, no activities, no chart data)
+- [X] T182 [P] Add empty state UI for lists (no assessments, no activities, no chart data) ✅ IMPLEMENTED (assessment history, mood history, activities, charts all have empty states)
 - [ ] T183 [P] Implement data persistence error handling with retry logic
 - [ ] T184 [P] Add keyboard shortcuts for common actions (N for new assessment, M for mood log)
 - [ ] T185 [P] Implement dark mode theme toggle using TailwindCSS dark: classes
 - [ ] T186 [P] Add accessibility labels (ARIA) to all interactive components
-- [ ] T187 [P] Optimize DuckDB queries with EXPLAIN ANALYZE and add indexes if needed
+- [ ] T187 [P] Optimize SQLite queries with EXPLAIN ANALYZE and add indexes if needed
+  - [ ] T187a Convert high-frequency queries to use `prepare_cached()` for statement reuse (PR feedback: cache capacity is set but underutilized)
+    - [ ] Update `get_activities` in `src-tauri/src/features/mood/repository.rs` (called from activities page, mood check-ins, correlations)
+    - [ ] Update `get_assessment_types` in `src-tauri/src/features/assessments/repository.rs` (called every time user starts assessment)
+    - [ ] Update `get_assessment_history` in `src-tauri/src/features/assessments/repository.rs` (called for history views, chart data)
+    - [ ] Update `get_mood_history` in `src-tauri/src/features/mood/repository.rs` (called for history views, chart data)
+    - Note: `get_activities_for_checkin_with_conn` and `mark_multiple_triggered` already use `prepare_cached()` correctly ✅
 - [ ] T188 [P] Add performance monitoring with tracing::instrument on slow operations
-- [ ] T189 [P] Create user documentation in README.md with screenshots
+- [X] T189 [P] Create user documentation in README.md with screenshots ✅ IMPROVED (corrected architecture from DuckDB→SQLite, fixed activity creation steps, clarified privacy/security)
 - [ ] T190 [P] Add data export functionality (optional - CSV export of all data)
 - [ ] T191 [P] Implement database vacuum/optimization command for maintenance
 - [ ] T192 Run full quickstart.md validation (complete PHQ-9, log mood, view charts) in under 5 minutes
-- [ ] T193 Run all tests (cargo test && npm run test) and verify 100% pass rate
+- [X] T193 Run all tests (cargo test && npm run test) and verify 100% pass rate (100 backend + 133 frontend = 233 tests PASSING)
 - [ ] T194 Build production bundle (npm run tauri build) and verify app size <150MB
 - [ ] T195 Benchmark assessment submission end-to-end (load PHQ-9, answer 9 questions, submit, view result) and verify <2s per plan.md performance goal
 - [ ] T196 Benchmark chart rendering for 90-day assessment history (load chart, render, measure time) and verify <500ms per plan.md performance goal
@@ -606,9 +660,81 @@ Each increment:
 
 ---
 
+## Post-Implementation: Structured Error Handling (PR Feedback)
+
+**Status**: Partially Complete (Commands Done, Queries Pending)
+
+### Completed
+- [X] Created `CommandError` struct in `src-tauri/src/errors.rs` with:
+  - `message`: Human-readable error message
+  - `error_type`: Machine-readable type ("validation", "not_found", "database_locked", etc.)
+  - `retryable`: Boolean flag for client-side retry logic
+  - TypeScript types auto-generated via tauri-specta
+
+- [X] Implemented `to_command_error()` methods on all error types:
+  - `MoodError::to_command_error()` in `src-tauri/src/features/mood/models.rs`
+  - `AssessmentError::to_command_error()` in `src-tauri/src/features/assessments/models.rs`
+  - `SchedulingError::to_command_error()` in `src-tauri/src/features/scheduling/models.rs`
+
+- [X] Updated all command handlers (mutations) to return `Result<T, CommandError>`:
+  - Mood commands: `log_mood`, `create_activity`, `update_activity`, `delete_activity`, `delete_mood_checkin`
+  - Assessment commands: `submit_assessment`, `delete_assessment`, `delete_assessment_type`
+  - Scheduling commands: `create_schedule`, `update_schedule`, `delete_schedule`
+
+### Remaining Work
+
+#### Backend
+- [ ] Add `to_command_error()` to VisualizationError in `src-tauri/src/features/visualization/models.rs`
+
+- [ ] Update query handlers to return `Result<T, CommandError>`:
+  - Mood queries: `get_mood_history`, `get_mood_checkin`, `get_mood_stats`, `get_activities`
+  - Assessment queries: `get_assessment_types`, `get_assessment_questions`, `get_assessment_history`, `get_assessment_response`, `get_latest_assessment`
+  - Scheduling queries: `get_schedules`, `get_schedule`
+  - Visualization queries: `get_assessment_chart_data`, `get_mood_chart_data`
+
+#### Frontend (Replace String Parsing with Type-Safe Error Handling)
+- [ ] **Update `src/lib/utils/retry.ts`** (lines 29-50):
+  - Replace `shouldRetry` string parsing with `error.retryable` check
+  - Current code parses error messages - should use CommandError structure
+  - Example:
+    ```typescript
+    shouldRetry: (error: unknown) => {
+      // Type guard for CommandError
+      if (isCommandError(error)) {
+        return error.retryable
+      }
+      // Fallback for non-CommandError (shouldn't happen)
+      return false
+    }
+    ```
+
+- [ ] **Update `src/lib/utils/errors.ts`**:
+  - `isValidationError()` (line 51-65): Replace string parsing with `error.error_type === 'validation'`
+  - `isTransientError()` (line 82-100): Replace string parsing with `error.retryable` check
+  - Add type guard: `isCommandError(error): error is CommandError`
+  - Add helper: `getErrorType(error: unknown): string | null` that safely extracts error_type
+
+- [ ] Error display components:
+  - Create `<ErrorMessage>` component that formats errors by type
+  - Different UI for retryable vs permanent errors (show retry button if retryable)
+  - User-friendly messages based on `error_type`:
+    - `validation`: "Please check your input"
+    - `not_found`: "Item not found"
+    - `database_locked`: "Database is busy, retrying..."
+    - `duplicate`: "This item already exists"
+  - Show technical details in dev mode only
+
+### Benefits
+- **Type Safety**: Frontend can handle errors without string parsing
+- **Smart Retry**: Client automatically retries transient errors (database locks, SQLITE_BUSY)
+- **Better UX**: Different UI for retryable vs permanent errors
+- **Debugging**: `details` field provides structured context for developers
+
+---
+
 ## Task Summary
 
-**Total Tasks**: 228 (updated from 217 after cascading delete implementation)
+**Total Tasks**: 250 (updated from 228 after dashboard score visualization addition)
 - **Phase 1 (Setup)**: 7 tasks
 - **Phase 2 (Foundational)**: 16 tasks (BLOCKS all stories) - Added T020a/T020b for defensive deletion infrastructure
 - **Phase 3 (US1 - Assessments)**: 51 tasks (11 tests + 40 implementation) - Added T067a-T067d for assessment type deletion
@@ -617,22 +743,23 @@ Each increment:
 - **Phase 6 (US4 - Assessment Charts)**: 20 tasks (4 tests + 16 implementation) - Added T132b for empty chart state
 - **Phase 7 (US5 - Mood Charts)**: 16 tasks (3 tests + 13 implementation) - Added T147b for empty mood chart state
 - **Phase 8 (US6 - Scheduling)**: 28 tasks (5 tests + 23 implementation)
+- **Phase 8.5 (US7 - Dashboard Scores)**: 22 tasks (5 tests + 17 implementation) - NEW: Dashboard assessment score visualization with progress bars
 - **Phase 9 (Polish)**: 35 tasks - Added T201a-T201c for deletion documentation and testing
 
-**Parallel Opportunities**: 110 tasks marked [P] (48% can run in parallel) - Added deletion-related parallel tests
+**Parallel Opportunities**: 120 tasks marked [P] (48% can run in parallel) - Added dashboard component parallel tests
 
-**Independent Test Checkpoints**: 6 (one per user story)
+**Independent Test Checkpoints**: 7 (one per user story)
 
-**MVP Scope**: Phases 1-3 only (68 tasks) - Shippable clinical assessment tool (increased from 67)
+**MVP Scope**: Phases 1-3 only (68 tasks) - Shippable clinical assessment tool
 
-**TDD Coverage**: 32 test tasks across all stories (15% of total tasks are tests)
+**TDD Coverage**: 37 test tasks across all stories (15% of total tasks are tests)
 
-**Remediation Applied**: 11 tasks added to address security (GDPR/file permissions), performance validation, and edge cases; 9 tasks added for CI/CD pipeline setup
+**Remediation Applied**: 11 tasks added to address security (GDPR/file permissions), performance validation, and edge cases; 9 tasks added for CI/CD pipeline setup; 22 tasks added for dashboard score visualization
 
 **Estimated Timeline**:
 - MVP (US1): 2-3 days
 - MVP + US2 + US3: 1 week
-- Full feature set (US1-6): 3-4 weeks
+- Full feature set (US1-7): 3-4 weeks
 - Production-ready: 4-5 weeks with polish
 
 **Constitution Alignment**:

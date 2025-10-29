@@ -1,9 +1,9 @@
 <script lang="ts">
-	// T147, T147b: Mood chart component with empty state handling
-	import { onMount } from 'svelte'
+	// T147, T147b, T181: Mood chart component with empty state and loading animations
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { MoodChartData } from '$lib/bindings'
 	import { defaultChartOptions, moodColors } from '$lib/utils/chart-config'
+	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
 	interface Props {
 		data: MoodChartData | null
@@ -18,16 +18,7 @@
 	// T147b: Empty state check
 	const hasInsufficientData = $derived(!data || !data.data_points || data.data_points.length < 2)
 
-	onMount(() => {
-		return () => {
-			// Cleanup chart on unmount
-			if (chart) {
-				chart.destroy()
-			}
-		}
-	})
-
-	// Reactive chart rendering
+	// Reactive chart rendering with cleanup
 	$effect(() => {
 		if (!canvas || !data || hasInsufficientData) {
 			if (chart) {
@@ -156,17 +147,26 @@
 		if (ctx) {
 			chart = new Chart(ctx, config)
 		}
+
+		// Cleanup function for unmount
+		return () => {
+			if (chart) {
+				chart.destroy()
+				chart = null
+			}
+		}
 	})
 </script>
 
 <div class="mood-chart">
 	{#if loading}
-		<div class="flex items-center justify-center h-64">
-			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-		</div>
+		<!-- T181: Loading skeleton with smooth transition -->
+		<SkeletonLoader type="chart" />
 	{:else if hasInsufficientData}
 		<!-- T147b: Empty state for <2 data points -->
-		<div class="empty-state flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+		<div
+			class="empty-state flex flex-col items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg"
+		>
 			<svg
 				class="w-16 h-16 text-gray-400 mb-4"
 				fill="none"
@@ -180,8 +180,8 @@
 					d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="text-lg font-semibold text-gray-700 mb-2">Not Enough Data</h3>
-			<p class="text-gray-600 text-center max-w-md">
+			<h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Not Enough Data</h3>
+			<p class="text-gray-600 dark:text-gray-400 text-center max-w-md">
 				Log at least 2 mood check-ins to view patterns and trends over time.
 			</p>
 		</div>

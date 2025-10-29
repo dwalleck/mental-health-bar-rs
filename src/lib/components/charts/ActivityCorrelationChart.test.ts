@@ -3,46 +3,23 @@ import { render, screen } from '@testing-library/svelte'
 import ActivityCorrelationChart from './ActivityCorrelationChart.svelte'
 import type { ActivityMoodData } from '$lib/bindings'
 
-// Mock Chart.js
-vi.mock('chart.js', () => {
-	const mockDestroy = vi.fn()
-	const mockChart = {
-		destroy: mockDestroy,
-		update: vi.fn(),
-		data: {},
-		options: {},
-		register: vi.fn(),
-	}
-
-	const ChartMock = Object.assign(
-		vi.fn(() => mockChart),
-		{
-			register: vi.fn(),
-		}
-	)
-
-	return {
-		Chart: ChartMock,
-		registerables: [],
-		CategoryScale: vi.fn(),
-		LinearScale: vi.fn(),
-		PointElement: vi.fn(),
-		LineElement: vi.fn(),
-		BarElement: vi.fn(),
-		Title: vi.fn(),
-		Tooltip: vi.fn(),
-		Legend: vi.fn(),
-		Filler: vi.fn(),
-	}
-})
-
-vi.mock('chartjs-plugin-annotation', () => ({
-	default: vi.fn(),
-}))
+// NOTE: We no longer mock Chart.js to catch real integration bugs!
+// We only mock the Canvas API which is unavailable in Node.js test environment
 
 describe('ActivityCorrelationChart', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+
+		// Mock Element.prototype.animate for Svelte transitions
+		Element.prototype.animate = vi.fn(() => ({
+			finished: Promise.resolve(),
+			cancel: vi.fn(),
+			pause: vi.fn(),
+			play: vi.fn(),
+			reverse: vi.fn(),
+			finish: vi.fn(),
+		})) as unknown as typeof Element.prototype.animate
+
 		// Mock canvas context - using type assertion for test mock
 		HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
 			canvas: {},
@@ -332,16 +309,19 @@ describe('ActivityCorrelationChart', () => {
 	})
 
 	describe('Chart.js Integration', () => {
-		it('should create Chart instance when data is valid', async () => {
-			const { Chart } = await import('chart.js')
-			render(ActivityCorrelationChart, {
-				props: { data: mockActivityData, loading: false },
-			})
+		it('should create Chart instance when data is valid without throwing errors', async () => {
+			// This test now uses REAL Chart.js
+			// If BarController isn't registered, this will throw:
+			// Error: "bar" is not a registered controller
+
+			expect(() => {
+				render(ActivityCorrelationChart, {
+					props: { data: mockActivityData, loading: false },
+				})
+			}).not.toThrow()
 
 			// Wait for effect to run
 			await new Promise((resolve) => setTimeout(resolve, 100))
-
-			expect(Chart).toHaveBeenCalled()
 		})
 
 		it('should handle missing canvas context gracefully', async () => {
@@ -349,17 +329,15 @@ describe('ActivityCorrelationChart', () => {
 				() => null
 			) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
-			const { Chart } = await import('chart.js')
-			vi.mocked(Chart).mockClear()
+			// Component should not throw even when canvas context is unavailable
+			expect(() => {
+				render(ActivityCorrelationChart, {
+					props: { data: mockActivityData, loading: false },
+				})
+			}).not.toThrow()
 
-			render(ActivityCorrelationChart, {
-				props: { data: mockActivityData, loading: false },
-			})
-
+			// Wait for effect
 			await new Promise((resolve) => setTimeout(resolve, 100))
-
-			// Component handles this gracefully
-			expect(true).toBe(true)
 		})
 	})
 

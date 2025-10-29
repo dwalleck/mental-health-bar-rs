@@ -1,10 +1,12 @@
 // Scheduling feature models (User Story 6)
 // T156-T159: Models for assessment scheduling
 
+use crate::CommandError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use thiserror::Error;
+use validator::Validate;
 
 /// Scheduling-specific errors
 #[derive(Error, Debug)]
@@ -32,6 +34,82 @@ pub enum SchedulingError {
 
     #[error("Date parsing error: {0}")]
     DateParseError(String),
+}
+
+impl SchedulingError {
+    /// Convert to structured CommandError for frontend consumption
+    pub fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            SchedulingError::InvalidTimeFormat(time) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "time_of_day",
+                        "value": time
+                    }),
+                )
+            }
+            SchedulingError::InvalidFrequency(freq) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "frequency",
+                        "value": freq
+                    }),
+                )
+            }
+            SchedulingError::InvalidDayOfWeek(day) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "day_of_week",
+                        "value": day
+                    }),
+                )
+            }
+            SchedulingError::InvalidDayOfMonth(day) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "day_of_month",
+                        "value": day
+                    }),
+                )
+            }
+            SchedulingError::DateParseError(msg) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "details": msg
+                    }),
+                )
+            }
+
+            // Not found errors - not retryable
+            SchedulingError::NotFound(id) => CommandError::permanent(self.to_string(), "not_found")
+                .with_details(serde_json::json!({
+                    "resource": "schedule",
+                    "id": id
+                })),
+
+            // Database lock/transient errors - retryable
+            SchedulingError::LockPoisoned => {
+                CommandError::retryable(self.to_string(), "lock_poisoned")
+            }
+            SchedulingError::Database(e) => {
+                // Classify SQLite errors as retryable or permanent
+                match e {
+                    rusqlite::Error::SqliteFailure(err, _) => {
+                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
+                        if err.code == rusqlite::ErrorCode::DatabaseBusy
+                            || err.code == rusqlite::ErrorCode::DatabaseLocked
+                        {
+                            CommandError::retryable(self.to_string(), "database_locked")
+                        } else {
+                            CommandError::permanent(self.to_string(), "database")
+                        }
+                    }
+                    _ => CommandError::permanent(self.to_string(), "database"),
+                }
+            }
+        }
+    }
 }
 
 /// Schedule frequency options
@@ -87,42 +165,63 @@ pub struct AssessmentSchedule {
 }
 
 /// Request to create a new schedule
-#[derive(Serialize, Deserialize, specta::Type, Clone, Debug)]
+#[derive(Serialize, Deserialize, specta::Type, Clone, Debug, Validate)]
 pub struct CreateScheduleRequest {
     pub assessment_type_id: i32,
     pub frequency: ScheduleFrequency,
-    pub time_of_day: String,       // HH:MM format
-    pub day_of_week: Option<i32>,  // Required for weekly/biweekly
+    #[validate(custom(function = "validate_time_format"))]
+    pub time_of_day: String, // HH:MM format
+    #[validate(range(min = 0, max = 6))]
+    pub day_of_week: Option<i32>, // Required for weekly/biweekly
+    #[validate(range(min = 1, max = 31))]
     pub day_of_month: Option<i32>, // Required for monthly
 }
 
 impl CreateScheduleRequest {
     /// Validate the schedule request
+    /// Combines validator crate's derive validation with custom frequency logic
     pub fn validate(&self) -> Result<(), SchedulingError> {
-        // Validate time format (HH:MM)
-        if !is_valid_time_format(&self.time_of_day) {
-            return Err(SchedulingError::InvalidTimeFormat(self.time_of_day.clone()));
-        }
+        // First, run validator crate's derive validations (range checks, custom validators)
 
-        // Validate frequency-specific requirements
+        <Self as validator::Validate>::validate(self).map_err(|e| {
+            // Convert validator::ValidationErrors to SchedulingError
+            let errors = e.field_errors();
+            if let Some(time_errors) = errors.get("time_of_day") {
+                if !time_errors.is_empty() {
+                    return SchedulingError::InvalidTimeFormat(self.time_of_day.clone());
+                }
+            }
+            if let Some(day_week_errors) = errors.get("day_of_week") {
+                if !day_week_errors.is_empty() {
+                    if let Some(day) = self.day_of_week {
+                        return SchedulingError::InvalidDayOfWeek(day);
+                    }
+                }
+            }
+            if let Some(day_month_errors) = errors.get("day_of_month") {
+                if !day_month_errors.is_empty() {
+                    if let Some(day) = self.day_of_month {
+                        return SchedulingError::InvalidDayOfMonth(day);
+                    }
+                }
+            }
+            // Fallback for any other validation errors
+            SchedulingError::InvalidTimeFormat(format!("Validation failed: {}", e))
+        })?;
+
+        // Then run custom frequency-specific requirement validation
+        // Range validation already handled by validator crate above
+        // We only need to check frequency-specific requirements (e.g., weekly needs day_of_week)
         match self.frequency {
             ScheduleFrequency::Weekly | ScheduleFrequency::Biweekly => {
-                if let Some(day) = self.day_of_week {
-                    if !(0..=6).contains(&day) {
-                        return Err(SchedulingError::InvalidDayOfWeek(day));
-                    }
-                } else {
+                if self.day_of_week.is_none() {
                     return Err(SchedulingError::InvalidFrequency(
                         "day_of_week required for weekly/biweekly schedules".to_string(),
                     ));
                 }
             }
             ScheduleFrequency::Monthly => {
-                if let Some(day) = self.day_of_month {
-                    if !(1..=31).contains(&day) {
-                        return Err(SchedulingError::InvalidDayOfMonth(day));
-                    }
-                } else {
+                if self.day_of_month.is_none() {
                     return Err(SchedulingError::InvalidFrequency(
                         "day_of_month required for monthly schedules".to_string(),
                     ));
@@ -138,39 +237,54 @@ impl CreateScheduleRequest {
 }
 
 /// Request to update an existing schedule
-#[derive(Serialize, Deserialize, specta::Type, Clone, Debug)]
+#[derive(Serialize, Deserialize, specta::Type, Clone, Debug, Validate)]
 pub struct UpdateScheduleRequest {
     pub frequency: Option<ScheduleFrequency>,
+    #[validate(custom(function = "validate_time_format"))]
     pub time_of_day: Option<String>,
+    #[validate(range(min = 0, max = 6))]
     pub day_of_week: Option<i32>,
+    #[validate(range(min = 1, max = 31))]
     pub day_of_month: Option<i32>,
     pub enabled: Option<bool>,
 }
 
 impl UpdateScheduleRequest {
     /// Validate the update request
+    /// Combines validator crate's derive validation with custom logic
     pub fn validate(&self) -> Result<(), SchedulingError> {
-        // Validate time format if provided
-        if let Some(ref time) = self.time_of_day {
-            if !is_valid_time_format(time) {
-                return Err(SchedulingError::InvalidTimeFormat(time.clone()));
-            }
-        }
+        // First, run validator crate's derive validations (range checks, custom validators)
 
-        // Validate day_of_week if provided
-        if let Some(day) = self.day_of_week {
-            if !(0..=6).contains(&day) {
-                return Err(SchedulingError::InvalidDayOfWeek(day));
+        <Self as validator::Validate>::validate(self).map_err(|e| {
+            // Convert validator::ValidationErrors to SchedulingError
+            let errors = e.field_errors();
+            if let Some(time_errors) = errors.get("time_of_day") {
+                if !time_errors.is_empty() {
+                    if let Some(ref time) = self.time_of_day {
+                        return SchedulingError::InvalidTimeFormat(time.clone());
+                    }
+                }
             }
-        }
-
-        // Validate day_of_month if provided
-        if let Some(day) = self.day_of_month {
-            if !(1..=31).contains(&day) {
-                return Err(SchedulingError::InvalidDayOfMonth(day));
+            if let Some(day_week_errors) = errors.get("day_of_week") {
+                if !day_week_errors.is_empty() {
+                    if let Some(day) = self.day_of_week {
+                        return SchedulingError::InvalidDayOfWeek(day);
+                    }
+                }
             }
-        }
+            if let Some(day_month_errors) = errors.get("day_of_month") {
+                if !day_month_errors.is_empty() {
+                    if let Some(day) = self.day_of_month {
+                        return SchedulingError::InvalidDayOfMonth(day);
+                    }
+                }
+            }
+            // Fallback for any other validation errors
+            SchedulingError::InvalidFrequency(format!("Validation failed: {}", e))
+        })?;
 
+        // No additional custom validation needed for update requests
+        // Range validation already handled by validator crate above
         Ok(())
     }
 }
@@ -191,6 +305,18 @@ fn is_valid_time_format(time: &str) -> bool {
     let minute: Result<u32, _> = parts[1].parse();
 
     matches!((hour, minute), (Ok(h), Ok(m)) if h < 24 && m < 60)
+}
+
+/// Custom validator for time format (for use with validator crate)
+fn validate_time_format(time: &str) -> Result<(), validator::ValidationError> {
+    if !is_valid_time_format(time) {
+        let mut error = validator::ValidationError::new("time_format");
+        error.message = Some(std::borrow::Cow::from(
+            "Must be in HH:MM format (e.g., 09:00)",
+        ));
+        return Err(error);
+    }
+    Ok(())
 }
 
 /// Calculate next trigger time for a schedule

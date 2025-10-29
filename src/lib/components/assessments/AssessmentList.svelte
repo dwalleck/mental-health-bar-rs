@@ -1,27 +1,42 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { invoke } from '@tauri-apps/api/core';
-	import type { AssessmentType } from '$lib/bindings';
-	import Card from '$lib/components/ui/Card.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { goto } from '$app/navigation'
+	import { invoke } from '@tauri-apps/api/core'
+	import type { AssessmentType } from '$lib/bindings'
+	import Card from '$lib/components/ui/Card.svelte'
+	import Button from '$lib/components/ui/Button.svelte'
 
-	let assessmentTypes: AssessmentType[] = [];
-	let loading = true;
-	let error = '';
+	let assessmentTypes = $state<AssessmentType[]>([])
+	let loading = $state(true)
+	let error = $state('')
 
-	onMount(async () => {
-		try {
-			assessmentTypes = await invoke('get_assessment_types');
-		} catch (e) {
-			error = String(e);
-		} finally {
-			loading = false;
+	$effect(() => {
+		let isMounted = true
+
+		async function fetchAssessmentTypes() {
+			try {
+				const types = await invoke<AssessmentType[]>('get_assessment_types')
+
+				if (!isMounted) return
+
+				assessmentTypes = types
+				loading = false
+			} catch (e) {
+				if (!isMounted) return
+
+				error = String(e)
+				loading = false
+			}
 		}
-	});
+
+		fetchAssessmentTypes()
+
+		return () => {
+			isMounted = false
+		}
+	})
 
 	function startAssessment(code: string) {
-		goto(`/assessments/${code}`);
+		goto(`/assessments/${code}`)
 	}
 </script>
 
@@ -40,7 +55,7 @@
 		</Card>
 	{:else}
 		<div class="grid gap-4 md:grid-cols-2">
-			{#each assessmentTypes as assessment}
+			{#each assessmentTypes as assessment (assessment.code)}
 				<Card>
 					<h2 class="text-xl font-semibold text-gray-800 mb-2">{assessment.name}</h2>
 					<p class="text-gray-600 mb-4">
@@ -50,7 +65,7 @@
 						<span>{assessment.question_count} questions</span>
 						<span>Score: {assessment.min_score}-{assessment.max_score}</span>
 					</div>
-					<Button variant="primary" fullWidth on:click={() => startAssessment(assessment.code)}>
+					<Button variant="primary" fullWidth onclick={() => startAssessment(assessment.code)}>
 						Take Assessment
 					</Button>
 				</Card>

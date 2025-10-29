@@ -1,12 +1,17 @@
 <script lang="ts">
-	export let title: string | undefined = undefined;
-	export let padding: 'small' | 'medium' | 'large' = 'medium';
+	let {
+		title = undefined,
+		padding = 'medium',
+	}: {
+		title?: string
+		padding?: 'small' | 'medium' | 'large'
+	} = $props()
 
 	const paddingClasses = {
 		small: 'p-4',
 		medium: 'p-6',
-		large: 'p-8'
-	};
+		large: 'p-8',
+	}
 </script>
 
 <div class="bg-white rounded-lg shadow-md {paddingClasses[padding]}">

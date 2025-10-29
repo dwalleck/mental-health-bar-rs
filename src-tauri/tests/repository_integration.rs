@@ -217,7 +217,7 @@ fn test_delete_assessment_type_blocked_when_schedules_exist() {
 
     // Manually insert a schedule for this assessment type
     let conn = db.get_connection();
-    let conn_guard = conn.lock().unwrap();
+    let conn_guard = conn.lock();
     conn_guard
         .execute(
             "INSERT INTO assessment_schedules (assessment_type_id, frequency, time_of_day, enabled)

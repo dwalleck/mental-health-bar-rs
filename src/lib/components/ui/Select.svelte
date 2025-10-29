@@ -1,12 +1,25 @@
 <script lang="ts">
-	export let value: string | number = '';
-	export let options: Array<{ value: string | number; label: string }> = [];
-	export let label: string | undefined = undefined;
-	export let required = false;
-	export let disabled = false;
-	export let placeholder = 'Select an option';
-	export let error: string | undefined = undefined;
-	export let id: string = `select-${Math.random().toString(36).substring(2, 11)}`;
+	let {
+		value = $bindable(''),
+		options = [],
+		label = undefined,
+		required = false,
+		disabled = false,
+		placeholder = 'Select an option',
+		error = undefined,
+		id = `select-${Math.random().toString(36).substring(2, 11)}`,
+		onchange,
+	}: {
+		value?: string | number
+		options?: Array<{ value: string | number; label: string }>
+		label?: string
+		required?: boolean
+		disabled?: boolean
+		placeholder?: string
+		error?: string
+		id?: string
+		onchange?: (event: Event) => void
+	} = $props()
 </script>
 
 <div class="w-full">
@@ -24,13 +37,13 @@
 		{required}
 		{disabled}
 		bind:value
+		{onchange}
 		class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed {error
 			? 'border-red-500'
 			: 'border-gray-300'}"
-		on:change
 	>
 		<option value="" disabled selected={value === ''}>{placeholder}</option>
-		{#each options as option}
+		{#each options as option (option.value)}
 			<option value={option.value}>{option.label}</option>
 		{/each}
 	</select>

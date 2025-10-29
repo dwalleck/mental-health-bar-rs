@@ -5,7 +5,9 @@ import {
 	LinearScale,
 	PointElement,
 	LineElement,
+	LineController,
 	BarElement,
+	BarController,
 	Title,
 	Tooltip,
 	Legend,
@@ -14,13 +16,15 @@ import {
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 
-// Register Chart.js components
+// Register Chart.js components and controllers
 ChartJS.register(
 	CategoryScale,
 	LinearScale,
 	PointElement,
 	LineElement,
+	LineController,
 	BarElement,
+	BarController,
 	Title,
 	Tooltip,
 	Legend,

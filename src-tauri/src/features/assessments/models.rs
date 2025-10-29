@@ -1,6 +1,8 @@
+use crate::CommandError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
+use validator::Validate;
 
 /// Severity level constants
 pub const SEVERITY_MINIMAL: &str = "minimal";
@@ -38,6 +40,84 @@ pub enum AssessmentError {
     Database(#[from] rusqlite::Error),
 }
 
+impl AssessmentError {
+    /// Convert to structured CommandError for frontend consumption
+    pub fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            AssessmentError::InvalidType(code) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "assessment_type_code",
+                        "value": code
+                    }),
+                )
+            }
+            AssessmentError::IncompleteResponses { expected, actual } => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "responses",
+                        "expected": expected,
+                        "actual": actual
+                    }),
+                )
+            }
+            AssessmentError::InvalidResponse(msg) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "responses",
+                        "details": msg
+                    }),
+                )
+            }
+            AssessmentError::Deserialization(msg) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "details": msg
+                    }),
+                )
+            }
+
+            // Not found errors - not retryable
+            AssessmentError::NotFound(id) => CommandError::permanent(self.to_string(), "not_found")
+                .with_details(serde_json::json!({
+                    "resource": "assessment",
+                    "id": id
+                })),
+
+            // Constraint errors - not retryable
+            AssessmentError::HasChildren(msg) => {
+                CommandError::permanent(self.to_string(), "constraint_violation").with_details(
+                    serde_json::json!({
+                        "details": msg
+                    }),
+                )
+            }
+
+            // Database lock/transient errors - retryable
+            AssessmentError::LockPoisoned => {
+                CommandError::retryable(self.to_string(), "lock_poisoned")
+            }
+            AssessmentError::Database(e) => {
+                // Classify SQLite errors as retryable or permanent
+                match e {
+                    rusqlite::Error::SqliteFailure(err, _) => {
+                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
+                        if err.code == rusqlite::ErrorCode::DatabaseBusy
+                            || err.code == rusqlite::ErrorCode::DatabaseLocked
+                        {
+                            CommandError::retryable(self.to_string(), "database_locked")
+                        } else {
+                            CommandError::permanent(self.to_string(), "database")
+                        }
+                    }
+                    _ => CommandError::permanent(self.to_string(), "database"),
+                }
+            }
+        }
+    }
+}
+
 /// Assessment type (PHQ-9, GAD-7, CES-D, OASIS)
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AssessmentType {
@@ -61,11 +141,39 @@ pub struct AssessmentQuestion {
     pub options: Vec<String>,
 }
 
+/// Custom validator for assessment type code - alphanumeric only
+fn validate_assessment_type_code(code: &str) -> Result<(), validator::ValidationError> {
+    if !code.chars().all(|c| c.is_alphanumeric()) {
+        let mut error = validator::ValidationError::new("alphanumeric");
+        error.message = Some(std::borrow::Cow::from(
+            "Assessment type code must contain only alphanumeric characters",
+        ));
+        return Err(error);
+    }
+    Ok(())
+}
+
+/// Custom validator for notes - no control characters except newline, tab, carriage return
+fn validate_notes_control_chars(notes: &str) -> Result<(), validator::ValidationError> {
+    for ch in notes.chars() {
+        if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
+            let mut error = validator::ValidationError::new("control_character");
+            error.message = Some(std::borrow::Cow::from(
+                format!("Notes contain invalid control character (code {}). Only newlines and tabs are allowed.", ch as u32)
+            ));
+            return Err(error);
+        }
+    }
+    Ok(())
+}
+
 /// Request to submit assessment
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Validate)]
 pub struct SubmitAssessmentRequest {
+    #[validate(length(max = 10), custom(function = "validate_assessment_type_code"))]
     pub assessment_type_code: String,
     pub responses: Vec<i32>,
+    #[validate(length(max = 10000), custom(function = "validate_notes_control_chars"))]
     pub notes: Option<String>,
 }
 
