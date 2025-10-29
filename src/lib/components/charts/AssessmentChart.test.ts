@@ -3,42 +3,8 @@ import { render, screen } from '@testing-library/svelte'
 import AssessmentChart from './AssessmentChart.svelte'
 import type { AssessmentChartData } from '$lib/bindings'
 
-// Mock Chart.js
-vi.mock('chart.js', () => {
-	const mockDestroy = vi.fn()
-	const mockChart = {
-		destroy: mockDestroy,
-		update: vi.fn(),
-		data: {},
-		options: {},
-		register: vi.fn(),
-	}
-
-	const ChartMock = Object.assign(
-		vi.fn(() => mockChart),
-		{
-			register: vi.fn(),
-		}
-	)
-
-	return {
-		Chart: ChartMock,
-		registerables: [],
-		CategoryScale: vi.fn(),
-		LinearScale: vi.fn(),
-		PointElement: vi.fn(),
-		LineElement: vi.fn(),
-		BarElement: vi.fn(),
-		Title: vi.fn(),
-		Tooltip: vi.fn(),
-		Legend: vi.fn(),
-		Filler: vi.fn(),
-	}
-})
-
-vi.mock('chartjs-plugin-annotation', () => ({
-	default: vi.fn(),
-}))
+// NOTE: We no longer mock Chart.js to catch real integration bugs!
+// We only mock the Canvas API which is unavailable in Node.js test environment
 
 describe('AssessmentChart', () => {
 	beforeEach(() => {
@@ -202,32 +168,31 @@ describe('AssessmentChart', () => {
 	})
 
 	describe('Chart.js Integration', () => {
-		it('should create Chart instance when data is valid', async () => {
-			const { Chart } = await import('chart.js')
-			render(AssessmentChart, { props: { data: mockChartData, loading: false } })
+		it('should create Chart instance when data is valid without throwing errors', async () => {
+			// This test now uses REAL Chart.js
+			// If LineController isn't registered, this will throw:
+			// Error: "line" is not a registered controller
+
+			expect(() => {
+				render(AssessmentChart, { props: { data: mockChartData, loading: false } })
+			}).not.toThrow()
 
 			// Wait for effect to run
 			await new Promise((resolve) => setTimeout(resolve, 100))
-
-			expect(Chart).toHaveBeenCalled()
 		})
 
-		it('should not create chart when canvas context is unavailable', async () => {
+		it('should handle missing canvas context gracefully', async () => {
 			HTMLCanvasElement.prototype.getContext = vi.fn(
 				() => null
 			) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
-			const { Chart } = await import('chart.js')
-			vi.mocked(Chart).mockClear()
-
-			render(AssessmentChart, { props: { data: mockChartData, loading: false } })
+			// Component should not throw even when canvas context is unavailable
+			expect(() => {
+				render(AssessmentChart, { props: { data: mockChartData, loading: false } })
+			}).not.toThrow()
 
 			// Wait for effect
 			await new Promise((resolve) => setTimeout(resolve, 100))
-
-			// Chart should not be instantiated if getContext returns null
-			// The component handles this gracefully
-			expect(true).toBe(true)
 		})
 	})
 

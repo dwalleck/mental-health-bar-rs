@@ -7,6 +7,7 @@ A privacy-focused desktop application for tracking mental health through validat
 - 📋 **Clinical Assessments** - PHQ-9, GAD-7, CES-D, OASIS with accurate scoring
 - 📊 **Data Visualization** - Track assessment trends and mood patterns over time
 - 🎯 **Daily Mood Check-Ins** - Quick 1-5 mood rating with activity tracking
+- 📈 **Dashboard Score Overview** - At-a-glance view of your current mental health status with color-coded progress bars showing severity levels for all assessment types
 - 🔔 **Smart Reminders** - Configurable assessment schedules
 - 🔒 **Privacy First** - All data stored locally, no cloud sync
 - 📱 **Cross-Platform** - Linux, macOS, Windows
@@ -52,6 +53,12 @@ npm run tauri dev
 
 ### View Your Trends
 
+**Dashboard Quick View**:
+1. **Open the application** - Dashboard displays automatically
+2. **Check current scores** - See your most recent assessment scores with color-coded severity indicators
+3. **Click any score bar** - Navigate directly to detailed charts for that assessment
+
+**Detailed Chart View**:
 1. **Navigate to "Charts"**
 2. **Select assessment type** (PHQ-9, GAD-7, etc.)
 3. **Choose time range** (7 days, 30 days, 90 days, all time)
@@ -71,10 +78,10 @@ npm run tauri dev
 
 ### Create Custom Activities
 
-1. Go to **Settings → Activities**
-2. Click **"New Activity"**
-3. Enter name (max 30 chars) - e.g., "Meditation"
-4. Choose Lineicons v5 icon (optional)
+1. Go to **Mood → Manage Activities**
+2. Click **"Create New Activity"**
+3. Enter name (max 100 chars) - e.g., "Meditation"
+4. Choose color (hex format) and icon/emoji (optional)
 5. Save - Activity available in mood check-ins
 
 ### Schedule Regular Assessments
@@ -87,9 +94,10 @@ npm run tauri dev
 
 ## 🏗️ Architecture
 
-- **Backend**: Rust (Tauri 2.x) with DuckDB for local persistence
+- **Backend**: Rust (Tauri 2.x) with SQLite (rusqlite) for local persistence
 - **Frontend**: Svelte 5 + SvelteKit with TailwindCSS
-- **Testing**: Vitest (frontend), cargo test (backend)
+- **Charts**: Chart.js with threshold annotations
+- **Testing**: Vitest (frontend), cargo test (backend) - 233 total tests
 - **Type Safety**: tauri-specta for Rust ↔ TypeScript bindings
 
 ## 📊 Assessments Included
@@ -107,9 +115,11 @@ All assessments use validated clinical scoring algorithms and standard interpret
 
 - ✅ **Local-only storage** - No data leaves your device
 - ✅ **No cloud sync** - Complete offline capability
-- ✅ **Encrypted at rest** - DuckDB with 0600 file permissions
+- ✅ **Secure file permissions** - Database file restricted to user-only access (0600)
 - ✅ **GDPR compliant** - Full data deletion available
 - ✅ **No tracking** - No analytics or telemetry
+
+**Note**: Database encryption at rest is planned for v0.2.0. Current version uses OS-level file permissions.
 
 ## 🧪 Development
 

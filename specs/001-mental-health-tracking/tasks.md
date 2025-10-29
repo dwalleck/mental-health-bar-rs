@@ -396,6 +396,54 @@
 
 ---
 
+## Phase 8.5: User Story 7 - Dashboard Assessment Score Overview (Priority: P2)
+
+**Goal**: Users can quickly see their most recent assessment scores on the main dashboard with visual progress bars showing severity ranges
+
+**Independent Test**: Complete assessments of various types, navigate to dashboard, verify scores are displayed with progress bars and severity indicators
+
+### Tests for User Story 7 (TDD - Write First, Verify Fail)
+
+- [ ] T211 [P] [US7] Component test: AssessmentScoreBar renders progress bar with score in src/lib/components/dashboard/AssessmentScoreBar.test.ts
+- [ ] T212 [P] [US7] Component test: AssessmentScoreBar displays severity segments with correct colors in src/lib/components/dashboard/AssessmentScoreBar.test.ts
+- [ ] T213 [P] [US7] Component test: DashboardScores fetches latest assessments on mount in src/lib/components/dashboard/DashboardScores.test.ts
+- [ ] T214 [P] [US7] Component test: DashboardScores shows "Not taken yet" for assessments without data in src/lib/components/dashboard/DashboardScores.test.ts
+- [ ] T215 [P] [US7] Component test: Clicking score bar navigates to chart view in src/lib/components/dashboard/DashboardScores.test.ts
+
+### Implementation for User Story 7
+
+**Backend**: No new backend work required - leverages existing `get_latest_assessment` command from User Story 1
+
+**Frontend Components**:
+
+- [ ] T216 [P] [US7] Create AssessmentScoreBar component in src/lib/components/dashboard/AssessmentScoreBar.svelte with progress bar visualization
+- [ ] T217 [P] [US7] Implement severity range segments in AssessmentScoreBar using TailwindCSS gradients and markers
+- [ ] T218 [P] [US7] Add score value overlay to progress bar in AssessmentScoreBar component
+- [ ] T219 [P] [US7] Implement severity color mapping in AssessmentScoreBar (reuse from AssessmentResults.svelte getSeverityColor function)
+- [ ] T220 [US7] Create DashboardScores component in src/lib/components/dashboard/DashboardScores.svelte with assessment type iteration
+- [ ] T221 [US7] Implement get_latest_assessment calls for all 4 assessment types in DashboardScores using Promise.all for parallel loading
+- [ ] T222 [US7] Add loading skeleton states to DashboardScores using existing SkeletonLoader component
+- [ ] T223 [US7] Implement "Not taken yet" empty state for each assessment type in DashboardScores
+- [ ] T224 [US7] Add click handlers to navigate to chart view (/charts?type=<assessment_type>) for each score bar
+- [ ] T225 [US7] Add error handling with user-friendly messages in DashboardScores component
+
+**Integration**:
+
+- [ ] T226 [US7] Update src/routes/+page.svelte to import and render DashboardScores component
+- [ ] T227 [US7] Replace or update assessment list section in dashboard with DashboardScores component
+- [ ] T228 [US7] Ensure responsive layout for mobile/tablet/desktop viewports (stack vertically on mobile, 2-column on tablet, 4-column on desktop)
+- [ ] T229 [US7] Add accessibility labels (ARIA) to progress bars and interactive elements
+- [ ] T230 [US7] Test navigation flow: dashboard → click score bar → verify chart page loads with correct assessment type
+
+**Documentation**:
+
+- [ ] T231 [P] [US7] Update README.md to mention dashboard score overview feature
+- [ ] T232 [P] [US7] Add dashboard screenshot to docs showing score visualizations
+
+**Checkpoint**: User Story 7 complete - Dashboard shows current assessment scores with visual indicators
+
+---
+
 ## Phase 9: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
@@ -608,7 +656,7 @@ Each increment:
 
 ## Task Summary
 
-**Total Tasks**: 228 (updated from 217 after cascading delete implementation)
+**Total Tasks**: 250 (updated from 228 after dashboard score visualization addition)
 - **Phase 1 (Setup)**: 7 tasks
 - **Phase 2 (Foundational)**: 16 tasks (BLOCKS all stories) - Added T020a/T020b for defensive deletion infrastructure
 - **Phase 3 (US1 - Assessments)**: 51 tasks (11 tests + 40 implementation) - Added T067a-T067d for assessment type deletion
@@ -617,22 +665,23 @@ Each increment:
 - **Phase 6 (US4 - Assessment Charts)**: 20 tasks (4 tests + 16 implementation) - Added T132b for empty chart state
 - **Phase 7 (US5 - Mood Charts)**: 16 tasks (3 tests + 13 implementation) - Added T147b for empty mood chart state
 - **Phase 8 (US6 - Scheduling)**: 28 tasks (5 tests + 23 implementation)
+- **Phase 8.5 (US7 - Dashboard Scores)**: 22 tasks (5 tests + 17 implementation) - NEW: Dashboard assessment score visualization with progress bars
 - **Phase 9 (Polish)**: 35 tasks - Added T201a-T201c for deletion documentation and testing
 
-**Parallel Opportunities**: 110 tasks marked [P] (48% can run in parallel) - Added deletion-related parallel tests
+**Parallel Opportunities**: 120 tasks marked [P] (48% can run in parallel) - Added dashboard component parallel tests
 
-**Independent Test Checkpoints**: 6 (one per user story)
+**Independent Test Checkpoints**: 7 (one per user story)
 
-**MVP Scope**: Phases 1-3 only (68 tasks) - Shippable clinical assessment tool (increased from 67)
+**MVP Scope**: Phases 1-3 only (68 tasks) - Shippable clinical assessment tool
 
-**TDD Coverage**: 32 test tasks across all stories (15% of total tasks are tests)
+**TDD Coverage**: 37 test tasks across all stories (15% of total tasks are tests)
 
-**Remediation Applied**: 11 tasks added to address security (GDPR/file permissions), performance validation, and edge cases; 9 tasks added for CI/CD pipeline setup
+**Remediation Applied**: 11 tasks added to address security (GDPR/file permissions), performance validation, and edge cases; 9 tasks added for CI/CD pipeline setup; 22 tasks added for dashboard score visualization
 
 **Estimated Timeline**:
 - MVP (US1): 2-3 days
 - MVP + US2 + US3: 1 week
-- Full feature set (US1-6): 3-4 weeks
+- Full feature set (US1-7): 3-4 weeks
 - Production-ready: 4-5 weeks with polish
 
 **Constitution Alignment**:

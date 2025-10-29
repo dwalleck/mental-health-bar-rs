@@ -119,6 +119,24 @@ A user wants to set up recurring schedules for assessments (e.g., weekly PHQ-9, 
 
 ---
 
+### User Story 7 - Dashboard Assessment Score Overview (Priority: P2)
+
+A user wants to quickly see their most recent assessment scores on the main dashboard without navigating to detailed chart views, allowing them to understand their current mental health status at a glance.
+
+**Why this priority**: Dashboard visibility of current scores provides immediate context and awareness of mental health status on every app launch. This encourages regular assessment completion and helps users track whether their status is improving or needs attention. More important than detailed charts (P3) but less critical than core assessment functionality (P1).
+
+**Independent Test**: Can be tested by completing assessments of various types, navigating to the dashboard, and verifying that the most recent scores are displayed with visual indicators showing severity levels. Delivers value by eliminating the need to navigate through multiple screens to understand current status.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user has completed at least one assessment of any type, **When** they view the main dashboard, **Then** they see a visual representation of their most recent score for each completed assessment type with the score value embedded in the visualization
+2. **Given** a user views their assessment scores on the dashboard, **When** they examine the score visualization, **Then** they see colored segments or markers indicating the severity ranges (minimal, mild, moderate, severe) with their current score positioned appropriately within the range
+3. **Given** a user has not completed a specific assessment type, **When** they view the dashboard, **Then** they see a "Not taken yet" or placeholder state for that assessment type
+4. **Given** a user wants to see detailed historical trends, **When** they click on a dashboard score visualization, **Then** they navigate to the full chart view for that assessment type
+5. **Given** a user has completed assessments for all 4 types (PHQ-9, GAD-7, CES-D, OASIS), **When** they view the dashboard, **Then** all 4 assessment scores are displayed in an organized, scannable layout
+
+---
+
 ### Edge Cases
 
 - **Incomplete assessments**: When a user starts an assessment but navigates away without completing it, the system saves it as an incomplete draft with a timestamp. Users can resume the draft later or explicitly delete it. Only one incomplete draft per assessment type is allowed at a time.
@@ -181,6 +199,15 @@ A user wants to set up recurring schedules for assessments (e.g., weekly PHQ-9, 
 - **FR-031**: Assessment charts MUST include visual indicators of clinical thresholds (e.g., lines showing mild/moderate/severe boundaries). Threshold values defined in contracts/assessments.md: PHQ-9 (0-4 minimal, 5-9 mild, 10-14 moderate, 15-19 moderately severe, 20-27 severe), GAD-7 (0-4 minimal, 5-9 mild, 10-14 moderate, 15-21 severe), CES-D and OASIS per published guidelines
 - **FR-032**: System MUST display a placeholder state when chart views have fewer than 2 data points, showing an informative icon, a message explaining the minimum data requirement, and a call-to-action button to navigate the user to create the first/next entry (assessment or mood check-in)
 
+#### Dashboard Score Overview
+- **FR-037**: System MUST display the most recent assessment score for each assessment type on the main dashboard
+- **FR-038**: Dashboard score visualizations MUST use progress bars or similar linear indicators showing the score position within the assessment's min-max range
+- **FR-039**: Dashboard score visualizations MUST display the actual score value embedded or overlaid on the progress bar
+- **FR-040**: Dashboard score visualizations MUST show colored segments or markers indicating severity range boundaries (minimal/mild/moderate/severe) using colors consistent with severity level interpretation
+- **FR-041**: Dashboard MUST display a "Not taken yet" or placeholder state for assessment types where the user has not completed any assessments
+- **FR-042**: Dashboard score visualizations MUST be clickable and navigate to the detailed chart view for that assessment type when selected
+- **FR-043**: Dashboard MUST display all 4 assessment types (PHQ-9, GAD-7, CES-D, OASIS) in a consistent, organized layout
+
 #### Data Persistence
 - **FR-033**: System MUST persist all assessment responses, scores, and completion timestamps
 - **FR-034**: System MUST persist all mood check-ins with timestamps, ratings, and associated activities
@@ -217,6 +244,9 @@ A user wants to set up recurring schedules for assessments (e.g., weekly PHQ-9, 
 - **SC-010**: 95% of users successfully complete their first assessment without errors or confusion
 - **SC-011**: Users can access all their historical data (assessments, mood check-ins, activities) at any time
 - **SC-012**: The application supports at least 1 year of continuous daily mood check-ins (minimum 365 entries) without performance degradation
+- **SC-013**: Dashboard score visualizations load and render within 1 second of navigating to the main page
+- **SC-014**: Users can understand their current assessment status (severity level and score) from the dashboard without navigating to other pages
+- **SC-015**: Clicking on a dashboard score visualization navigates to the detailed chart view in under 1 second
 
 ## Assumptions
 

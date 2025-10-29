@@ -1,28 +1,29 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { invoke } from '@tauri-apps/api/core';
-	import type { AssessmentType, AssessmentResponse } from '$lib/bindings';
-	import Card from '$lib/components/ui/Card.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { onMount } from 'svelte'
+	import { goto } from '$app/navigation'
+	import { invoke } from '@tauri-apps/api/core'
+	import type { AssessmentType, AssessmentResponse } from '$lib/bindings'
+	import Card from '$lib/components/ui/Card.svelte'
+	import Button from '$lib/components/ui/Button.svelte'
+	import DashboardScores from '$lib/components/dashboard/DashboardScores.svelte'
 
-	let assessmentTypes: AssessmentType[] = [];
-	let recentCount = 0;
+	let assessmentTypes: AssessmentType[] = []
+	let recentCount = 0
 
 	onMount(async () => {
 		try {
-			assessmentTypes = await invoke('get_assessment_types');
+			assessmentTypes = await invoke('get_assessment_types')
 			const history = await invoke<AssessmentResponse[]>('get_assessment_history', {
 				assessmentTypeCode: null,
 				fromDate: null,
 				toDate: null,
-				limit: 10
-			});
-			recentCount = history.length;
+				limit: 10,
+			})
+			recentCount = history.length
 		} catch (e) {
-			console.error('Failed to load dashboard data:', e);
+			console.error('Failed to load dashboard data:', e)
 		}
-	});
+	})
 </script>
 
 <div class="space-y-6">
@@ -56,6 +57,14 @@
 		</Card>
 	</div>
 
+	<!-- Latest Assessment Scores Section -->
+	<Card title="Latest Assessment Scores">
+		<div class="text-sm text-gray-600 mb-4">
+			Click on any assessment to view detailed charts and history
+		</div>
+		<DashboardScores />
+	</Card>
+
 	<div class="grid gap-6 md:grid-cols-2">
 		<Card title="Quick Start">
 			<div class="space-y-3">
@@ -74,7 +83,7 @@
 
 		<Card title="Available Assessments">
 			<div class="space-y-3">
-				{#each assessmentTypes as assessment}
+				{#each assessmentTypes as assessment (assessment.id)}
 					<div class="border-l-4 border-blue-500 pl-3">
 						<div class="font-semibold text-gray-800">{assessment.code}</div>
 						<div class="text-sm text-gray-600">{assessment.name}</div>
@@ -99,8 +108,9 @@
 			<h3 class="font-semibold text-yellow-800 mb-2">Important Disclaimer</h3>
 			<p class="text-sm text-yellow-700">
 				These assessments are <strong>screening tools</strong>, not diagnostic instruments. They
-				help monitor your mental health over time but cannot replace professional evaluation. If you're
-				experiencing significant distress, please consult with a qualified mental health professional.
+				help monitor your mental health over time but cannot replace professional evaluation. If
+				you're experiencing significant distress, please consult with a qualified mental health
+				professional.
 			</p>
 		</div>
 	</Card>
