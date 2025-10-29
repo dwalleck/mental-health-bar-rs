@@ -7,6 +7,8 @@ use crate::AppState;
 
 use super::models::{AssessmentSchedule, CreateScheduleRequest, UpdateScheduleRequest};
 use super::repository::SchedulingRepository;
+use super::repository_trait::SchedulingRepositoryTrait;
+use anyhow::Context;
 
 /// T165: Create a new assessment schedule
 #[tauri::command]
@@ -16,9 +18,16 @@ pub fn create_schedule(
     state: State<AppState>,
 ) -> Result<AssessmentSchedule, String> {
     let repo = SchedulingRepository::new(state.db.clone());
+    create_schedule_impl(&repo, request).map_err(|e| e.to_string())
+}
 
-    repo.create_schedule(&request)
-        .map_err(|e| format!("Failed to create schedule: {}", e))
+/// Business logic for creating schedule - uses trait bound for testability
+fn create_schedule_impl(
+    repo: &impl SchedulingRepositoryTrait,
+    request: CreateScheduleRequest,
+) -> anyhow::Result<AssessmentSchedule> {
+    repo.create_schedule(request)
+        .context("Failed to create schedule")
 }
 
 /// T166: Update an existing schedule
@@ -30,9 +39,17 @@ pub fn update_schedule(
     state: State<AppState>,
 ) -> Result<AssessmentSchedule, String> {
     let repo = SchedulingRepository::new(state.db.clone());
+    update_schedule_impl(&repo, id, request).map_err(|e| e.to_string())
+}
 
-    repo.update_schedule(id, &request)
-        .map_err(|e| format!("Failed to update schedule: {}", e))
+/// Business logic for updating schedule - uses trait bound for testability
+fn update_schedule_impl(
+    repo: &impl SchedulingRepositoryTrait,
+    id: i32,
+    request: UpdateScheduleRequest,
+) -> anyhow::Result<AssessmentSchedule> {
+    repo.update_schedule(id, request)
+        .context("Failed to update schedule")
 }
 
 /// T167: Delete a schedule
@@ -40,9 +57,13 @@ pub fn update_schedule(
 #[specta::specta]
 pub fn delete_schedule(id: i32, state: State<AppState>) -> Result<(), String> {
     let repo = SchedulingRepository::new(state.db.clone());
+    delete_schedule_impl(&repo, id).map_err(|e| e.to_string())
+}
 
+/// Business logic for deleting schedule - uses trait bound for testability
+fn delete_schedule_impl(repo: &impl SchedulingRepositoryTrait, id: i32) -> anyhow::Result<()> {
     repo.delete_schedule(id)
-        .map_err(|e| format!("Failed to delete schedule: {}", e))
+        .context("Failed to delete schedule")
 }
 
 #[cfg(test)]

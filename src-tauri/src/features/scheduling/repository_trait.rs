@@ -13,14 +13,12 @@ use mockall::automock;
 #[cfg_attr(test, automock)]
 pub trait SchedulingRepositoryTrait {
     /// Create a new assessment schedule
-    #[must_use = "database operations can fail and must be handled"]
     fn create_schedule(
         &self,
         request: CreateScheduleRequest,
     ) -> Result<AssessmentSchedule, SchedulingError>;
 
     /// Update an existing schedule
-    #[must_use = "database operations can fail and must be handled"]
     fn update_schedule(
         &self,
         id: i32,
@@ -28,6 +26,5 @@ pub trait SchedulingRepositoryTrait {
     ) -> Result<AssessmentSchedule, SchedulingError>;
 
     /// Delete a schedule
-    #[must_use = "database operations can fail and must be handled"]
     fn delete_schedule(&self, id: i32) -> Result<(), SchedulingError>;
 }

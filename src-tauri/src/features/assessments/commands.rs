@@ -1,6 +1,7 @@
 // Assessment commands (mutations)
 use super::models::*;
 use super::repository::AssessmentRepository;
+use super::repository_trait::AssessmentRepositoryTrait;
 use crate::{AppState, MAX_NOTES_LENGTH, MAX_TYPE_CODE_LENGTH};
 use tauri::State;
 
@@ -49,10 +50,17 @@ pub async fn submit_assessment(
     }
 
     let repo = AssessmentRepository::new(state.db.clone());
+    submit_assessment_impl(&repo, request)
+}
 
+/// Business logic for submitting assessment - uses trait bound for testability
+fn submit_assessment_impl(
+    repo: &impl AssessmentRepositoryTrait,
+    request: SubmitAssessmentRequest,
+) -> Result<AssessmentResponse, String> {
     // Get assessment type
     let assessment_type = repo
-        .get_assessment_type_by_code(&request.assessment_type_code)
+        .get_assessment_type_by_code(request.assessment_type_code.clone())
         .map_err(|e| {
             format!(
                 "Failed to retrieve assessment type '{}': {}. Use get_assessment_types() to check available types.",
@@ -105,10 +113,10 @@ pub async fn submit_assessment(
     let id = repo
         .save_assessment(
             assessment_type.id,
-            &request.responses,
+            request.responses.clone(),
             total_score,
-            &severity_level,
-            request.notes,
+            severity_level.clone(),
+            request.notes.clone(),
         )
         .map_err(|e| {
             format!(
@@ -132,7 +140,11 @@ pub async fn submit_assessment(
 #[specta::specta]
 pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = AssessmentRepository::new(state.db.clone());
+    delete_assessment_impl(&repo, id)
+}
 
+/// Business logic for deleting assessment - uses trait bound for testability
+fn delete_assessment_impl(repo: &impl AssessmentRepositoryTrait, id: i32) -> Result<(), String> {
     repo.delete_assessment(id).map_err(|e| {
         format!(
             "Failed to delete assessment (ID: {}): {}. Verify the assessment exists using get_assessment_response().",
@@ -146,7 +158,14 @@ pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<()
 #[specta::specta]
 pub async fn delete_assessment_type(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = AssessmentRepository::new(state.db.clone());
+    delete_assessment_type_impl(&repo, id)
+}
 
+/// Business logic for deleting assessment type - uses trait bound for testability
+fn delete_assessment_type_impl(
+    repo: &impl AssessmentRepositoryTrait,
+    id: i32,
+) -> Result<(), String> {
     repo.delete_assessment_type(id).map_err(|e| match e {
         AssessmentError::HasChildren(msg) => {
             format!(

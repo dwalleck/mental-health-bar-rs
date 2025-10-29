@@ -20,7 +20,6 @@ use mockall::automock;
 #[cfg_attr(test, automock)]
 pub trait MoodRepositoryTrait {
     /// Creates a new mood check-in with optional activities and notes.
-    #[must_use = "database operations can fail and must be handled"]
     fn create_mood_checkin(
         &self,
         mood_rating: i32,
@@ -29,7 +28,6 @@ pub trait MoodRepositoryTrait {
     ) -> Result<MoodCheckin, MoodError>;
 
     /// Creates a new activity.
-    #[must_use = "database operations can fail and must be handled"]
     fn create_activity(
         &self,
         name: String,
@@ -38,7 +36,6 @@ pub trait MoodRepositoryTrait {
     ) -> Result<Activity, MoodError>;
 
     /// Updates an existing activity.
-    #[must_use = "database operations can fail and must be handled"]
     fn update_activity(
         &self,
         id: i32,
@@ -48,10 +45,8 @@ pub trait MoodRepositoryTrait {
     ) -> Result<Activity, MoodError>;
 
     /// Soft-deletes an activity (sets deleted_at timestamp).
-    #[must_use = "database operations can fail and must be handled"]
     fn delete_activity(&self, id: i32) -> Result<(), MoodError>;
 
     /// Deletes a mood check-in and its activity associations.
-    #[must_use = "database operations can fail and must be handled"]
     fn delete_mood_checkin(&self, id: i32) -> Result<(), MoodError>;
 }
