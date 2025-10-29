@@ -2,6 +2,7 @@
 	import '../app.css'
 	import { goto } from '$app/navigation'
 	import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte'
+	import Toast from '$lib/components/ui/Toast.svelte'
 
 	// Navigation items
 	const navItems = [
@@ -104,6 +105,9 @@
 		</div>
 	</main>
 </div>
+
+<!-- Toast notifications -->
+<Toast />
 
 <style>
 	:global(body) {
