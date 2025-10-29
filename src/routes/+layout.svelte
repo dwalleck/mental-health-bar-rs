@@ -10,6 +10,7 @@
 		{ name: 'Assessments', path: '/assessments', icon: '📋' },
 		{ name: 'Mood', path: '/mood', icon: '😊' },
 		{ name: 'Charts', path: '/charts', icon: '📊' },
+		{ name: 'UI Components', path: '/ui-showcase-simple', icon: '✨' },
 		{ name: 'Settings', path: '/settings', icon: '⚙️' },
 	]
 
