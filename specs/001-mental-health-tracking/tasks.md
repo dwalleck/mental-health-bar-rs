@@ -676,37 +676,47 @@ Each increment:
   - Scheduling commands: `create_schedule`, `update_schedule`, `delete_schedule`
 
 ### Remaining Work
+
+#### Backend
+- [ ] Add `to_command_error()` to VisualizationError in `src-tauri/src/features/visualization/models.rs`
+
 - [ ] Update query handlers to return `Result<T, CommandError>`:
   - Mood queries: `get_mood_history`, `get_mood_checkin`, `get_mood_stats`, `get_activities`
   - Assessment queries: `get_assessment_types`, `get_assessment_questions`, `get_assessment_history`, `get_assessment_response`, `get_latest_assessment`
   - Scheduling queries: `get_schedules`, `get_schedule`
   - Visualization queries: `get_assessment_chart_data`, `get_mood_chart_data`
 
-- [ ] Frontend implementation in `src/lib/api.ts` or similar:
-  - Create retry utility that checks `error.retryable` flag
-  - Implement type-safe error handling based on `error_type`
-  - Example retry logic:
+#### Frontend (Replace String Parsing with Type-Safe Error Handling)
+- [ ] **Update `src/lib/utils/retry.ts`** (lines 29-50):
+  - Replace `shouldRetry` string parsing with `error.retryable` check
+  - Current code parses error messages - should use CommandError structure
+  - Example:
     ```typescript
-    async function withRetry<T>(
-      fn: () => Promise<T>,
-      maxRetries = 3
-    ): Promise<T> {
-      try {
-        return await fn();
-      } catch (error) {
-        if (error.retryable && maxRetries > 0) {
-          await sleep(1000);
-          return withRetry(fn, maxRetries - 1);
-        }
-        throw error;
+    shouldRetry: (error: unknown) => {
+      // Type guard for CommandError
+      if (isCommandError(error)) {
+        return error.retryable
       }
+      // Fallback for non-CommandError (shouldn't happen)
+      return false
     }
     ```
 
+- [ ] **Update `src/lib/utils/errors.ts`**:
+  - `isValidationError()` (line 51-65): Replace string parsing with `error.error_type === 'validation'`
+  - `isTransientError()` (line 82-100): Replace string parsing with `error.retryable` check
+  - Add type guard: `isCommandError(error): error is CommandError`
+  - Add helper: `getErrorType(error: unknown): string | null` that safely extracts error_type
+
 - [ ] Error display components:
   - Create `<ErrorMessage>` component that formats errors by type
-  - Different UI for retryable vs permanent errors
-  - Show user-friendly messages based on `error_type`
+  - Different UI for retryable vs permanent errors (show retry button if retryable)
+  - User-friendly messages based on `error_type`:
+    - `validation`: "Please check your input"
+    - `not_found`: "Item not found"
+    - `database_locked`: "Database is busy, retrying..."
+    - `duplicate`: "This item already exists"
+  - Show technical details in dev mode only
 
 ### Benefits
 - **Type Safety**: Frontend can handle errors without string parsing
