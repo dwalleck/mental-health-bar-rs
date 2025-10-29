@@ -13,6 +13,7 @@ use mockall::automock;
 #[cfg_attr(test, automock)]
 pub trait AssessmentRepositoryTrait {
     /// Save a completed assessment
+    #[must_use = "database operations can fail and must be handled"]
     fn save_assessment(
         &self,
         assessment_type_id: i32,
@@ -23,14 +24,18 @@ pub trait AssessmentRepositoryTrait {
     ) -> Result<i32, AssessmentError>;
 
     /// Get assessment type by code (PHQ9, GAD7, etc.)
+    #[must_use = "database operations can fail and must be handled"]
     fn get_assessment_type_by_code(&self, code: String) -> Result<AssessmentType, AssessmentError>;
 
     /// Get a specific assessment response by ID
+    #[must_use = "database operations can fail and must be handled"]
     fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError>;
 
     /// Delete an assessment
+    #[must_use = "database operations can fail and must be handled"]
     fn delete_assessment(&self, id: i32) -> Result<(), AssessmentError>;
 
     /// Delete an assessment type
+    #[must_use = "database operations can fail and must be handled"]
     fn delete_assessment_type(&self, id: i32) -> Result<(), AssessmentError>;
 }
