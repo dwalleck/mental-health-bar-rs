@@ -48,11 +48,9 @@
 		border-radius: 4px;
 	}
 
-	@media (prefers-color-scheme: dark) {
-		.skeleton {
-			background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-			background-size: 200% 100%;
-		}
+	:global(.dark) .skeleton {
+		background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+		background-size: 200% 100%;
 	}
 
 	.skeleton-text {
@@ -78,11 +76,9 @@
 		border: 1px solid #e5e7eb;
 	}
 
-	@media (prefers-color-scheme: dark) {
-		.skeleton-card {
-			background: #1f2937;
-			border-color: #374151;
-		}
+	:global(.dark) .skeleton-card {
+		background: #1f2937;
+		border-color: #374151;
 	}
 
 	.skeleton-list-item {
@@ -96,11 +92,9 @@
 		border: 1px solid #e5e7eb;
 	}
 
-	@media (prefers-color-scheme: dark) {
-		.skeleton-list-item {
-			background: #1f2937;
-			border-color: #374151;
-		}
+	:global(.dark) .skeleton-list-item {
+		background: #1f2937;
+		border-color: #374151;
 	}
 
 	.skeleton-circle {

@@ -26,6 +26,8 @@
 
 	// T213, T221: Fetch latest assessments for all types on mount using Svelte 5 $effect
 	$effect(() => {
+		let isMounted = true
+
 		async function fetchAssessments() {
 			try {
 				loading = true
@@ -48,6 +50,9 @@
 					})
 				)
 
+				// Only update state if component is still mounted
+				if (!isMounted) return
+
 				// Populate the assessments map and track failures
 				const newAssessments = new SvelteMap<string, AssessmentResponse | null>()
 				const failed: string[] = []
@@ -61,13 +66,23 @@
 				failedAssessments = failed
 			} catch (err) {
 				console.error('Failed to fetch assessments:', err)
-				error = 'Failed to load assessment data. Please try again.'
+				// Only update error state if still mounted
+				if (isMounted) {
+					error = 'Failed to load assessment data. Please try again.'
+				}
 			} finally {
-				loading = false
+				if (isMounted) {
+					loading = false
+				}
 			}
 		}
 
 		fetchAssessments()
+
+		// Cleanup function: mark component as unmounted to prevent state updates
+		return () => {
+			isMounted = false
+		}
 	})
 
 	// T224: Navigate to chart view for a specific assessment type
