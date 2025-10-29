@@ -4,6 +4,7 @@ use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
 use crate::{AppState, CommandError, MAX_NOTES_LENGTH, MAX_TYPE_CODE_LENGTH};
 use tauri::State;
+use tracing::error;
 
 /// Submit a completed assessment
 #[tauri::command]
@@ -62,63 +63,58 @@ pub async fn submit_assessment(
     }
 
     let repo = AssessmentRepository::new(state.db.clone());
-    submit_assessment_impl(&repo, request)
+    submit_assessment_impl(&repo, &request).map_err(|e| {
+        error!(
+            "submit_assessment error: {} (type: '{}', responses: {}, has_notes: {})",
+            e,
+            request.assessment_type_code,
+            request.responses.len(),
+            request.notes.is_some()
+        );
+        e.to_command_error()
+    })
 }
 
 /// Business logic for submitting assessment - uses trait bound for testability
 fn submit_assessment_impl(
     repo: &impl AssessmentRepositoryTrait,
-    request: SubmitAssessmentRequest,
-) -> Result<AssessmentResponse, CommandError> {
+    request: &SubmitAssessmentRequest,
+) -> Result<AssessmentResponse, AssessmentError> {
     // Get assessment type
-    let assessment_type = repo
-        .get_assessment_type_by_code(request.assessment_type_code.clone())
-        .map_err(|e| e.to_command_error())?;
+    let assessment_type = repo.get_assessment_type_by_code(request.assessment_type_code.clone())?;
 
     // Calculate score based on type
     let (total_score, severity_level) = match assessment_type.code.as_str() {
         "PHQ9" => {
-            let score =
-                calculate_phq9_score(&request.responses).map_err(|e| e.to_command_error())?;
+            let score = calculate_phq9_score(&request.responses)?;
             (score, get_phq9_severity(score).to_string())
         }
         "GAD7" => {
-            let score =
-                calculate_gad7_score(&request.responses).map_err(|e| e.to_command_error())?;
+            let score = calculate_gad7_score(&request.responses)?;
             (score, get_gad7_severity(score).to_string())
         }
         "CESD" => {
-            let score =
-                calculate_cesd_score(&request.responses).map_err(|e| e.to_command_error())?;
+            let score = calculate_cesd_score(&request.responses)?;
             (score, get_cesd_severity(score).to_string())
         }
         "OASIS" => {
-            let score =
-                calculate_oasis_score(&request.responses).map_err(|e| e.to_command_error())?;
+            let score = calculate_oasis_score(&request.responses)?;
             (score, get_oasis_severity(score).to_string())
         }
-        _ => {
-            return Err(CommandError::permanent(
-                format!("Unknown assessment type: {}", assessment_type.code),
-                "validation",
-            ))
-        }
+        _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
     };
 
     // Save to database
-    let id = repo
-        .save_assessment(
-            assessment_type.id,
-            request.responses.clone(),
-            total_score,
-            severity_level.clone(),
-            request.notes.clone(),
-        )
-        .map_err(|e| e.to_command_error())?;
+    let id = repo.save_assessment(
+        assessment_type.id,
+        request.responses.clone(),
+        total_score,
+        severity_level.clone(),
+        request.notes.clone(),
+    )?;
 
     // Return the complete response
     repo.get_assessment_response(id)
-        .map_err(|e| e.to_command_error())
 }
 
 /// Delete an assessment response
@@ -126,15 +122,18 @@ fn submit_assessment_impl(
 #[specta::specta]
 pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<(), CommandError> {
     let repo = AssessmentRepository::new(state.db.clone());
-    delete_assessment_impl(&repo, id)
+    delete_assessment_impl(&repo, id).map_err(|e| {
+        error!("delete_assessment error: {} (id: {})", e, id);
+        e.to_command_error()
+    })
 }
 
 /// Business logic for deleting assessment - uses trait bound for testability
 fn delete_assessment_impl(
     repo: &impl AssessmentRepositoryTrait,
     id: i32,
-) -> Result<(), CommandError> {
-    repo.delete_assessment(id).map_err(|e| e.to_command_error())
+) -> Result<(), AssessmentError> {
+    repo.delete_assessment(id)
 }
 
 /// Delete an assessment type (defensive - prevents deletion if children exist)
@@ -145,16 +144,18 @@ pub async fn delete_assessment_type(
     state: State<'_, AppState>,
 ) -> Result<(), CommandError> {
     let repo = AssessmentRepository::new(state.db.clone());
-    delete_assessment_type_impl(&repo, id)
+    delete_assessment_type_impl(&repo, id).map_err(|e| {
+        error!("delete_assessment_type error: {} (id: {})", e, id);
+        e.to_command_error()
+    })
 }
 
 /// Business logic for deleting assessment type - uses trait bound for testability
 fn delete_assessment_type_impl(
     repo: &impl AssessmentRepositoryTrait,
     id: i32,
-) -> Result<(), CommandError> {
+) -> Result<(), AssessmentError> {
     repo.delete_assessment_type(id)
-        .map_err(|e| e.to_command_error())
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 // T165-T167: Tauri commands for schedule management
 
 use tauri::State;
+use tracing::error;
 
 use crate::{AppState, CommandError};
 
@@ -17,16 +18,27 @@ pub fn create_schedule(
     state: State<AppState>,
 ) -> Result<AssessmentSchedule, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
-    create_schedule_impl(&repo, request)
+    create_schedule_impl(&repo, &request)
 }
 
 /// Business logic for creating schedule - uses trait bound for testability
 fn create_schedule_impl(
     repo: &impl SchedulingRepositoryTrait,
-    request: CreateScheduleRequest,
+    request: &CreateScheduleRequest,
 ) -> Result<AssessmentSchedule, CommandError> {
-    repo.create_schedule(request)
-        .map_err(|e| e.to_command_error())
+    repo.create_schedule(request.clone())
+        .map_err(|e| {
+            error!(
+                "create_schedule error: {} (assessment_type_id: {}, frequency: {:?}, time: {}, day_of_week: {:?}, day_of_month: {:?})",
+                e,
+                request.assessment_type_id,
+                request.frequency,
+                request.time_of_day,
+                request.day_of_week,
+                request.day_of_month
+            );
+            e.to_command_error()
+        })
 }
 
 /// T166: Update an existing schedule
@@ -38,17 +50,29 @@ pub fn update_schedule(
     state: State<AppState>,
 ) -> Result<AssessmentSchedule, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
-    update_schedule_impl(&repo, id, request)
+    update_schedule_impl(&repo, id, &request)
 }
 
 /// Business logic for updating schedule - uses trait bound for testability
 fn update_schedule_impl(
     repo: &impl SchedulingRepositoryTrait,
     id: i32,
-    request: UpdateScheduleRequest,
+    request: &UpdateScheduleRequest,
 ) -> Result<AssessmentSchedule, CommandError> {
-    repo.update_schedule(id, request)
-        .map_err(|e| e.to_command_error())
+    repo.update_schedule(id, request.clone())
+        .map_err(|e| {
+            error!(
+                "update_schedule error: {} (id: {}, frequency: {:?}, time: {:?}, day_of_week: {:?}, day_of_month: {:?}, enabled: {:?})",
+                e,
+                id,
+                request.frequency,
+                request.time_of_day,
+                request.day_of_week,
+                request.day_of_month,
+                request.enabled
+            );
+            e.to_command_error()
+        })
 }
 
 /// T167: Delete a schedule
@@ -64,7 +88,10 @@ fn delete_schedule_impl(
     repo: &impl SchedulingRepositoryTrait,
     id: i32,
 ) -> Result<(), CommandError> {
-    repo.delete_schedule(id).map_err(|e| e.to_command_error())
+    repo.delete_schedule(id).map_err(|e| {
+        error!("delete_schedule error: {} (id: {})", e, id);
+        e.to_command_error()
+    })
 }
 
 #[cfg(test)]

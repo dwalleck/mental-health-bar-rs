@@ -16,8 +16,14 @@ pub async fn log_mood(
     state: State<'_, AppState>,
 ) -> Result<MoodCheckin, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
-    log_mood_impl(&repo, request).map_err(|e| {
-        error!("log_mood error: {}", e);
+    log_mood_impl(&repo, &request).map_err(|e| {
+        error!(
+            "log_mood error: {} (rating: {}, activities: {}, has_notes: {})",
+            e,
+            request.mood_rating,
+            request.activity_ids.len(),
+            request.notes.is_some()
+        );
         e.to_command_error()
     })
 }
@@ -25,9 +31,13 @@ pub async fn log_mood(
 /// Business logic for logging mood - uses trait bound for testability
 fn log_mood_impl(
     repo: &impl MoodRepositoryTrait,
-    request: LogMoodRequest,
+    request: &LogMoodRequest,
 ) -> Result<MoodCheckin, MoodError> {
-    repo.create_mood_checkin(request.mood_rating, request.activity_ids, request.notes)
+    repo.create_mood_checkin(
+        request.mood_rating,
+        request.activity_ids.clone(),
+        request.notes.clone(),
+    )
 }
 
 // T106: create_activity command
@@ -38,8 +48,14 @@ pub async fn create_activity(
     state: State<'_, AppState>,
 ) -> Result<Activity, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
-    create_activity_impl(&repo, request).map_err(|e| {
-        error!("create_activity error: {}", e);
+    create_activity_impl(&repo, &request).map_err(|e| {
+        error!(
+            "create_activity error: {} (name: '{}', has_color: {}, has_icon: {})",
+            e,
+            request.name,
+            request.color.is_some(),
+            request.icon.is_some()
+        );
         e.to_command_error()
     })
 }
@@ -47,9 +63,13 @@ pub async fn create_activity(
 /// Business logic for creating activity - uses trait bound for testability
 fn create_activity_impl(
     repo: &impl MoodRepositoryTrait,
-    request: CreateActivityRequest,
+    request: &CreateActivityRequest,
 ) -> Result<Activity, MoodError> {
-    repo.create_activity(request.name, request.color, request.icon)
+    repo.create_activity(
+        request.name.clone(),
+        request.color.clone(),
+        request.icon.clone(),
+    )
 }
 
 // T107: update_activity command
@@ -61,8 +81,15 @@ pub async fn update_activity(
     state: State<'_, AppState>,
 ) -> Result<Activity, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
-    update_activity_impl(&repo, id, request).map_err(|e| {
-        error!("update_activity error: {}", e);
+    update_activity_impl(&repo, id, &request).map_err(|e| {
+        error!(
+            "update_activity error: {} (id: {}, name: {:?}, has_color: {}, has_icon: {})",
+            e,
+            id,
+            request.name,
+            request.color.is_some(),
+            request.icon.is_some()
+        );
         e.to_command_error()
     })
 }
@@ -71,9 +98,14 @@ pub async fn update_activity(
 fn update_activity_impl(
     repo: &impl MoodRepositoryTrait,
     id: i32,
-    request: UpdateActivityRequest,
+    request: &UpdateActivityRequest,
 ) -> Result<Activity, MoodError> {
-    repo.update_activity(id, request.name, request.color, request.icon)
+    repo.update_activity(
+        id,
+        request.name.clone(),
+        request.color.clone(),
+        request.icon.clone(),
+    )
 }
 
 // T108: delete_activity command
@@ -82,7 +114,7 @@ fn update_activity_impl(
 pub async fn delete_activity(id: i32, state: State<'_, AppState>) -> Result<(), CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     delete_activity_impl(&repo, id).map_err(|e| {
-        error!("delete_activity error: {}", e);
+        error!("delete_activity error: {} (id: {})", e, id);
         e.to_command_error()
     })
 }
@@ -98,7 +130,7 @@ fn delete_activity_impl(repo: &impl MoodRepositoryTrait, id: i32) -> Result<(), 
 pub async fn delete_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<(), CommandError> {
     let repo = MoodRepository::new(state.db.clone());
     delete_mood_checkin_impl(&repo, id).map_err(|e| {
-        error!("delete_mood_checkin error: {}", e);
+        error!("delete_mood_checkin error: {} (id: {})", e, id);
         e.to_command_error()
     })
 }
