@@ -17,6 +17,9 @@ pub fn create_schedule(
     request: CreateScheduleRequest,
     state: State<AppState>,
 ) -> Result<AssessmentSchedule, CommandError> {
+    // Validate request
+    request.validate().map_err(|e| e.to_command_error())?;
+
     let repo = SchedulingRepository::new(state.db.clone());
     create_schedule_impl(&repo, &request)
 }
@@ -49,6 +52,9 @@ pub fn update_schedule(
     request: UpdateScheduleRequest,
     state: State<AppState>,
 ) -> Result<AssessmentSchedule, CommandError> {
+    // Validate request
+    request.validate().map_err(|e| e.to_command_error())?;
+
     let repo = SchedulingRepository::new(state.db.clone());
     update_schedule_impl(&repo, id, &request)
 }

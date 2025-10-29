@@ -7,6 +7,7 @@ use super::repository_trait::MoodRepositoryTrait;
 use crate::{AppState, CommandError};
 use tauri::State;
 use tracing::error;
+use validator::Validate;
 
 // T080: log_mood command
 #[tauri::command]
@@ -15,6 +16,11 @@ pub async fn log_mood(
     request: LogMoodRequest,
     state: State<'_, AppState>,
 ) -> Result<MoodCheckin, CommandError> {
+    // Validate request
+    request
+        .validate()
+        .map_err(|e| CommandError::permanent(format!("Validation failed: {}", e), "validation"))?;
+
     let repo = MoodRepository::new(state.db.clone());
     log_mood_impl(&repo, &request).map_err(|e| {
         error!(
@@ -47,6 +53,11 @@ pub async fn create_activity(
     request: CreateActivityRequest,
     state: State<'_, AppState>,
 ) -> Result<Activity, CommandError> {
+    // Validate request
+    request
+        .validate()
+        .map_err(|e| CommandError::permanent(format!("Validation failed: {}", e), "validation"))?;
+
     let repo = MoodRepository::new(state.db.clone());
     create_activity_impl(&repo, &request).map_err(|e| {
         error!(
@@ -80,6 +91,11 @@ pub async fn update_activity(
     request: UpdateActivityRequest,
     state: State<'_, AppState>,
 ) -> Result<Activity, CommandError> {
+    // Validate request
+    request
+        .validate()
+        .map_err(|e| CommandError::permanent(format!("Validation failed: {}", e), "validation"))?;
+
     let repo = MoodRepository::new(state.db.clone());
     update_activity_impl(&repo, id, &request).map_err(|e| {
         error!(

@@ -2,9 +2,10 @@
 use super::models::*;
 use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
-use crate::{AppState, CommandError, MAX_NOTES_LENGTH, MAX_TYPE_CODE_LENGTH};
+use crate::{AppState, CommandError};
 use tauri::State;
 use tracing::error;
+use validator::Validate;
 
 /// Submit a completed assessment
 #[tauri::command]
@@ -13,54 +14,10 @@ pub async fn submit_assessment(
     request: SubmitAssessmentRequest,
     state: State<'_, AppState>,
 ) -> Result<AssessmentResponse, CommandError> {
-    // Validate notes field length and content
-    if let Some(ref notes) = request.notes {
-        if notes.len() > MAX_NOTES_LENGTH {
-            return Err(CommandError::permanent(
-                format!(
-                    "Notes exceed maximum length of {} characters",
-                    MAX_NOTES_LENGTH
-                ),
-                "validation",
-            ));
-        }
-
-        // Validate no control characters except newlines and tabs
-        for ch in notes.chars() {
-            if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
-                return Err(CommandError::permanent(
-                    format!(
-                        "Notes contain invalid control character (code {}). Only newlines and tabs are allowed.",
-                        ch as u32
-                    ),
-                    "validation",
-                ));
-            }
-        }
-    }
-
-    // Validate assessment type code length
-    if request.assessment_type_code.len() > MAX_TYPE_CODE_LENGTH {
-        return Err(CommandError::permanent(
-            format!(
-                "Assessment type code exceeds maximum length of {} characters",
-                MAX_TYPE_CODE_LENGTH
-            ),
-            "validation",
-        ));
-    }
-
-    // Validate assessment type code format (alphanumeric only)
-    if !request
-        .assessment_type_code
-        .chars()
-        .all(|c| c.is_alphanumeric())
-    {
-        return Err(CommandError::permanent(
-            "Assessment type code must contain only alphanumeric characters",
-            "validation",
-        ));
-    }
+    // Validate request
+    request
+        .validate()
+        .map_err(|e| CommandError::permanent(format!("Validation failed: {}", e), "validation"))?;
 
     let repo = AssessmentRepository::new(state.db.clone());
     submit_assessment_impl(&repo, &request).map_err(|e| {

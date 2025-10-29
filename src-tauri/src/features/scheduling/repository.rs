@@ -27,9 +27,6 @@ impl SchedulingRepository {
         &self,
         request: &CreateScheduleRequest,
     ) -> Result<AssessmentSchedule, SchedulingError> {
-        // Validate request
-        request.validate()?;
-
         let conn = self.db.get_connection();
         let mut conn = conn.lock();
 
@@ -94,9 +91,6 @@ impl SchedulingRepository {
         id: i32,
         request: &UpdateScheduleRequest,
     ) -> Result<AssessmentSchedule, SchedulingError> {
-        // Validate request
-        request.validate()?;
-
         let conn = self.db.get_connection();
         let conn = conn.lock();
 
