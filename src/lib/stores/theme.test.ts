@@ -244,17 +244,71 @@ describe('Theme Store', () => {
 			expect(window.matchMedia).toHaveBeenCalledWith('(prefers-color-scheme: dark)')
 		})
 
-		it('should re-evaluate when system theme changes', async () => {
+		it('should update DOM when system theme changes to dark', async () => {
 			const { theme } = await import('./theme')
 			theme.set('system')
 
-			// Simulate system theme change
+			await new Promise((resolve) => setTimeout(resolve, 0))
+			mockClassList.add.mockClear()
+			mockClassList.remove.mockClear()
+
+			// Simulate system theme change to dark
 			if (mediaQueryListeners.length > 0) {
-				mediaQueryListeners[0]({} as MediaQueryListEvent)
+				mediaQueryListeners[0]({ matches: true } as MediaQueryListEvent)
 			}
 
-			// Store should trigger re-evaluation
+			// DOM should update to dark mode
+			expect(mockClassList.add).toHaveBeenCalledWith('dark')
 			expect(get(theme)).toBe('system')
+		})
+
+		it('should update DOM when system theme changes to light', async () => {
+			// Start with dark system theme
+			;(window.matchMedia as ReturnType<typeof vi.fn>).mockReturnValue({
+				matches: true,
+				media: '(prefers-color-scheme: dark)',
+				addEventListener: vi.fn((event: string, listener: (event: MediaQueryListEvent) => void) => {
+					if (event === 'change') {
+						mediaQueryListeners.push(listener)
+					}
+				}),
+			})
+
+			vi.resetModules()
+			const { theme } = await import('./theme')
+			theme.set('system')
+
+			await new Promise((resolve) => setTimeout(resolve, 0))
+			mockClassList.add.mockClear()
+			mockClassList.remove.mockClear()
+
+			// Simulate system theme change to light
+			if (mediaQueryListeners.length > 0) {
+				mediaQueryListeners[0]({ matches: false } as MediaQueryListEvent)
+			}
+
+			// DOM should update to light mode
+			expect(mockClassList.remove).toHaveBeenCalledWith('dark')
+			expect(get(theme)).toBe('system')
+		})
+
+		it('should not change DOM when theme is explicitly set and system changes', async () => {
+			const { theme } = await import('./theme')
+			theme.set('light')
+
+			await new Promise((resolve) => setTimeout(resolve, 0))
+			mockClassList.add.mockClear()
+			mockClassList.remove.mockClear()
+
+			// Simulate system theme change
+			if (mediaQueryListeners.length > 0) {
+				mediaQueryListeners[0]({ matches: true } as MediaQueryListEvent)
+			}
+
+			// DOM should NOT update (user has explicit preference)
+			expect(mockClassList.add).not.toHaveBeenCalled()
+			expect(mockClassList.remove).not.toHaveBeenCalled()
+			expect(get(theme)).toBe('light')
 		})
 	})
 

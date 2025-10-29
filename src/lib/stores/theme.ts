@@ -48,12 +48,16 @@ if (browser) {
 
 	// Listen for system theme changes and trigger store update
 	const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-	mediaQuery.addEventListener('change', () => {
+	mediaQuery.addEventListener('change', (e) => {
 		theme.update((t) => {
 			if (t === 'system') {
-				// Force re-evaluation of shouldUseDarkMode by reassigning 'system'
-				// This triggers the subscription above which re-checks the media query
-				// and updates the DOM with the new system preference
+				// Direct DOM update to bypass Svelte's equality check
+				// (returning 'system' when value is already 'system' wouldn't trigger subscribers)
+				if (e.matches) {
+					document.documentElement.classList.add('dark')
+				} else {
+					document.documentElement.classList.remove('dark')
+				}
 				return 'system'
 			}
 			// If user has explicit light/dark preference, don't change it
