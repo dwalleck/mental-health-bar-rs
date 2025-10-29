@@ -253,6 +253,49 @@ impl SchedulingRepository {
 
     // Helper methods
 
+    /// Get schedules that are due for triggering based on frequency and last trigger time.
+    ///
+    /// This method implements frequency-aware logic to prevent schedules from triggering
+    /// too frequently. It uses SQLite's julianday function for accurate day calculations
+    /// across all frequency types.
+    ///
+    /// # Frequency Logic
+    ///
+    /// - **Daily**: Triggers if last_triggered_at is NULL or on a different date than today
+    ///   - Example: Schedule at 09:00, last triggered 2024-10-28 08:00 → triggers again on 2024-10-29
+    ///
+    /// - **Weekly**: Triggers if ≥7 days have elapsed since last_triggered_at
+    ///   - Example: Last triggered 2024-10-22 → triggers again on/after 2024-10-29
+    ///
+    /// - **Biweekly**: Triggers if ≥14 days have elapsed since last_triggered_at
+    ///   - Example: Last triggered 2024-10-15 → triggers again on/after 2024-10-29
+    ///
+    /// - **Monthly**: Triggers if DATE(last_triggered_at, '+1 month') ≤ DATE('now')
+    ///   - Example: Last triggered 2024-09-28 → triggers again on/after 2024-10-28
+    ///
+    /// # Time-of-Day Filtering
+    ///
+    /// Only returns schedules where `time_of_day <= current_time` to prevent premature triggers.
+    /// For example, if current time is 14:30, schedules set for 09:00 and 14:00 are returned,
+    /// but schedules set for 15:00 are not.
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// Current date/time: 2024-10-29 14:30
+    ///
+    /// Schedule A (Daily, 09:00, last_triggered: 2024-10-28 09:05):
+    ///   → RETURNED (different date, time passed)
+    ///
+    /// Schedule B (Weekly, 14:00, last_triggered: 2024-10-22 14:05):
+    ///   → RETURNED (≥7 days elapsed, time passed)
+    ///
+    /// Schedule C (Daily, 15:00, last_triggered: 2024-10-28 15:05):
+    ///   → NOT RETURNED (time hasn't arrived yet)
+    ///
+    /// Schedule D (Weekly, 09:00, last_triggered: 2024-10-27 09:05):
+    ///   → NOT RETURNED (only 2 days elapsed, need 7)
+    /// ```
     fn get_due_schedules_with_conn(
         &self,
         conn: &rusqlite::Connection,

@@ -97,7 +97,8 @@ impl MoodRepository {
         if !activity_ids.is_empty() {
             // Generate IN clause placeholders for batch validation
             let in_clause = crate::db::query_builder::generate_in_clause(activity_ids.len());
-            let query = format!("SELECT COUNT(*) FROM activities WHERE id IN {}", in_clause);
+            // Query returns the list of valid IDs instead of just a count
+            let query = format!("SELECT id FROM activities WHERE id IN {}", in_clause);
 
             // Build params vector for the query
             let params: Vec<&dyn rusqlite::ToSql> = activity_ids
@@ -105,22 +106,17 @@ impl MoodRepository {
                 .map(|id| id as &dyn rusqlite::ToSql)
                 .collect();
 
-            let valid_count: i32 = tx
-                .query_row(&query, params.as_slice(), |row| row.get(0))
+            let mut stmt = tx.prepare(&query).map_err(MoodError::Database)?;
+            let valid_ids: std::collections::HashSet<i32> = stmt
+                .query_map(params.as_slice(), |row| row.get::<_, i32>(0))
+                .map_err(MoodError::Database)?
+                .collect::<Result<_, _>>()
                 .map_err(MoodError::Database)?;
 
-            // If count doesn't match, at least one activity ID is invalid
-            if valid_count != activity_ids.len() as i32 {
-                // Find which activity ID is invalid (for better error message)
+            // If count doesn't match, find which activity ID is invalid (O(n) comparison instead of O(n) queries)
+            if valid_ids.len() != activity_ids.len() {
                 for activity_id in &activity_ids {
-                    let exists: bool = tx
-                        .query_row(
-                            "SELECT COUNT(*) > 0 FROM activities WHERE id = ?",
-                            [activity_id],
-                            |row| row.get(0),
-                        )
-                        .map_err(MoodError::Database)?;
-                    if !exists {
+                    if !valid_ids.contains(activity_id) {
                         return Err(MoodError::ActivityNotFound(*activity_id));
                     }
                 }
@@ -365,7 +361,8 @@ impl MoodRepository {
         }
 
         // Get activity correlations (pass conn to avoid deadlock)
-        // Clone date params since they were borrowed by the query builder
+        // NOTE: We rebuild the date filter here with different column name (mc.created_at vs created_at)
+        // because the activity correlations query uses a JOIN with table aliases
         let activity_correlations =
             self.get_activity_correlations_with_conn(&conn, from_date.clone(), to_date.clone())?;
 
@@ -384,7 +381,7 @@ impl MoodRepository {
         from_date: Option<String>,
         to_date: Option<String>,
     ) -> Result<Vec<ActivityCorrelation>, MoodError> {
-        // Build date filter using query builder helper
+        // Build date filter with table alias for JOIN query
         let (date_filter, date_params) = crate::db::query_builder::DateFilterBuilder::new()
             .with_from_date(from_date.as_deref(), "mc.created_at")
             .with_to_date(to_date.as_deref(), "mc.created_at")
