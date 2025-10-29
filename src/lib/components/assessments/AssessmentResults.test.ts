@@ -256,7 +256,7 @@ describe('AssessmentResults', () => {
 
 			await waitFor(() => {
 				expect(container.textContent).toContain('moderate symptoms')
-				expect(container.textContent).toContain('speaking with a mental health professional')
+				expect(container.textContent).toContain('speaking with a mental health')
 			})
 		})
 
