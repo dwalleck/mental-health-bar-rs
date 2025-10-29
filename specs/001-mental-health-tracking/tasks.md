@@ -456,6 +456,12 @@
 - [ ] T185 [P] Implement dark mode theme toggle using TailwindCSS dark: classes
 - [ ] T186 [P] Add accessibility labels (ARIA) to all interactive components
 - [ ] T187 [P] Optimize SQLite queries with EXPLAIN ANALYZE and add indexes if needed
+  - [ ] T187a Convert high-frequency queries to use `prepare_cached()` for statement reuse (PR feedback: cache capacity is set but underutilized)
+    - [ ] Update `get_activities` in `src-tauri/src/features/mood/repository.rs` (called from activities page, mood check-ins, correlations)
+    - [ ] Update `get_assessment_types` in `src-tauri/src/features/assessments/repository.rs` (called every time user starts assessment)
+    - [ ] Update `get_assessment_history` in `src-tauri/src/features/assessments/repository.rs` (called for history views, chart data)
+    - [ ] Update `get_mood_history` in `src-tauri/src/features/mood/repository.rs` (called for history views, chart data)
+    - Note: `get_activities_for_checkin_with_conn` and `mark_multiple_triggered` already use `prepare_cached()` correctly ✅
 - [ ] T188 [P] Add performance monitoring with tracing::instrument on slow operations
 - [X] T189 [P] Create user documentation in README.md with screenshots ✅ IMPROVED (corrected architecture from DuckDB→SQLite, fixed activity creation steps, clarified privacy/security)
 - [ ] T190 [P] Add data export functionality (optional - CSV export of all data)
