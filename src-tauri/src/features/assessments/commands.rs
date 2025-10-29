@@ -55,7 +55,7 @@ pub async fn submit_assessment(
         .get_assessment_type_by_code(&request.assessment_type_code)
         .map_err(|e| {
             format!(
-                "Failed to retrieve assessment type '{}': {}",
+                "Failed to retrieve assessment type '{}': {}. Use get_assessment_types() to check available types.",
                 request.assessment_type_code, e
             )
         })?;
@@ -63,23 +63,39 @@ pub async fn submit_assessment(
     // Calculate score based on type
     let (total_score, severity_level) = match assessment_type.code.as_str() {
         "PHQ9" => {
-            let score = calculate_phq9_score(&request.responses)
-                .map_err(|e| format!("Failed to calculate PHQ-9 score: {}", e))?;
+            let score = calculate_phq9_score(&request.responses).map_err(|e| {
+                format!(
+                    "Failed to calculate PHQ-9 score: {}. Ensure 9 responses are provided with values 0-3.",
+                    e
+                )
+            })?;
             (score, get_phq9_severity(score).to_string())
         }
         "GAD7" => {
-            let score = calculate_gad7_score(&request.responses)
-                .map_err(|e| format!("Failed to calculate GAD-7 score: {}", e))?;
+            let score = calculate_gad7_score(&request.responses).map_err(|e| {
+                format!(
+                    "Failed to calculate GAD-7 score: {}. Ensure 7 responses are provided with values 0-3.",
+                    e
+                )
+            })?;
             (score, get_gad7_severity(score).to_string())
         }
         "CESD" => {
-            let score = calculate_cesd_score(&request.responses)
-                .map_err(|e| format!("Failed to calculate CES-D score: {}", e))?;
+            let score = calculate_cesd_score(&request.responses).map_err(|e| {
+                format!(
+                    "Failed to calculate CES-D score: {}. Ensure 20 responses are provided with values 0-3.",
+                    e
+                )
+            })?;
             (score, get_cesd_severity(score).to_string())
         }
         "OASIS" => {
-            let score = calculate_oasis_score(&request.responses)
-                .map_err(|e| format!("Failed to calculate OASIS score: {}", e))?;
+            let score = calculate_oasis_score(&request.responses).map_err(|e| {
+                format!(
+                    "Failed to calculate OASIS score: {}. Ensure 5 responses are provided with values 0-4.",
+                    e
+                )
+            })?;
             (score, get_oasis_severity(score).to_string())
         }
         _ => return Err(format!("Unknown assessment type: {}", assessment_type.code)),
@@ -94,11 +110,21 @@ pub async fn submit_assessment(
             &severity_level,
             request.notes,
         )
-        .map_err(|e| format!("Failed to save assessment to database: {}", e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to save assessment to database: {}. The assessment was calculated successfully but could not be saved.",
+                e
+            )
+        })?;
 
     // Return the complete response
     repo.get_assessment_response(id)
-        .map_err(|e| format!("Failed to retrieve saved assessment: {}", e))
+        .map_err(|e| {
+            format!(
+                "Failed to retrieve saved assessment (ID: {}): {}. The assessment was saved but could not be retrieved.",
+                id, e
+            )
+        })
 }
 
 /// Delete an assessment response
@@ -107,8 +133,12 @@ pub async fn submit_assessment(
 pub async fn delete_assessment(id: i32, state: State<'_, AppState>) -> Result<(), String> {
     let repo = AssessmentRepository::new(state.db.clone());
 
-    repo.delete_assessment(id)
-        .map_err(|e| format!("Failed to delete assessment {}: {}", id, e))
+    repo.delete_assessment(id).map_err(|e| {
+        format!(
+            "Failed to delete assessment (ID: {}): {}. Verify the assessment exists using get_assessment_response().",
+            id, e
+        )
+    })
 }
 
 /// Delete an assessment type (defensive - prevents deletion if children exist)
@@ -119,9 +149,21 @@ pub async fn delete_assessment_type(id: i32, state: State<'_, AppState>) -> Resu
 
     repo.delete_assessment_type(id).map_err(|e| match e {
         AssessmentError::HasChildren(msg) => {
-            format!("Cannot delete assessment type: {}", msg)
+            format!(
+                "Cannot delete assessment type (ID: {}): {}. Delete all associated assessment responses first using delete_assessment().",
+                id, msg
+            )
         }
-        _ => format!("Failed to delete assessment type {}: {}", id, e),
+        AssessmentError::NotFound(aid) => {
+            format!(
+                "Assessment type not found (ID: {}). Use get_assessment_types() to check available types.",
+                aid
+            )
+        }
+        _ => format!(
+            "Failed to delete assessment type (ID: {}): {}",
+            id, e
+        ),
     })
 }
 
