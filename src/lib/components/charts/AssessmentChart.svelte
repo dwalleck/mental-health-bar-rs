@@ -12,7 +12,7 @@
 
 	let { data, loading = false }: Props = $props()
 
-	let canvas: HTMLCanvasElement
+	let canvas = $state<HTMLCanvasElement>()
 	let chart: Chart | null = null
 
 	// T132b: Empty state check

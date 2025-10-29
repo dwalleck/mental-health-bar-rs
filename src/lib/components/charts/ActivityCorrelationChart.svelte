@@ -12,8 +12,8 @@
 
 	let { data, loading = false }: Props = $props()
 
-	let canvas: HTMLCanvasElement
-	let chart: Chart<'bar'> | null = null
+	let canvas = $state<HTMLCanvasElement>()
+	let chart: Chart | null = null
 
 	const hasData = $derived(data && data.length > 0)
 
@@ -102,8 +102,8 @@
 						callbacks: {
 							label: function (context) {
 								const value = context.parsed.x
-								if (value === null) return 'No data'
-								const moodLabels = {
+								if (value === null || value === undefined) return 'No data'
+								const moodLabels: Record<number, string> = {
 									1: 'Very Bad',
 									2: 'Bad',
 									3: 'Neutral',

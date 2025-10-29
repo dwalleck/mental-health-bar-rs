@@ -78,12 +78,45 @@ export const defaultChartOptions: ChartOptions<'line'> = baseChartOptions
 
 // Default bar chart options
 export const defaultBarChartOptions: ChartOptions<'bar'> = {
-	...baseChartOptions,
+	responsive: true,
+	maintainAspectRatio: true,
+	aspectRatio: 2,
+	animation: {
+		duration: 500,
+	},
+	interaction: {
+		mode: 'index' as const,
+		intersect: false,
+	},
 	indexAxis: 'y', // Horizontal bars
 	plugins: {
-		...baseChartOptions.plugins,
 		legend: {
 			display: false,
+		},
+		tooltip: {
+			enabled: true,
+			backgroundColor: 'rgba(0, 0, 0, 0.8)',
+			padding: 12,
+			titleFont: {
+				size: 14,
+				weight: 'bold' as const,
+			},
+			bodyFont: {
+				size: 13,
+			},
+		},
+	},
+	scales: {
+		y: {
+			beginAtZero: true,
+			grid: {
+				color: 'rgba(0, 0, 0, 0.1)',
+			},
+		},
+		x: {
+			grid: {
+				display: false,
+			},
 		},
 	},
 }
