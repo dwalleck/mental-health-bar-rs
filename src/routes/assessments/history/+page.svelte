@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentResponse } from '$lib/bindings'
 	import { formatSeverity } from '$lib/utils/severity'
+	import { formatUserError } from '$lib/utils/errors'
 	import Card from '$lib/components/ui/Card.svelte'
 
 	let history = $state<AssessmentResponse[]>([])
@@ -19,7 +20,7 @@
 					limit: null,
 				})
 			} catch (e) {
-				error = String(e)
+				error = formatUserError(e)
 			} finally {
 				loading = false
 			}

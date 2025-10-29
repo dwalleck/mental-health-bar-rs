@@ -1,5 +1,6 @@
-// T183: Retry logic for persistence errors
+// T183: Retry logic for persistence errors using p-retry
 import { invoke } from '@tauri-apps/api/core'
+import pRetry, { AbortError } from 'p-retry'
 
 /**
  * Configuration options for retry behavior
@@ -26,43 +27,39 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 	maxDelay: 2000,
 	backoffMultiplier: 2,
 	shouldRetry: (error: unknown) => {
-		// Retry on persistence-related errors
-		// Check for Error instance first to access .message property directly
-		const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase()
-		return (
-			errorMessage.includes('database') ||
-			errorMessage.includes('lock') ||
-			errorMessage.includes('busy') ||
-			errorMessage.includes('connection') ||
-			errorMessage.includes('timeout') ||
-			errorMessage.includes('poisoned')
-		)
+		// Retry only on persistence-related errors (transient failures)
+		// Type-safe error checking to avoid false positives from user data
+		if (error instanceof Error) {
+			const errorMessage = error.message.toLowerCase()
+			const errorName = error.name?.toLowerCase() || ''
+
+			return (
+				// Check error name first (most specific)
+				errorName.includes('sqliteerror') ||
+				errorName.includes('databaseerror') ||
+				// Then check error message for transient conditions
+				errorMessage.includes('database lock') ||
+				errorMessage.includes('database is busy') ||
+				errorMessage.includes('lock poisoned') ||
+				errorMessage.includes('connection timeout') ||
+				errorMessage.includes('timed out')
+			)
+		}
+		// Don't retry non-Error objects
+		return false
 	},
-}
-
-/**
- * Sleep for a specified duration
- */
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * Calculate exponential backoff delay
- */
-function calculateDelay(attempt: number, options: Required<RetryOptions>): number {
-	const delay = options.initialDelay * Math.pow(options.backoffMultiplier, attempt)
-	return Math.min(delay, options.maxDelay)
 }
 
 /**
  * Invokes a Tauri command with automatic retry logic for transient errors
  *
+ * Uses p-retry library for robust retry handling with exponential backoff and jitter.
+ *
  * @param command - The Tauri command name to invoke
  * @param args - Arguments to pass to the command
  * @param options - Retry configuration options
  * @returns Promise resolving to the command result
- * @throws Error if all retry attempts fail
+ * @throws Error if all retry attempts fail or error is not retryable
  *
  * @example
  * ```typescript
@@ -80,7 +77,7 @@ function calculateDelay(attempt: number, options: Required<RetryOptions>): numbe
  *   {
  *     maxAttempts: 5,
  *     initialDelay: 200,
- *     shouldRetry: (error) => String(error).includes('database')
+ *     shouldRetry: (error) => error instanceof Error && error.message.includes('database')
  *   }
  * )
  * ```
@@ -91,36 +88,36 @@ export async function invokeWithRetry<T>(
 	options?: RetryOptions
 ): Promise<T> {
 	const opts = { ...DEFAULT_OPTIONS, ...options }
-	let lastError: unknown
 
-	for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
-		try {
-			// Attempt the command invocation
-			return await invoke<T>(command, args)
-		} catch (error) {
-			lastError = error
-
-			// Check if we should retry this error
-			if (!opts.shouldRetry(error)) {
+	return pRetry(
+		async () => {
+			try {
+				return await invoke<T>(command, args)
+			} catch (error) {
+				// Check if this error should be retried
+				if (!opts.shouldRetry(error)) {
+					// AbortError tells p-retry to stop immediately without retrying
+					throw new AbortError(error instanceof Error ? error.message : String(error))
+				}
+				// Re-throw retryable errors so p-retry can handle them
 				throw error
 			}
-
-			// Don't delay after the last attempt
-			if (attempt < opts.maxAttempts - 1) {
-				const delay = calculateDelay(attempt, opts)
+		},
+		{
+			retries: opts.maxAttempts - 1, // p-retry counts retries, not total attempts
+			factor: opts.backoffMultiplier,
+			minTimeout: opts.initialDelay,
+			maxTimeout: opts.maxDelay,
+			randomize: true, // Built-in jitter to prevent thundering herd
+			onFailedAttempt: (error) => {
 				console.warn(
-					`Tauri command '${command}' failed (attempt ${attempt + 1}/${opts.maxAttempts}). ` +
-						`Retrying in ${delay}ms...`,
+					`Tauri command '${command}' failed (attempt ${error.attemptNumber}/${opts.maxAttempts}). ` +
+						`Retrying... (${error.retriesLeft} retries left)`,
 					error
 				)
-				await sleep(delay)
-			}
+			},
 		}
-	}
-
-	// All attempts failed
-	console.error(`Tauri command '${command}' failed after ${opts.maxAttempts} attempts`, lastError)
-	throw lastError
+	)
 }
 
 /**
@@ -145,6 +142,6 @@ export function createRetryCommand<TArgs extends Record<string, unknown>, TResul
 ) {
 	return async (args?: TArgs, overrideOptions?: RetryOptions): Promise<TResult> => {
 		const options = { ...defaultOptions, ...overrideOptions }
-		return invokeWithRetry<TResult>(command, args as Record<string, unknown>, options)
+		return invokeWithRetry<TResult>(command, args, options)
 	}
 }

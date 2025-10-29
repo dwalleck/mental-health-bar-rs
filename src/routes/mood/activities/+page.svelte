@@ -5,6 +5,7 @@
 	import Card from '$lib/components/ui/Card.svelte'
 	import ActivityForm from '$lib/components/mood/ActivityForm.svelte'
 	import ActivityList from '$lib/components/mood/ActivityList.svelte'
+	import { formatUserError } from '$lib/utils/errors'
 	import type { Activity } from '$lib/bindings'
 
 	let activities: Activity[] = $state([])
@@ -24,7 +25,7 @@
 			error = null
 			activities = await invoke('get_activities', { includeDeleted: false })
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
+			error = formatUserError(e)
 			console.error('Failed to load activities:', e)
 		} finally {
 			loading = false
@@ -74,7 +75,7 @@
 			await loadActivities()
 			handleCancel()
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
+			error = formatUserError(e)
 			throw e // Re-throw so form can handle it
 		}
 	}
@@ -85,7 +86,7 @@
 			await invoke('delete_activity', { id })
 			await loadActivities()
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
+			error = formatUserError(e)
 			console.error('Failed to delete activity:', e)
 		}
 	}

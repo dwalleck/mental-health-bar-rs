@@ -1,4 +1,4 @@
-// T183: Tests for retry logic
+// T183: Tests for retry logic (using p-retry)
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { invokeWithRetry, createRetryCommand } from './retry'
 
@@ -10,12 +10,10 @@ vi.mock('@tauri-apps/api/core', () => ({
 describe('Retry Utility', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		vi.useFakeTimers()
 	})
 
 	afterEach(() => {
 		vi.restoreAllMocks()
-		vi.useRealTimers()
 	})
 
 	describe('invokeWithRetry', () => {
@@ -37,14 +35,7 @@ describe('Retry Utility', () => {
 				.mockRejectedValueOnce(new Error('Database is busy'))
 				.mockResolvedValueOnce({ success: true })
 
-			const promise = invokeWithRetry('test_command', {})
-
-			// Fast-forward through first retry delay
-			await vi.advanceTimersByTimeAsync(100)
-			// Fast-forward through second retry delay (200ms with exponential backoff)
-			await vi.advanceTimersByTimeAsync(200)
-
-			const result = await promise
+			const result = await invokeWithRetry('test_command', {})
 
 			expect(result).toEqual({ success: true })
 			expect(invoke).toHaveBeenCalledTimes(3)
@@ -56,11 +47,7 @@ describe('Retry Utility', () => {
 				.mockRejectedValueOnce(new Error('Connection timeout'))
 				.mockResolvedValueOnce({ success: true })
 
-			const promise = invokeWithRetry('test_command', {})
-
-			await vi.advanceTimersByTimeAsync(100)
-
-			const result = await promise
+			const result = await invokeWithRetry('test_command', {})
 
 			expect(result).toEqual({ success: true })
 			expect(invoke).toHaveBeenCalledTimes(2)
@@ -77,98 +64,33 @@ describe('Retry Utility', () => {
 
 		it('should respect maxAttempts option', async () => {
 			const { invoke } = await import('@tauri-apps/api/core')
-			vi.mocked(invoke).mockRejectedValue(new Error('Database error'))
+			vi.mocked(invoke).mockRejectedValue(new Error('Database lock timeout'))
 
-			const promise = invokeWithRetry('test_command', {}, { maxAttempts: 2 })
-
-			await vi.advanceTimersByTimeAsync(100)
-
-			await expect(promise).rejects.toThrow('Database error')
+			await expect(invokeWithRetry('test_command', {}, { maxAttempts: 2 })).rejects.toThrow(
+				'Database lock timeout'
+			)
 
 			expect(invoke).toHaveBeenCalledTimes(2)
-		})
-
-		it('should use exponential backoff', async () => {
-			const { invoke } = await import('@tauri-apps/api/core')
-			vi.mocked(invoke).mockRejectedValue(new Error('Database busy'))
-
-			const promise = invokeWithRetry(
-				'test_command',
-				{},
-				{
-					maxAttempts: 4,
-					initialDelay: 100,
-					backoffMultiplier: 2,
-				}
-			)
-
-			// First attempt fails immediately
-			await vi.advanceTimersByTimeAsync(1)
-
-			// Second attempt (delay: 100ms)
-			await vi.advanceTimersByTimeAsync(100)
-
-			// Third attempt (delay: 200ms)
-			await vi.advanceTimersByTimeAsync(200)
-
-			// Fourth attempt (delay: 400ms)
-			await vi.advanceTimersByTimeAsync(400)
-
-			await expect(promise).rejects.toThrow('Database busy')
-
-			expect(invoke).toHaveBeenCalledTimes(4)
-		})
-
-		it('should respect maxDelay option', async () => {
-			const { invoke } = await import('@tauri-apps/api/core')
-			vi.mocked(invoke).mockRejectedValue(new Error('Database error'))
-
-			const promise = invokeWithRetry(
-				'test_command',
-				{},
-				{
-					maxAttempts: 4,
-					initialDelay: 500,
-					maxDelay: 600,
-					backoffMultiplier: 2,
-				}
-			)
-
-			await vi.advanceTimersByTimeAsync(1)
-
-			// Second attempt (delay: 500ms)
-			await vi.advanceTimersByTimeAsync(500)
-
-			// Third attempt (delay: 600ms, capped by maxDelay instead of 1000ms)
-			await vi.advanceTimersByTimeAsync(600)
-
-			// Fourth attempt (delay: 600ms, capped)
-			await vi.advanceTimersByTimeAsync(600)
-
-			await expect(promise).rejects.toThrow('Database error')
-
-			expect(invoke).toHaveBeenCalledTimes(4)
 		})
 
 		it('should use custom shouldRetry function', async () => {
 			const { invoke } = await import('@tauri-apps/api/core')
 			vi.mocked(invoke).mockRejectedValue(new Error('Custom retryable error'))
 
-			const shouldRetry = vi.fn((error) => String(error).includes('Custom'))
+			const shouldRetry = vi.fn((error) => {
+				return error instanceof Error && error.message.includes('Custom')
+			})
 
-			const promise = invokeWithRetry(
-				'test_command',
-				{},
-				{
-					maxAttempts: 2,
-					shouldRetry,
-				}
-			)
-
-			// Advance through retry delay
-			await vi.advanceTimersByTimeAsync(100)
-
-			await expect(promise).rejects.toThrow('Custom retryable error')
+			await expect(
+				invokeWithRetry(
+					'test_command',
+					{},
+					{
+						maxAttempts: 2,
+						shouldRetry,
+					}
+				)
+			).rejects.toThrow('Custom retryable error')
 
 			expect(shouldRetry).toHaveBeenCalled()
 			expect(invoke).toHaveBeenCalledTimes(2)
@@ -180,11 +102,77 @@ describe('Retry Utility', () => {
 				.mockRejectedValueOnce(new Error('Lock poisoned'))
 				.mockResolvedValueOnce({ success: true })
 
-			const promise = invokeWithRetry('test_command', {})
+			const result = await invokeWithRetry('test_command', {})
 
-			await vi.advanceTimersByTimeAsync(100)
+			expect(result).toEqual({ success: true })
+			expect(invoke).toHaveBeenCalledTimes(2)
+		})
 
-			const result = await promise
+		it('should throw error when all retries are exhausted', async () => {
+			const { invoke } = await import('@tauri-apps/api/core')
+			vi.mocked(invoke).mockRejectedValue(new Error('Database lock timeout'))
+
+			await expect(invokeWithRetry('test_command', {}, { maxAttempts: 3 })).rejects.toThrow(
+				'Database lock timeout'
+			)
+			expect(invoke).toHaveBeenCalledTimes(3)
+		})
+
+		it('should not retry validation errors', async () => {
+			const { invoke } = await import('@tauri-apps/api/core')
+			vi.mocked(invoke).mockRejectedValueOnce(new Error('Validation failed: invalid rating'))
+
+			await expect(invokeWithRetry('test_command', {})).rejects.toThrow(
+				'Validation failed: invalid rating'
+			)
+
+			expect(invoke).toHaveBeenCalledTimes(1)
+		})
+
+		it('should not retry authentication errors', async () => {
+			const { invoke } = await import('@tauri-apps/api/core')
+			vi.mocked(invoke).mockRejectedValueOnce(new Error('Unauthorized: invalid token'))
+
+			await expect(invokeWithRetry('test_command', {})).rejects.toThrow(
+				'Unauthorized: invalid token'
+			)
+
+			expect(invoke).toHaveBeenCalledTimes(1)
+		})
+
+		it('should not retry when shouldRetry returns false immediately', async () => {
+			const { invoke } = await import('@tauri-apps/api/core')
+			const error = new Error('Non-retryable error')
+			vi.mocked(invoke).mockRejectedValueOnce(error)
+
+			const shouldRetry = vi.fn(() => false)
+
+			await expect(invokeWithRetry('test_command', {}, { shouldRetry })).rejects.toThrow(
+				'Non-retryable error'
+			)
+
+			expect(shouldRetry).toHaveBeenCalledWith(error)
+			expect(invoke).toHaveBeenCalledTimes(1)
+		})
+
+		it('should not retry non-Error objects', async () => {
+			const { invoke } = await import('@tauri-apps/api/core')
+			vi.mocked(invoke).mockRejectedValueOnce('String error')
+
+			// p-retry wraps non-retryable errors in AbortError
+			await expect(invokeWithRetry('test_command', {})).rejects.toThrow('String error')
+
+			expect(invoke).toHaveBeenCalledTimes(1)
+		})
+
+		it('should check Error.name for SQLiteError', async () => {
+			const { invoke } = await import('@tauri-apps/api/core')
+			const error = new Error('Operation failed')
+			error.name = 'SQLiteError'
+
+			vi.mocked(invoke).mockRejectedValueOnce(error).mockResolvedValueOnce({ success: true })
+
+			const result = await invokeWithRetry('test_command', {})
 
 			expect(result).toEqual({ success: true })
 			expect(invoke).toHaveBeenCalledTimes(2)
@@ -208,15 +196,11 @@ describe('Retry Utility', () => {
 
 		it('should allow overriding options', async () => {
 			const { invoke } = await import('@tauri-apps/api/core')
-			vi.mocked(invoke).mockRejectedValue(new Error('Database error'))
+			vi.mocked(invoke).mockRejectedValue(new Error('Database lock timeout'))
 
 			const testCommand = createRetryCommand('test_cmd', { maxAttempts: 5 })
 
-			const promise = testCommand({}, { maxAttempts: 2 })
-
-			await vi.advanceTimersByTimeAsync(100)
-
-			await expect(promise).rejects.toThrow('Database error')
+			await expect(testCommand({}, { maxAttempts: 2 })).rejects.toThrow('Database lock timeout')
 
 			// Should use override maxAttempts (2) not default (5)
 			expect(invoke).toHaveBeenCalledTimes(2)

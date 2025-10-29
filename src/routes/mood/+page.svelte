@@ -6,6 +6,7 @@
 	import MoodScaleInput from '$lib/components/mood/MoodScaleInput.svelte'
 	import ActivitySelector from '$lib/components/mood/ActivitySelector.svelte'
 	import { getMoodLabel } from '$lib/utils/colors'
+	import { formatUserError } from '$lib/utils/errors'
 	import type { MoodCheckin } from '$lib/bindings'
 
 	let moodRating = $state(3)
@@ -68,7 +69,7 @@
 				successMessage = null
 			}, 3000)
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
+			error = formatUserError(e)
 			console.error('Failed to log mood:', e)
 		} finally {
 			isSubmitting = false
