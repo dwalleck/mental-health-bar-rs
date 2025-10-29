@@ -37,20 +37,35 @@
 </div>
 
 <style>
+	/* CSS custom properties for theming */
+	:global(:root) {
+		--skeleton-base: #f0f0f0;
+		--skeleton-highlight: #e0e0e0;
+		--skeleton-card-bg: white;
+		--skeleton-card-border: #e5e7eb;
+	}
+
+	:global(:root.dark) {
+		--skeleton-base: #374151;
+		--skeleton-highlight: #4b5563;
+		--skeleton-card-bg: #1f2937;
+		--skeleton-card-border: #374151;
+	}
+
 	.skeleton-container {
 		animation: fadeIn 0.2s ease-in;
 	}
 
 	.skeleton {
-		background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+		background: linear-gradient(
+			90deg,
+			var(--skeleton-base) 25%,
+			var(--skeleton-highlight) 50%,
+			var(--skeleton-base) 75%
+		);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 		border-radius: 4px;
-	}
-
-	:global(.dark) .skeleton {
-		background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-		background-size: 200% 100%;
 	}
 
 	.skeleton-text {
@@ -70,15 +85,10 @@
 
 	.skeleton-card {
 		padding: 16px;
-		background: white;
+		background: var(--skeleton-card-bg);
 		border-radius: 8px;
 		margin-bottom: 12px;
-		border: 1px solid #e5e7eb;
-	}
-
-	:global(.dark) .skeleton-card {
-		background: #1f2937;
-		border-color: #374151;
+		border: 1px solid var(--skeleton-card-border);
 	}
 
 	.skeleton-list-item {
@@ -86,15 +96,10 @@
 		gap: 12px;
 		align-items: center;
 		padding: 12px;
-		background: white;
+		background: var(--skeleton-card-bg);
 		border-radius: 8px;
 		margin-bottom: 8px;
-		border: 1px solid #e5e7eb;
-	}
-
-	:global(.dark) .skeleton-list-item {
-		background: #1f2937;
-		border-color: #374151;
+		border: 1px solid var(--skeleton-card-border);
 	}
 
 	.skeleton-circle {
