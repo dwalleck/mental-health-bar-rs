@@ -1,12 +1,12 @@
 <script lang="ts">
 	// T090: /mood route - Quick mood check-in page
 
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
 	import Card from '$lib/components/ui/Card.svelte'
 	import MoodScaleInput from '$lib/components/mood/MoodScaleInput.svelte'
 	import ActivitySelector from '$lib/components/mood/ActivitySelector.svelte'
 	import { getMoodLabel } from '$lib/utils/colors'
-	import { formatUserError } from '$lib/utils/errors'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
 	import type { MoodCheckin } from '$lib/bindings'
 
 	let moodRating = $state(3)
@@ -24,14 +24,14 @@
 
 	async function loadRecentCheckins() {
 		try {
-			const history = await invoke('get_mood_history', {
+			const history = await invokeWithRetry('get_mood_history', {
 				fromDate: null,
 				toDate: null,
 				limit: 3,
 			})
 			recentCheckins = history as MoodCheckin[]
 		} catch (e) {
-			console.error('Failed to load recent check-ins:', e)
+			displayError(e)
 		}
 	}
 
@@ -47,11 +47,18 @@
 			// Validate notes length before submission
 			const trimmedNotes = notes.trim()
 			if (trimmedNotes.length > 5000) {
-				error = `Notes too long: ${trimmedNotes.length} characters. Maximum 5000 characters allowed.`
+				const result = displayError(
+					new Error(
+						`Notes too long: ${trimmedNotes.length} characters. Maximum 5000 characters allowed.`
+					)
+				)
+				if (result.type === 'inline') {
+					error = result.message || 'Notes too long'
+				}
 				return
 			}
 
-			await invoke('log_mood', {
+			await invokeWithRetry('log_mood', {
 				request: {
 					mood_rating: moodRating,
 					activity_ids: selectedActivityIds,
@@ -59,18 +66,16 @@
 				},
 			})
 
-			successMessage = 'Mood logged successfully!'
+			displaySuccess('Mood logged successfully!')
 			moodRating = 3
 			selectedActivityIds = []
 			notes = ''
 			await loadRecentCheckins()
-
-			setTimeout(() => {
-				successMessage = null
-			}, 3000)
 		} catch (e) {
-			error = formatUserError(e)
-			console.error('Failed to log mood:', e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to log mood'
+			}
 		} finally {
 			isSubmitting = false
 		}

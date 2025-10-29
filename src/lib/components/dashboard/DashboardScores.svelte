@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
 	import { SvelteMap } from 'svelte/reactivity'
 	import type { AssessmentResponse } from '$lib/bindings'
 	import { formatSeverity } from '$lib/utils/severity'
+	import { formatErrorForLogging } from '$lib/utils/errors'
 	import AssessmentScoreBar from './AssessmentScoreBar.svelte'
 	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
@@ -38,13 +39,18 @@
 				const results = await Promise.all(
 					ASSESSMENT_TYPES.map(async (code) => {
 						try {
-							const result = await invoke<AssessmentResponse | null>('get_latest_assessment', {
-								assessmentTypeCode: code,
-							})
+							const result = await invokeWithRetry<AssessmentResponse | null>(
+								'get_latest_assessment',
+								{
+									assessmentTypeCode: code,
+								}
+							)
 							return { code, data: result, failed: false }
 						} catch (err) {
 							// T225: Handle individual assessment failures gracefully
-							console.error(`Failed to fetch assessment ${code}:`, err)
+							console.warn(
+								`Failed to fetch assessment ${code}: ${formatErrorForLogging(err)}`
+							)
 							return { code, data: null, failed: true }
 						}
 					})
@@ -65,7 +71,7 @@
 				assessments = newAssessments
 				failedAssessments = failed
 			} catch (err) {
-				console.error('Failed to fetch assessments:', err)
+				console.error('Failed to fetch all assessments:', formatErrorForLogging(err))
 				// Only update error state if still mounted
 				if (isMounted) {
 					error = 'Failed to load assessment data. Please try again.'

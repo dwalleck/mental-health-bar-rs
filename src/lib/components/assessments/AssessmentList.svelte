@@ -1,20 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentType } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError } from '$lib/utils/errors'
 
 	let assessmentTypes = $state<AssessmentType[]>([])
 	let loading = $state(true)
-	let error = $state('')
+	let loadError = $state<unknown>(undefined)
 
 	$effect(() => {
 		let isMounted = true
 
 		async function fetchAssessmentTypes() {
 			try {
-				const types = await invoke<AssessmentType[]>('get_assessment_types')
+				const types = await invokeWithRetry<AssessmentType[]>('get_assessment_types')
 
 				if (!isMounted) return
 
@@ -23,7 +25,10 @@
 			} catch (e) {
 				if (!isMounted) return
 
-				error = String(e)
+				const result = displayError(e)
+				if (result.type === 'inline') {
+					loadError = e
+				}
 				loading = false
 			}
 		}
@@ -49,9 +54,9 @@
 
 	{#if loading}
 		<p class="text-gray-500">Loading assessments...</p>
-	{:else if error}
+	{:else if loadError}
 		<Card>
-			<p class="text-red-500">Error: {error}</p>
+			<ErrorMessage error={loadError} />
 		</Card>
 	{:else}
 		<div class="grid gap-4 md:grid-cols-2">

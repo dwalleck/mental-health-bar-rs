@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use crate::AppState;
+use crate::{AppState, CommandError};
 
 use super::models::*;
 use super::repository::VisualizationRepository;
@@ -17,7 +17,7 @@ pub fn get_assessment_chart_data(
     from_date: Option<String>,
     to_date: Option<String>,
     state: State<AppState>,
-) -> Result<AssessmentChartData, String> {
+) -> Result<AssessmentChartData, CommandError> {
     let repo = VisualizationRepository::new(state.db.clone());
 
     // Resolve time range to dates
@@ -25,7 +25,10 @@ pub fn get_assessment_chart_data(
         TimeRange::Custom => {
             // Custom range requires both dates
             if from_date.is_none() || to_date.is_none() {
-                return Err("from_date and to_date required for custom time range".to_string());
+                return Err(CommandError::permanent(
+                    "from_date and to_date required for custom time range".to_string(),
+                    "validation",
+                ));
             }
             (from_date, to_date)
         }
@@ -40,7 +43,7 @@ pub fn get_assessment_chart_data(
     };
 
     repo.get_assessment_chart_data(&code, from.as_deref(), to.as_deref())
-        .map_err(|e| format!("Failed to fetch chart data: {}", e))
+        .map_err(|e| e.to_command_error())
 }
 
 /// T144: Get mood chart data for visualization
@@ -52,7 +55,7 @@ pub fn get_mood_chart_data(
     to_date: Option<String>,
     group_by_activity: bool,
     state: State<AppState>,
-) -> Result<MoodChartData, String> {
+) -> Result<MoodChartData, CommandError> {
     let repo = VisualizationRepository::new(state.db.clone());
 
     // Resolve time range to dates
@@ -60,7 +63,10 @@ pub fn get_mood_chart_data(
         TimeRange::Custom => {
             // Custom range requires both dates
             if from_date.is_none() || to_date.is_none() {
-                return Err("from_date and to_date required for custom time range".to_string());
+                return Err(CommandError::permanent(
+                    "from_date and to_date required for custom time range".to_string(),
+                    "validation",
+                ));
             }
             (from_date, to_date)
         }
@@ -75,5 +81,5 @@ pub fn get_mood_chart_data(
     };
 
     repo.get_mood_chart_data(from.as_deref(), to.as_deref(), group_by_activity)
-        .map_err(|e| format!("Failed to fetch mood chart data: {}", e))
+        .map_err(|e| e.to_command_error())
 }

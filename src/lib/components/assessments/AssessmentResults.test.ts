@@ -3,9 +3,18 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AssessmentResults from './AssessmentResults.svelte'
 import type { AssessmentResponse } from '$lib/bindings'
 
-// Mock Tauri's invoke
-vi.mock('@tauri-apps/api/core', () => ({
-	invoke: vi.fn(),
+// Mock retry utility
+vi.mock('$lib/utils/retry', () => ({
+	invokeWithRetry: vi.fn(),
+}))
+
+// Mock error handling utilities
+vi.mock('$lib/utils/errors', () => ({
+	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displaySuccess: vi.fn(),
+	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	isValidationError: vi.fn(() => false),
+	isCommandError: vi.fn(() => false),
 }))
 
 // Mock SvelteKit's goto
@@ -13,18 +22,26 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
 }))
 
+import { invokeWithRetry } from '$lib/utils/retry'
+import { displayError } from '$lib/utils/errors'
+
 describe('AssessmentResults', () => {
-	let invokeMock: ReturnType<typeof vi.fn>
+	let invokeWithRetryMock: ReturnType<typeof vi.fn>
 	let gotoMock: ReturnType<typeof vi.fn>
+	let displayErrorMock: ReturnType<typeof vi.fn>
 
 	beforeEach(async () => {
-		const { invoke } = await import('@tauri-apps/api/core')
 		const { goto } = await import('$app/navigation')
-		invokeMock = invoke as ReturnType<typeof vi.fn>
+		invokeWithRetryMock = vi.mocked(invokeWithRetry)
 		gotoMock = goto as ReturnType<typeof vi.fn>
+		displayErrorMock = vi.mocked(displayError)
 
-		invokeMock.mockClear()
+		invokeWithRetryMock.mockClear()
 		gotoMock.mockClear()
+		displayErrorMock.mockClear()
+
+		// Default mock for displayError returns inline type
+		displayErrorMock.mockReturnValue({ type: 'inline', message: 'Error' })
 	})
 
 	afterEach(() => {
@@ -51,19 +68,19 @@ describe('AssessmentResults', () => {
 
 	describe('Props', () => {
 		it('should accept assessmentId prop', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			render(AssessmentResults, { props: { assessmentId: 123 } })
 
 			await waitFor(() => {
-				expect(invokeMock).toHaveBeenCalledWith('get_assessment_response', { id: 123 })
+				expect(invokeWithRetryMock).toHaveBeenCalledWith('get_assessment_response', { id: 123 })
 			})
 		})
 	})
 
 	describe('Loading State', () => {
 		it('should show loading message initially', () => {
-			invokeMock.mockReturnValue(new Promise(() => {}))
+			invokeWithRetryMock.mockReturnValue(new Promise(() => {}))
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -73,17 +90,20 @@ describe('AssessmentResults', () => {
 
 	describe('Error State', () => {
 		it('should display error message when fetch fails', async () => {
-			invokeMock.mockRejectedValue(new Error('Not found'))
+			const mockError = new Error('Not found')
+			invokeWithRetryMock.mockRejectedValue(mockError)
+			displayErrorMock.mockReturnValue({ type: 'inline', message: 'Not found' })
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 999 } })
 
 			await waitFor(() => {
-				expect(container.textContent).toContain('Error: Error: Not found')
+				expect(displayErrorMock).toHaveBeenCalledWith(mockError)
+				expect(container.textContent).toContain('Not found')
 			})
 		})
 
 		it('should hide loading message on error', async () => {
-			invokeMock.mockRejectedValue(new Error('Not found'))
+			invokeWithRetryMock.mockRejectedValue(new Error('Not found'))
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 999 } })
 
@@ -95,12 +115,12 @@ describe('AssessmentResults', () => {
 
 	describe('Success State', () => {
 		it('should fetch and display assessment', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
 			await waitFor(() => {
-				expect(invokeMock).toHaveBeenCalledWith('get_assessment_response', { id: 1 })
+				expect(invokeWithRetryMock).toHaveBeenCalledWith('get_assessment_response', { id: 1 })
 			})
 
 			await waitFor(() => {
@@ -109,7 +129,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display assessment type name', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -119,7 +139,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display total score', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -130,7 +150,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display formatted severity level', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -140,7 +160,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display completed date', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -150,7 +170,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display number of questions answered', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -160,7 +180,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display notes when provided', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -172,7 +192,7 @@ describe('AssessmentResults', () => {
 
 		it('should not display notes section when notes are null', async () => {
 			const responseWithoutNotes = { ...mockAssessmentResponse, notes: null }
-			invokeMock.mockResolvedValue(responseWithoutNotes)
+			invokeWithRetryMock.mockResolvedValue(responseWithoutNotes)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -182,7 +202,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should display disclaimer', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -198,7 +218,7 @@ describe('AssessmentResults', () => {
 	describe('Severity Level Formatting', () => {
 		it('should format minimal severity level', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'minimal' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -209,7 +229,7 @@ describe('AssessmentResults', () => {
 
 		it('should format moderately_severe with spaces', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'moderately_severe' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -222,7 +242,7 @@ describe('AssessmentResults', () => {
 	describe('Severity-Based Guidance', () => {
 		it('should show minimal guidance for minimal severity', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'minimal' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -234,7 +254,7 @@ describe('AssessmentResults', () => {
 
 		it('should show mild guidance for mild severity', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'mild' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -246,7 +266,7 @@ describe('AssessmentResults', () => {
 
 		it('should show moderate guidance for moderate severity', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'moderate' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -258,7 +278,7 @@ describe('AssessmentResults', () => {
 
 		it('should show severe guidance for moderately_severe', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'moderately_severe' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -270,7 +290,7 @@ describe('AssessmentResults', () => {
 
 		it('should show severe guidance for severe', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'severe' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -283,7 +303,7 @@ describe('AssessmentResults', () => {
 
 	describe('Navigation Links', () => {
 		it('should have back to assessments link', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -295,7 +315,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should have view history link', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -309,7 +329,7 @@ describe('AssessmentResults', () => {
 
 	describe('Action Buttons', () => {
 		it('should have Take Another Assessment button', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -319,7 +339,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should navigate to assessments page when Take Another clicked', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -341,7 +361,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should have View Trends button', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -351,7 +371,7 @@ describe('AssessmentResults', () => {
 		})
 
 		it('should navigate to charts page when View Trends clicked', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentResponse)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentResponse)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -376,7 +396,7 @@ describe('AssessmentResults', () => {
 	describe('Severity Colors', () => {
 		it('should apply green color for minimal severity', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'minimal' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -388,7 +408,7 @@ describe('AssessmentResults', () => {
 
 		it('should apply yellow color for mild severity', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'mild' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -400,7 +420,7 @@ describe('AssessmentResults', () => {
 
 		it('should apply orange color for moderate severity', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'moderate' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -412,7 +432,7 @@ describe('AssessmentResults', () => {
 
 		it('should apply red color for moderately_severe', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'moderately_severe' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 
@@ -424,7 +444,7 @@ describe('AssessmentResults', () => {
 
 		it('should apply dark red color for severe', async () => {
 			const response = { ...mockAssessmentResponse, severity_level: 'severe' }
-			invokeMock.mockResolvedValue(response)
+			invokeWithRetryMock.mockResolvedValue(response)
 
 			const { container } = render(AssessmentResults, { props: { assessmentId: 1 } })
 

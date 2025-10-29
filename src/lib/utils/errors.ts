@@ -2,10 +2,60 @@
  * Centralized error handling utilities for user-facing error messages
  */
 
+import type { CommandError } from '$lib/bindings'
+import { toastStore } from '$lib/stores/toast'
+
+/**
+ * Type guard to check if an error is a CommandError
+ *
+ * @param error - The error to check
+ * @returns True if the error is a CommandError
+ *
+ * @example
+ * ```typescript
+ * if (isCommandError(error)) {
+ *   console.log(error.error_type) // Type-safe access
+ * }
+ * ```
+ */
+export function isCommandError(error: unknown): error is CommandError {
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		'message' in error &&
+		'error_type' in error &&
+		'retryable' in error &&
+		typeof (error as CommandError).message === 'string' &&
+		typeof (error as CommandError).error_type === 'string' &&
+		typeof (error as CommandError).retryable === 'boolean'
+	)
+}
+
+/**
+ * Get the error type from an unknown error
+ *
+ * @param error - The error to check
+ * @returns The error type string, or null if not a CommandError
+ *
+ * @example
+ * ```typescript
+ * const errorType = getErrorType(error)
+ * if (errorType === 'validation') {
+ *   // Handle validation error
+ * }
+ * ```
+ */
+export function getErrorType(error: unknown): string | null {
+	if (isCommandError(error)) {
+		return error.error_type
+	}
+	return null
+}
+
 /**
  * Formats an unknown error into a user-friendly string message
  *
- * @param error - The error to format (can be Error, string, or unknown)
+ * @param error - The error to format (can be CommandError, Error, string, or unknown)
  * @returns User-friendly error message
  *
  * @example
@@ -19,6 +69,11 @@
  * ```
  */
 export function formatUserError(error: unknown): string {
+	// Handle CommandError (structured error from backend)
+	if (isCommandError(error)) {
+		return error.message
+	}
+
 	// Handle Error instances with message property
 	if (error instanceof Error) {
 		return error.message
@@ -49,6 +104,12 @@ export function formatUserError(error: unknown): string {
  * ```
  */
 export function isValidationError(error: unknown): boolean {
+	// Check CommandError error_type first (most reliable)
+	if (isCommandError(error)) {
+		return error.error_type === 'validation'
+	}
+
+	// Fallback: Check Error message for validation keywords
 	if (error instanceof Error) {
 		const message = error.message.toLowerCase()
 		return (
@@ -61,6 +122,7 @@ export function isValidationError(error: unknown): boolean {
 			message.includes('out of range')
 		)
 	}
+
 	return false
 }
 
@@ -80,6 +142,12 @@ export function isValidationError(error: unknown): boolean {
  * ```
  */
 export function isTransientError(error: unknown): boolean {
+	// Check CommandError retryable flag first (most reliable)
+	if (isCommandError(error)) {
+		return error.retryable
+	}
+
+	// Fallback: Check Error message for transient keywords
 	if (error instanceof Error) {
 		const message = error.message.toLowerCase()
 		const name = error.name?.toLowerCase() || ''
@@ -96,6 +164,7 @@ export function isTransientError(error: unknown): boolean {
 			message.includes('fetch failed')
 		)
 	}
+
 	return false
 }
 
@@ -111,6 +180,10 @@ export function isTransientError(error: unknown): boolean {
  * ```
  */
 export function formatErrorForLogging(error: unknown): string {
+	if (isCommandError(error)) {
+		return `CommandError[${error.error_type}]: ${error.message} (retryable: ${error.retryable})`
+	}
+
 	if (error instanceof Error) {
 		return error.stack || `${error.name}: ${error.message}`
 	}
@@ -120,4 +193,84 @@ export function formatErrorForLogging(error: unknown): string {
 	}
 
 	return JSON.stringify(error, null, 2)
+}
+
+/**
+ * Display an error appropriately based on its type
+ * Validation errors show inline, system errors show as toast
+ *
+ * @param error - The error to display
+ * @returns Object indicating how the error was displayed
+ *
+ * @example
+ * ```typescript
+ * const result = displayError(error)
+ * if (result.type === 'inline') {
+ *   errorMessage = result.message
+ * }
+ * ```
+ */
+export function displayError(error: unknown): { type: 'inline' | 'toast'; message?: string } {
+	if (isValidationError(error)) {
+		// Validation errors should be shown inline with the form
+		return { type: 'inline', message: formatUserError(error) }
+	} else {
+		// System errors should be shown as toast notifications
+		const message = formatUserError(error)
+		const errorType = getErrorType(error)
+
+		// Use longer duration for critical errors
+		const duration = errorType === 'internal_error' || !isTransientError(error) ? 8000 : 5000
+
+		toastStore.error(message, duration)
+		return { type: 'toast' }
+	}
+}
+
+/**
+ * Display a success message as a toast notification
+ *
+ * @param message - The success message to display
+ * @param duration - Duration in milliseconds (default: 3000)
+ *
+ * @example
+ * ```typescript
+ * await submitAssessment(data)
+ * displaySuccess('Assessment submitted successfully!')
+ * ```
+ */
+export function displaySuccess(message: string, duration: number = 3000): void {
+	toastStore.success(message, duration)
+}
+
+/**
+ * Display a warning message as a toast notification
+ *
+ * @param message - The warning message to display
+ * @param duration - Duration in milliseconds (default: 5000)
+ *
+ * @example
+ * ```typescript
+ * if (assessmentIncomplete) {
+ *   displayWarning('Some questions were skipped')
+ * }
+ * ```
+ */
+export function displayWarning(message: string, duration: number = 5000): void {
+	toastStore.warning(message, duration)
+}
+
+/**
+ * Display an info message as a toast notification
+ *
+ * @param message - The info message to display
+ * @param duration - Duration in milliseconds (default: 4000)
+ *
+ * @example
+ * ```typescript
+ * displayInfo('New assessment types are available')
+ * ```
+ */
+export function displayInfo(message: string, duration: number = 4000): void {
+	toastStore.info(message, duration)
 }

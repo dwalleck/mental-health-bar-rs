@@ -7,12 +7,26 @@ import type { AssessmentSchedule } from '$lib/bindings'
 vi.mock('$lib/bindings', () => ({
 	commands: {
 		getSchedules: vi.fn(),
-		updateSchedule: vi.fn(),
-		deleteSchedule: vi.fn(),
 	},
 }))
 
+// Mock retry utility
+vi.mock('$lib/utils/retry', () => ({
+	invokeWithRetry: vi.fn(),
+}))
+
+// Mock error handling utilities
+vi.mock('$lib/utils/errors', () => ({
+	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displaySuccess: vi.fn(),
+	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	isValidationError: vi.fn(() => false),
+	isCommandError: vi.fn(() => false),
+}))
+
 import { commands } from '$lib/bindings'
+import { invokeWithRetry } from '$lib/utils/retry'
+import { displayError, displaySuccess } from '$lib/utils/errors'
 
 const mockSchedules: AssessmentSchedule[] = [
 	{
@@ -64,6 +78,8 @@ describe('ScheduleList', () => {
 		vi.clearAllMocks()
 		// Default mock for getSchedules
 		vi.mocked(commands.getSchedules).mockResolvedValue({ status: 'ok', data: mockSchedules })
+		// Default mock for displayError returns inline type
+		vi.mocked(displayError).mockReturnValue({ type: 'inline', message: 'Error' })
 	})
 
 	it('should render the list header', async () => {
@@ -160,10 +176,7 @@ describe('ScheduleList', () => {
 	})
 
 	it('should toggle schedule enabled status', async () => {
-		vi.mocked(commands.updateSchedule).mockResolvedValue({
-			status: 'ok',
-			data: { ...mockSchedules[0], enabled: false },
-		})
+		vi.mocked(invokeWithRetry).mockResolvedValue({ ...mockSchedules[0], enabled: false })
 
 		render(ScheduleList)
 
@@ -176,13 +189,17 @@ describe('ScheduleList', () => {
 		await fireEvent.click(toggles[0])
 
 		await waitFor(() => {
-			expect(commands.updateSchedule).toHaveBeenCalledWith(1, {
-				enabled: false,
-				frequency: null,
-				time_of_day: null,
-				day_of_week: null,
-				day_of_month: null,
+			expect(invokeWithRetry).toHaveBeenCalledWith('update_schedule', {
+				id: 1,
+				request: {
+					enabled: false,
+					frequency: null,
+					time_of_day: null,
+					day_of_week: null,
+					day_of_month: null,
+				},
 			})
+			expect(displaySuccess).toHaveBeenCalledWith('Schedule updated successfully!')
 		})
 	})
 
@@ -191,7 +208,7 @@ describe('ScheduleList', () => {
 		const originalConfirm = window.confirm
 		window.confirm = vi.fn(() => true)
 
-		vi.mocked(commands.deleteSchedule).mockResolvedValue({ status: 'ok', data: null })
+		vi.mocked(invokeWithRetry).mockResolvedValue(null)
 
 		render(ScheduleList)
 
@@ -205,7 +222,8 @@ describe('ScheduleList', () => {
 		expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to delete this schedule?')
 
 		await waitFor(() => {
-			expect(commands.deleteSchedule).toHaveBeenCalledWith(1)
+			expect(invokeWithRetry).toHaveBeenCalledWith('delete_schedule', { id: 1 })
+			expect(displaySuccess).toHaveBeenCalledWith('Schedule deleted successfully!')
 		})
 
 		// Restore original confirm
@@ -228,19 +246,18 @@ describe('ScheduleList', () => {
 
 		expect(window.confirm).toHaveBeenCalled()
 
-		// Should NOT call deleteSchedule
+		// Should NOT call invokeWithRetry for delete
 		await new Promise((resolve) => setTimeout(resolve, 100))
-		expect(commands.deleteSchedule).not.toHaveBeenCalled()
+		expect(invokeWithRetry).not.toHaveBeenCalled()
 
 		// Restore original confirm
 		window.confirm = originalConfirm
 	})
 
 	it('should display error on toggle failure', async () => {
-		vi.mocked(commands.updateSchedule).mockResolvedValue({
-			status: 'error',
-			error: { message: 'Update failed', error_type: 'database', retryable: false },
-		})
+		const mockError = { message: 'Update failed', error_type: 'database', retryable: false }
+		vi.mocked(invokeWithRetry).mockRejectedValue(mockError)
+		vi.mocked(displayError).mockReturnValue({ type: 'inline', message: 'Update failed' })
 
 		render(ScheduleList)
 
@@ -252,6 +269,7 @@ describe('ScheduleList', () => {
 		await fireEvent.click(toggles[0])
 
 		await waitFor(() => {
+			expect(displayError).toHaveBeenCalledWith(mockError)
 			expect(screen.getByText('Update failed')).toBeInTheDocument()
 		})
 	})
@@ -260,10 +278,9 @@ describe('ScheduleList', () => {
 		const originalConfirm = window.confirm
 		window.confirm = vi.fn(() => true)
 
-		vi.mocked(commands.deleteSchedule).mockResolvedValue({
-			status: 'error',
-			error: { message: 'Delete failed', error_type: 'database', retryable: false },
-		})
+		const mockError = { message: 'Delete failed', error_type: 'database', retryable: false }
+		vi.mocked(invokeWithRetry).mockRejectedValue(mockError)
+		vi.mocked(displayError).mockReturnValue({ type: 'inline', message: 'Delete failed' })
 
 		render(ScheduleList)
 
@@ -275,6 +292,7 @@ describe('ScheduleList', () => {
 		await fireEvent.click(deleteButtons[0])
 
 		await waitFor(() => {
+			expect(displayError).toHaveBeenCalledWith(mockError)
 			expect(screen.getByText('Delete failed')).toBeInTheDocument()
 		})
 

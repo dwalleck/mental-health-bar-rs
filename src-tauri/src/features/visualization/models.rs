@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::features::assessments::models::AssessmentType;
 use crate::features::mood::models::Activity;
+use crate::CommandError;
 
 /// Visualization-specific errors
 #[derive(Error, Debug)]
@@ -27,6 +28,59 @@ pub enum VisualizationError {
 
     #[error("JSON serialization error: {0}")]
     JsonError(#[from] serde_json::Error),
+}
+
+impl VisualizationError {
+    /// Convert to structured CommandError for frontend consumption
+    pub fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            VisualizationError::InvalidAssessmentType(code) => {
+                CommandError::permanent(self.to_string(), "validation").with_details(
+                    serde_json::json!({
+                        "field": "assessment_type_code",
+                        "value": code
+                    }),
+                )
+            }
+            VisualizationError::NoData => {
+                CommandError::permanent(self.to_string(), "no_data")
+            }
+            VisualizationError::StatisticsError(_) => {
+                CommandError::permanent(self.to_string(), "calculation_error")
+            }
+
+            // Database errors - retryable based on underlying error
+            VisualizationError::Database(db_err) => {
+                use rusqlite::ErrorCode;
+                match db_err {
+                    rusqlite::Error::SqliteFailure(err, _) => match err.code {
+                        ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy => {
+                            CommandError::retryable(
+                                "Database is temporarily busy. Please try again.".to_string(),
+                                "database_locked",
+                            )
+                        }
+                        _ => CommandError::permanent(self.to_string(), "database_error"),
+                    },
+                    _ => CommandError::permanent(self.to_string(), "database_error"),
+                }
+            }
+
+            // Lock poisoned - retryable
+            VisualizationError::LockPoisoned => {
+                CommandError::retryable(
+                    "Database lock issue. Please try again.".to_string(),
+                    "lock_poisoned",
+                )
+            }
+
+            // JSON errors - not retryable (internal error)
+            VisualizationError::JsonError(_) => {
+                CommandError::permanent(self.to_string(), "internal_error")
+            }
+        }
+    }
 }
 
 /// Chart data point for time-series visualization

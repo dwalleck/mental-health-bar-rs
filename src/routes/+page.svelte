@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError } from '$lib/utils/errors'
 	import type { AssessmentType, AssessmentResponse } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
@@ -13,16 +14,19 @@
 	$effect(() => {
 		async function loadDashboardData() {
 			try {
-				assessmentTypes = await invoke('get_assessment_types')
-				const history = await invoke<AssessmentResponse[]>('get_assessment_history', {
-					assessmentTypeCode: null,
-					fromDate: null,
-					toDate: null,
-					limit: 10,
-				})
+				assessmentTypes = await invokeWithRetry('get_assessment_types')
+				const history = await invokeWithRetry<AssessmentResponse[]>(
+					'get_assessment_history',
+					{
+						assessmentTypeCode: null,
+						fromDate: null,
+						toDate: null,
+						limit: 10,
+					}
+				)
 				recentCount = history.length
 			} catch (e) {
-				console.error('Failed to load dashboard data:', e)
+				displayError(e)
 			}
 		}
 		loadDashboardData()

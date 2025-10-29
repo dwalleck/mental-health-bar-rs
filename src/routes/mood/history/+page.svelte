@@ -1,9 +1,10 @@
 <script lang="ts">
 	// T091: /mood/history route - View all past mood check-ins
 
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
 	import Card from '$lib/components/ui/Card.svelte'
 	import MoodHistoryList from '$lib/components/mood/MoodHistoryList.svelte'
+	import { displayError } from '$lib/utils/errors'
 	import type { MoodCheckin, MoodStats } from '$lib/bindings'
 
 	let checkins: MoodCheckin[] = $state([])
@@ -41,15 +42,17 @@
 				fromDate = monthAgo.toISOString()
 			}
 
-			const history = await invoke('get_mood_history', {
+			const history = await invokeWithRetry('get_mood_history', {
 				fromDate,
 				toDate: null,
 				limit: 100,
 			})
 			checkins = history as MoodCheckin[]
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
-			console.error('Failed to load mood history:', e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to load history'
+			}
 		} finally {
 			loading = false
 		}
@@ -57,12 +60,12 @@
 
 	async function loadStats() {
 		try {
-			stats = await invoke('get_mood_stats', {
+			stats = await invokeWithRetry('get_mood_stats', {
 				fromDate: null,
 				toDate: null,
 			})
 		} catch (e) {
-			console.error('Failed to load mood stats:', e)
+			displayError(e)
 		}
 	}
 

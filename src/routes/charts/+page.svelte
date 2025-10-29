@@ -1,7 +1,8 @@
 <script lang="ts">
 	// T133, T149, T150: Charts route with assessment and mood visualizations
 	import { page } from '$app/stores'
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError } from '$lib/utils/errors'
 	import type { AssessmentType, AssessmentChartData, MoodChartData, TimeRange } from '$lib/bindings'
 	import AssessmentChart from '$lib/components/charts/AssessmentChart.svelte'
 	import ChartStatistics from '$lib/components/charts/ChartStatistics.svelte'
@@ -44,13 +45,13 @@
 
 	async function loadAssessmentTypes() {
 		try {
-			assessmentTypes = await invoke<AssessmentType[]>('get_assessment_types')
+			assessmentTypes = await invokeWithRetry<AssessmentType[]>('get_assessment_types')
 			// Only set default if selectedType hasn't been set (e.g., from URL parameter)
 			if (assessmentTypes.length > 0 && !selectedType) {
 				selectedType = assessmentTypes[0].code
 			}
 		} catch (err) {
-			console.error('Failed to load assessment types:', err)
+			displayError(err)
 			error = 'Failed to load assessment types'
 		}
 	}
@@ -62,15 +63,18 @@
 		error = ''
 
 		try {
-			chartData = await invoke<AssessmentChartData>('get_assessment_chart_data', {
-				code: selectedType,
-				timeRange: selectedTimeRange,
-				fromDate: null,
-				toDate: null,
-			})
+			chartData = await invokeWithRetry<AssessmentChartData>(
+				'get_assessment_chart_data',
+				{
+					code: selectedType,
+					timeRange: selectedTimeRange,
+					fromDate: null,
+					toDate: null,
+				}
+			)
 		} catch (err) {
-			console.error('Failed to load chart data:', err)
-			error = err as string
+			displayError(err)
+			error = 'Failed to load chart data'
 			chartData = null
 		} finally {
 			loading = false
@@ -94,15 +98,15 @@
 		moodError = ''
 
 		try {
-			moodChartData = await invoke<MoodChartData>('get_mood_chart_data', {
+			moodChartData = await invokeWithRetry<MoodChartData>('get_mood_chart_data', {
 				timeRange: moodTimeRange,
 				fromDate: null,
 				toDate: null,
 				groupByActivity: true,
 			})
 		} catch (err) {
-			console.error('Failed to load mood chart data:', err)
-			moodError = err as string
+			displayError(err)
+			moodError = 'Failed to load mood chart data'
 			moodChartData = null
 		} finally {
 			moodLoading = false

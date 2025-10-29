@@ -3,8 +3,7 @@
 
 use super::models::*;
 use super::repository::MoodRepository;
-use crate::AppState;
-use anyhow::Context;
+use crate::{AppState, CommandError};
 use tauri::State;
 use tracing::error;
 
@@ -16,28 +15,26 @@ pub async fn get_mood_history(
     to_date: Option<String>,
     limit: Option<i32>,
     state: State<'_, AppState>,
-) -> Result<Vec<MoodCheckin>, String> {
+) -> Result<Vec<MoodCheckin>, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.get_mood_history(from_date, to_date, limit)
-        .context("Failed to get mood history")
         .map_err(|e| {
             error!("get_mood_history error: {}", e);
-            e.to_string()
+            e.to_command_error()
         })
 }
 
 // T082: get_mood_checkin command
 #[tauri::command]
 #[specta::specta]
-pub async fn get_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<MoodCheckin, String> {
+pub async fn get_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<MoodCheckin, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.get_mood_checkin(id)
-        .context("Failed to get mood check-in")
         .map_err(|e| {
             error!("get_mood_checkin error: {}", e);
-            e.to_string()
+            e.to_command_error()
         })
 }
 
@@ -48,14 +45,13 @@ pub async fn get_mood_stats(
     from_date: Option<String>,
     to_date: Option<String>,
     state: State<'_, AppState>,
-) -> Result<MoodStats, String> {
+) -> Result<MoodStats, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.get_mood_stats(from_date, to_date)
-        .context("Failed to get mood stats")
         .map_err(|e| {
             error!("get_mood_stats error: {}", e);
-            e.to_string()
+            e.to_command_error()
         })
 }
 
@@ -65,13 +61,12 @@ pub async fn get_mood_stats(
 pub async fn get_activities(
     include_deleted: bool,
     state: State<'_, AppState>,
-) -> Result<Vec<Activity>, String> {
+) -> Result<Vec<Activity>, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
     repo.get_activities(include_deleted)
-        .context("Failed to get activities")
         .map_err(|e| {
             error!("get_activities error: {}", e);
-            e.to_string()
+            e.to_command_error()
         })
 }

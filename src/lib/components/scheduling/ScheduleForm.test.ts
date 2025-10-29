@@ -6,11 +6,26 @@ import ScheduleForm from './ScheduleForm.svelte'
 vi.mock('$lib/bindings', () => ({
 	commands: {
 		getAssessmentTypes: vi.fn(),
-		createSchedule: vi.fn(),
 	},
 }))
 
+// Mock retry utility
+vi.mock('$lib/utils/retry', () => ({
+	invokeWithRetry: vi.fn(),
+}))
+
+// Mock error handling utilities
+vi.mock('$lib/utils/errors', () => ({
+	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displaySuccess: vi.fn(),
+	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	isValidationError: vi.fn(() => false),
+	isCommandError: vi.fn(() => false),
+}))
+
 import { commands } from '$lib/bindings'
+import { invokeWithRetry } from '$lib/utils/retry'
+import { displayError, displaySuccess } from '$lib/utils/errors'
 
 const mockAssessmentTypes = [
 	{
@@ -50,6 +65,8 @@ describe('ScheduleForm', () => {
 			status: 'ok',
 			data: mockAssessmentTypes,
 		})
+		// Default mock for displayError returns inline type
+		vi.mocked(displayError).mockReturnValue({ type: 'inline', message: 'Error' })
 	})
 
 	it('should render the form', async () => {
@@ -136,22 +153,19 @@ describe('ScheduleForm', () => {
 	})
 
 	it('should submit daily schedule successfully', async () => {
-		vi.mocked(commands.createSchedule).mockResolvedValue({
-			status: 'ok',
-			data: {
-				id: 1,
-				assessment_type_id: 1,
-				assessment_type_code: 'PHQ9',
-				assessment_type_name: 'PHQ-9 Depression Scale',
-				frequency: 'daily',
-				time_of_day: '09:00',
-				day_of_week: null,
-				day_of_month: null,
-				enabled: true,
-				last_triggered_at: null,
-				created_at: '2025-10-28T00:00:00Z',
-				updated_at: '2025-10-28T00:00:00Z',
-			},
+		vi.mocked(invokeWithRetry).mockResolvedValue({
+			id: 1,
+			assessment_type_id: 1,
+			assessment_type_code: 'PHQ9',
+			assessment_type_name: 'PHQ-9 Depression Scale',
+			frequency: 'daily',
+			time_of_day: '09:00',
+			day_of_week: null,
+			day_of_month: null,
+			enabled: true,
+			last_triggered_at: null,
+			created_at: '2025-10-28T00:00:00Z',
+			updated_at: '2025-10-28T00:00:00Z',
 		})
 
 		const onSuccess = vi.fn()
@@ -168,38 +182,37 @@ describe('ScheduleForm', () => {
 		await fireEvent.click(submitButton)
 
 		await waitFor(() => {
-			expect(commands.createSchedule).toHaveBeenCalledWith({
-				assessment_type_id: 1,
-				frequency: 'daily',
-				time_of_day: '09:00',
-				day_of_week: null,
-				day_of_month: null,
+			expect(invokeWithRetry).toHaveBeenCalledWith('create_schedule', {
+				request: {
+					assessment_type_id: 1,
+					frequency: 'daily',
+					time_of_day: '09:00',
+					day_of_week: null,
+					day_of_month: null,
+				},
 			})
 		})
 
 		await waitFor(() => {
-			expect(screen.getByText('Schedule created successfully!')).toBeInTheDocument()
+			expect(displaySuccess).toHaveBeenCalledWith('Schedule created successfully!')
 			expect(onSuccess).toHaveBeenCalled()
 		})
 	})
 
 	it('should submit weekly schedule with day of week', async () => {
-		vi.mocked(commands.createSchedule).mockResolvedValue({
-			status: 'ok',
-			data: {
-				id: 1,
-				assessment_type_id: 1,
-				assessment_type_code: 'PHQ9',
-				assessment_type_name: 'PHQ-9 Depression Scale',
-				frequency: 'weekly',
-				time_of_day: '14:00',
-				day_of_week: 3,
-				day_of_month: null,
-				enabled: true,
-				last_triggered_at: null,
-				created_at: '2025-10-28T00:00:00Z',
-				updated_at: '2025-10-28T00:00:00Z',
-			},
+		vi.mocked(invokeWithRetry).mockResolvedValue({
+			id: 1,
+			assessment_type_id: 1,
+			assessment_type_code: 'PHQ9',
+			assessment_type_name: 'PHQ-9 Depression Scale',
+			frequency: 'weekly',
+			time_of_day: '14:00',
+			day_of_week: 3,
+			day_of_month: null,
+			enabled: true,
+			last_triggered_at: null,
+			created_at: '2025-10-28T00:00:00Z',
+			updated_at: '2025-10-28T00:00:00Z',
 		})
 
 		render(ScheduleForm)
@@ -221,33 +234,32 @@ describe('ScheduleForm', () => {
 		await fireEvent.click(submitButton)
 
 		await waitFor(() => {
-			expect(commands.createSchedule).toHaveBeenCalledWith({
-				assessment_type_id: 1,
-				frequency: 'weekly',
-				time_of_day: '14:00',
-				day_of_week: 3,
-				day_of_month: null,
+			expect(invokeWithRetry).toHaveBeenCalledWith('create_schedule', {
+				request: {
+					assessment_type_id: 1,
+					frequency: 'weekly',
+					time_of_day: '14:00',
+					day_of_week: 3,
+					day_of_month: null,
+				},
 			})
 		})
 	})
 
 	it('should submit monthly schedule with day of month', async () => {
-		vi.mocked(commands.createSchedule).mockResolvedValue({
-			status: 'ok',
-			data: {
-				id: 1,
-				assessment_type_id: 1,
-				assessment_type_code: 'PHQ9',
-				assessment_type_name: 'PHQ-9 Depression Scale',
-				frequency: 'monthly',
-				time_of_day: '10:00',
-				day_of_week: null,
-				day_of_month: 15,
-				enabled: true,
-				last_triggered_at: null,
-				created_at: '2025-10-28T00:00:00Z',
-				updated_at: '2025-10-28T00:00:00Z',
-			},
+		vi.mocked(invokeWithRetry).mockResolvedValue({
+			id: 1,
+			assessment_type_id: 1,
+			assessment_type_code: 'PHQ9',
+			assessment_type_name: 'PHQ-9 Depression Scale',
+			frequency: 'monthly',
+			time_of_day: '10:00',
+			day_of_week: null,
+			day_of_month: 15,
+			enabled: true,
+			last_triggered_at: null,
+			created_at: '2025-10-28T00:00:00Z',
+			updated_at: '2025-10-28T00:00:00Z',
 		})
 
 		render(ScheduleForm)
@@ -269,21 +281,22 @@ describe('ScheduleForm', () => {
 		await fireEvent.click(submitButton)
 
 		await waitFor(() => {
-			expect(commands.createSchedule).toHaveBeenCalledWith({
-				assessment_type_id: 1,
-				frequency: 'monthly',
-				time_of_day: '10:00',
-				day_of_week: null,
-				day_of_month: 15,
+			expect(invokeWithRetry).toHaveBeenCalledWith('create_schedule', {
+				request: {
+					assessment_type_id: 1,
+					frequency: 'monthly',
+					time_of_day: '10:00',
+					day_of_week: null,
+					day_of_month: 15,
+				},
 			})
 		})
 	})
 
 	it('should display error on failed submission', async () => {
-		vi.mocked(commands.createSchedule).mockResolvedValue({
-			status: 'error',
-			error: { message: 'Invalid time format', error_type: 'validation', retryable: false },
-		})
+		const mockError = { message: 'Invalid time format', error_type: 'validation', retryable: false }
+		vi.mocked(invokeWithRetry).mockRejectedValue(mockError)
+		vi.mocked(displayError).mockReturnValue({ type: 'inline', message: 'Invalid time format' })
 
 		render(ScheduleForm)
 
@@ -295,27 +308,25 @@ describe('ScheduleForm', () => {
 		await fireEvent.click(submitButton)
 
 		await waitFor(() => {
+			expect(displayError).toHaveBeenCalledWith(mockError)
 			expect(screen.getByText('Invalid time format')).toBeInTheDocument()
 		})
 	})
 
 	it('should reset form after successful submission', async () => {
-		vi.mocked(commands.createSchedule).mockResolvedValue({
-			status: 'ok',
-			data: {
-				id: 1,
-				assessment_type_id: 1,
-				assessment_type_code: 'PHQ9',
-				assessment_type_name: 'PHQ-9 Depression Scale',
-				frequency: 'daily',
-				time_of_day: '09:00',
-				day_of_week: null,
-				day_of_month: null,
-				enabled: true,
-				last_triggered_at: null,
-				created_at: '2025-10-28T00:00:00Z',
-				updated_at: '2025-10-28T00:00:00Z',
-			},
+		vi.mocked(invokeWithRetry).mockResolvedValue({
+			id: 1,
+			assessment_type_id: 1,
+			assessment_type_code: 'PHQ9',
+			assessment_type_name: 'PHQ-9 Depression Scale',
+			frequency: 'daily',
+			time_of_day: '09:00',
+			day_of_week: null,
+			day_of_month: null,
+			enabled: true,
+			last_triggered_at: null,
+			created_at: '2025-10-28T00:00:00Z',
+			updated_at: '2025-10-28T00:00:00Z',
 		})
 
 		render(ScheduleForm)
@@ -330,7 +341,7 @@ describe('ScheduleForm', () => {
 
 		await waitFor(
 			() => {
-				expect(screen.getByText('Schedule created successfully!')).toBeInTheDocument()
+				expect(displaySuccess).toHaveBeenCalledWith('Schedule created successfully!')
 			},
 			{ timeout: 3000 }
 		)
@@ -341,7 +352,7 @@ describe('ScheduleForm', () => {
 	})
 
 	it('should disable submit button while loading', async () => {
-		vi.mocked(commands.createSchedule).mockReturnValue(new Promise(() => {})) // Never resolve
+		vi.mocked(invokeWithRetry).mockReturnValue(new Promise(() => {})) // Never resolve
 
 		render(ScheduleForm)
 

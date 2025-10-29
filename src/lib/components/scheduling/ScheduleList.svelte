@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { commands, type AssessmentSchedule } from '$lib/bindings'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 
 	let { refresh = $bindable(0) }: { refresh?: number } = $props()
 
 	let schedules = $state<AssessmentSchedule[]>([])
 	let loading = $state(true)
-	let error = $state<string | null>(null)
+	let validationError = $state<unknown>(undefined)
 
 	// Load schedules on mount and when refresh prop changes
 	$effect(() => {
@@ -14,38 +17,48 @@
 
 	async function loadSchedules() {
 		loading = true
-		error = null
+		validationError = undefined
 		try {
 			const result = await commands.getSchedules(false)
 			if (result.status === 'ok') {
 				schedules = result.data
 			} else {
 				// getSchedules is a query command - still returns string error
-				error = result.error
+				const errorResult = displayError(result.error)
+				if (errorResult.type === 'inline') {
+					validationError = result.error
+				}
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load schedules'
+			const errorResult = displayError(e)
+			if (errorResult.type === 'inline') {
+				validationError = e
+			}
 		} finally {
 			loading = false
 		}
 	}
 
 	async function toggleSchedule(schedule: AssessmentSchedule) {
+		validationError = undefined
 		try {
-			const result = await commands.updateSchedule(schedule.id, {
-				enabled: !schedule.enabled,
-				frequency: null,
-				time_of_day: null,
-				day_of_week: null,
-				day_of_month: null,
+			await invokeWithRetry('update_schedule', {
+				id: schedule.id,
+				request: {
+					enabled: !schedule.enabled,
+					frequency: null,
+					time_of_day: null,
+					day_of_week: null,
+					day_of_month: null,
+				},
 			})
-			if (result.status === 'ok') {
-				await loadSchedules()
-			} else {
-				error = result.error.message
-			}
+			displaySuccess('Schedule updated successfully!')
+			await loadSchedules()
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to update schedule'
+			const errorResult = displayError(e)
+			if (errorResult.type === 'inline') {
+				validationError = e
+			}
 		}
 	}
 
@@ -53,15 +66,18 @@
 		if (!confirm('Are you sure you want to delete this schedule?')) {
 			return
 		}
+		validationError = undefined
 		try {
-			const result = await commands.deleteSchedule(id)
-			if (result.status === 'ok') {
-				await loadSchedules()
-			} else {
-				error = result.error.message
-			}
+			await invokeWithRetry('delete_schedule', {
+				id,
+			})
+			displaySuccess('Schedule deleted successfully!')
+			await loadSchedules()
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete schedule'
+			const errorResult = displayError(e)
+			if (errorResult.type === 'inline') {
+				validationError = e
+			}
 		}
 	}
 
@@ -90,11 +106,7 @@
 <div class="space-y-4">
 	<h2 class="text-2xl font-bold text-gray-900">Assessment Schedules</h2>
 
-	{#if error}
-		<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-			{error}
-		</div>
-	{/if}
+	<ErrorMessage error={validationError} />
 
 	{#if loading}
 		<div class="text-center py-8">
