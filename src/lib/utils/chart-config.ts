@@ -28,8 +28,8 @@ ChartJS.register(
 	annotationPlugin
 )
 
-// Default chart options
-export const defaultChartOptions: ChartOptions<'line'> = {
+// Default chart options (shared base configuration)
+const baseChartOptions = {
 	responsive: true,
 	maintainAspectRatio: true,
 	aspectRatio: 2,
@@ -37,13 +37,13 @@ export const defaultChartOptions: ChartOptions<'line'> = {
 		duration: 500,
 	},
 	interaction: {
-		mode: 'index',
+		mode: 'index' as const,
 		intersect: false,
 	},
 	plugins: {
 		legend: {
 			display: true,
-			position: 'top',
+			position: 'top' as const,
 		},
 		tooltip: {
 			enabled: true,
@@ -51,7 +51,7 @@ export const defaultChartOptions: ChartOptions<'line'> = {
 			padding: 12,
 			titleFont: {
 				size: 14,
-				weight: 'bold',
+				weight: 'bold' as const,
 			},
 			bodyFont: {
 				size: 13,
@@ -73,12 +73,15 @@ export const defaultChartOptions: ChartOptions<'line'> = {
 	},
 }
 
+// Default chart options for line charts
+export const defaultChartOptions: ChartOptions<'line'> = baseChartOptions
+
 // Default bar chart options
 export const defaultBarChartOptions: ChartOptions<'bar'> = {
-	...defaultChartOptions,
+	...baseChartOptions,
 	indexAxis: 'y', // Horizontal bars
 	plugins: {
-		...defaultChartOptions.plugins,
+		...baseChartOptions.plugins,
 		legend: {
 			display: false,
 		},

@@ -101,6 +101,7 @@
 						callbacks: {
 							label: function (context) {
 								const value = context.parsed.y
+								if (value === null) return 'No data'
 								const moodLabels = {
 									1: 'Very Bad',
 									2: 'Bad',

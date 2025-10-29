@@ -51,21 +51,11 @@
 		const values = data.data_points.map((point) => point.value)
 
 		// T130: Create threshold annotations
-		const annotations: Record<
-			string,
-			{
-				type: 'line'
-				yMin: number
-				yMax: number
-				borderColor: string
-				borderWidth: number
-				label: {
-					display: boolean
-					content: string
-					position: string
-				}
-			}
-		> = {}
+		// Using Record<string, any> here because chartjs-plugin-annotation types are incompatible
+		// with our dynamic annotation object structure. The plugin expects an array or specific
+		// annotation types, but we need a dynamic Record for threshold annotations.
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const annotations: Record<string, any> = {}
 		data.thresholds.forEach((threshold, index) => {
 			annotations[`threshold${index}`] = {
 				type: 'line' as const,

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import ScheduleList from './ScheduleList.svelte'
+import type { AssessmentSchedule } from '$lib/bindings'
 
 // Mock the bindings module
 vi.mock('$lib/bindings', () => ({
@@ -13,13 +14,13 @@ vi.mock('$lib/bindings', () => ({
 
 import { commands } from '$lib/bindings'
 
-const mockSchedules = [
+const mockSchedules: AssessmentSchedule[] = [
 	{
 		id: 1,
 		assessment_type_id: 1,
 		assessment_type_code: 'PHQ9',
 		assessment_type_name: 'PHQ-9 Depression Scale',
-		frequency: 'daily',
+		frequency: 'daily' as const,
 		time_of_day: '09:00',
 		day_of_week: null,
 		day_of_month: null,
@@ -33,7 +34,7 @@ const mockSchedules = [
 		assessment_type_id: 2,
 		assessment_type_code: 'GAD7',
 		assessment_type_name: 'GAD-7 Anxiety Scale',
-		frequency: 'weekly',
+		frequency: 'weekly' as const,
 		time_of_day: '14:30',
 		day_of_week: 3,
 		day_of_month: null,
@@ -47,7 +48,7 @@ const mockSchedules = [
 		assessment_type_id: 3,
 		assessment_type_code: 'CESD',
 		assessment_type_name: 'CES-D Depression Scale',
-		frequency: 'monthly',
+		frequency: 'monthly' as const,
 		time_of_day: '10:00',
 		day_of_week: null,
 		day_of_month: 15,
