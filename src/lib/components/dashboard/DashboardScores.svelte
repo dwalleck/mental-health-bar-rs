@@ -3,6 +3,7 @@
 	import { invoke } from '@tauri-apps/api/core'
 	import { SvelteMap } from 'svelte/reactivity'
 	import type { AssessmentResponse } from '$lib/bindings'
+	import { formatSeverity } from '$lib/utils/severity'
 	import AssessmentScoreBar from './AssessmentScoreBar.svelte'
 	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
@@ -141,7 +142,7 @@
 									data-testid="assessment-summary-{assessmentType.toLowerCase()}"
 								>
 									Score: {assessment.total_score} |
-									<span data-severity>{assessment.severity_level}</span>
+									<span data-severity>{formatSeverity(assessment.severity_level)}</span>
 								</div>
 							</div>
 						</button>

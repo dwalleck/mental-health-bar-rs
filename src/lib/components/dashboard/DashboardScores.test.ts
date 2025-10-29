@@ -69,7 +69,7 @@ describe('DashboardScores', () => {
 		assessment_type: type,
 		responses: Array(type.question_count).fill(1),
 		total_score: score,
-		severity_level: 'Mild',
+		severity_level: 'mild',
 		completed_at: '2025-10-28T10:00:00Z',
 		notes: null,
 	})
@@ -601,11 +601,11 @@ describe('DashboardScores', () => {
 						const code = args.assessmentTypeCode
 						if (code === 'PHQ9') {
 							const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 15)
-							response.severity_level = 'Moderate'
+							response.severity_level = 'moderate'
 							return response
 						} else if (code === 'GAD7') {
 							const response = createMockAssessmentResponse(mockAssessmentTypes.GAD7, 5)
-							response.severity_level = 'Mild'
+							response.severity_level = 'mild'
 							return response
 						}
 					}
@@ -616,7 +616,7 @@ describe('DashboardScores', () => {
 			// Act: Render component
 			render(DashboardScores)
 
-			// Assert: Severity levels should be displayed
+			// Assert: Severity levels should be displayed (formatted)
 			await waitFor(() => {
 				expect(screen.getByText('Moderate')).toBeInTheDocument()
 			})
@@ -630,7 +630,7 @@ describe('DashboardScores', () => {
 				async (command: string, args: { assessmentTypeCode: string }) => {
 					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
 						const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 27)
-						response.severity_level = 'Severe'
+						response.severity_level = 'severe'
 						return response
 					}
 					return null
@@ -652,7 +652,7 @@ describe('DashboardScores', () => {
 				async (command: string, args: { assessmentTypeCode: string }) => {
 					if (command === 'get_latest_assessment' && args.assessmentTypeCode === 'PHQ9') {
 						const response = createMockAssessmentResponse(mockAssessmentTypes.PHQ9, 0)
-						response.severity_level = 'Minimal'
+						response.severity_level = 'minimal'
 						return response
 					}
 					return null
