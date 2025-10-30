@@ -16,9 +16,14 @@ vi.mock('$lib/utils/retry', () => ({
 
 // Mock error handling utilities
 vi.mock('$lib/utils/errors', () => ({
-	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displayError: vi.fn((error) => ({
+		type: 'inline',
+		message: typeof error === 'string' ? error : error?.message || 'Error',
+	})),
 	displaySuccess: vi.fn(),
-	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	formatUserError: vi.fn((error) =>
+		typeof error === 'string' ? error : error?.message || 'Error'
+	),
 	isValidationError: vi.fn(() => false),
 	isCommandError: vi.fn(() => false),
 }))
@@ -92,7 +97,11 @@ describe('ScheduleForm', () => {
 	it('should display error when assessment types fail to load', async () => {
 		vi.mocked(commands.getAssessmentTypes).mockResolvedValue({
 			status: 'error',
-			error: 'Failed to load',
+			error: {
+				message: 'Failed to load',
+				error_type: 'database_error',
+				retryable: false,
+			},
 		})
 
 		render(ScheduleForm)

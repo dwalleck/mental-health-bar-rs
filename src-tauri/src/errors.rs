@@ -83,10 +83,14 @@ pub mod error_types {
     pub const TRANSACTION_FAILURE: &str = "transaction_failure";
     pub const NO_DATA: &str = "no_data";
     pub const CALCULATION_ERROR: &str = "calculation_error";
+    #[allow(dead_code)]
     pub const TRANSIENT: &str = "transient";
     pub const INTERNAL: &str = "internal";
+    #[allow(dead_code)]
     pub const CONFIG: &str = "config";
+    #[allow(dead_code)]
     pub const IO_ERROR: &str = "io_error";
+    #[allow(dead_code)]
     pub const SERIALIZATION: &str = "serialization";
 }
 

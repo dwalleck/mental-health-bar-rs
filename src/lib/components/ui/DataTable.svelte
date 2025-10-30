@@ -10,7 +10,7 @@
   - Actions column
 -->
 
-<script lang="ts" generics="T">
+<script lang="ts" generics="T extends Record<string, unknown>">
 	import LoadingSpinner from './LoadingSpinner.svelte'
 
 	interface Column<T> {
@@ -59,18 +59,20 @@
 		pagination = true,
 		pageSize = 10,
 		sortKey = $bindable(''),
-		sortOrder = $bindable('asc' as 'asc' | 'desc')
+		sortOrder = $bindable('asc' as 'asc' | 'desc'),
 	}: Props<T> = $props()
 
 	let currentPage = $state(1)
-	let selectAll = $state(false)
 
 	// Computed values
 	const totalPages = $derived(Math.ceil(data.length / pageSize))
 	const paginatedData = $derived(
-		pagination
-			? data.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-			: data
+		pagination ? data.slice((currentPage - 1) * pageSize, currentPage * pageSize) : data
+	)
+
+	// Select all state derived from current selection
+	const selectAll = $derived(
+		paginatedData.length > 0 && paginatedData.every((item) => isSelected(item))
 	)
 
 	// Sorting
@@ -111,10 +113,6 @@
 	function goToPage(page: number) {
 		currentPage = Math.max(1, Math.min(page, totalPages))
 	}
-
-	$effect(() => {
-		selectAll = paginatedData.length > 0 && paginatedData.every((item) => isSelected(item))
-	})
 </script>
 
 <div class="flow-root">
@@ -212,7 +210,7 @@
 							</tr>
 						{:else}
 							{#each paginatedData as item, index (item[keyField])}
-								<tr class="{striped && index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/50' : ''}">
+								<tr class={striped && index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/50' : ''}>
 									{#if selectable}
 										<td class="relative px-7 sm:w-12 sm:px-6">
 											<input
@@ -232,7 +230,7 @@
 												{column.align === 'right' ? 'text-right' : ''}"
 										>
 											{#if column.render}
-												{@html column.render(item)}
+												{column.render(item)}
 											{:else}
 												{item[column.key]}
 											{/if}
@@ -240,15 +238,21 @@
 									{/each}
 
 									{#if actions.length > 0}
-										<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+										<td
+											class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6"
+										>
 											<div class="flex justify-end gap-2">
 												{#each actions as action (action.label)}
 													{#if !action.show || action.show(item)}
 														<button
 															type="button"
 															class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300
-																{action.variant === 'danger' ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300' : ''}
-																{action.variant === 'secondary' ? 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300' : ''}"
+																{action.variant === 'danger'
+																? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300'
+																: ''}
+																{action.variant === 'secondary'
+																? 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300'
+																: ''}"
 															onclick={() => action.onClick(item)}
 														>
 															{action.label}
