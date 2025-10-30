@@ -3,9 +3,18 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AssessmentForm from './AssessmentForm.svelte'
 import type { AssessmentQuestion, AssessmentResponse } from '$lib/bindings'
 
-// Mock Tauri's invoke
-vi.mock('@tauri-apps/api/core', () => ({
-	invoke: vi.fn(),
+// Mock retry utility
+vi.mock('$lib/utils/retry', () => ({
+	invokeWithRetry: vi.fn(),
+}))
+
+// Mock error handling utilities
+vi.mock('$lib/utils/errors', () => ({
+	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displaySuccess: vi.fn(),
+	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	isValidationError: vi.fn(() => false),
+	isCommandError: vi.fn(() => false),
 }))
 
 // Mock SvelteKit's goto
@@ -13,18 +22,29 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
 }))
 
+import { invokeWithRetry } from '$lib/utils/retry'
+import { displayError, displaySuccess } from '$lib/utils/errors'
+
 describe('AssessmentForm', () => {
-	let invokeMock: ReturnType<typeof vi.fn>
+	let invokeWithRetryMock: ReturnType<typeof vi.fn>
 	let gotoMock: ReturnType<typeof vi.fn>
+	let displayErrorMock: ReturnType<typeof vi.fn>
+	let displaySuccessMock: ReturnType<typeof vi.fn>
 
 	beforeEach(async () => {
-		const { invoke } = await import('@tauri-apps/api/core')
 		const { goto } = await import('$app/navigation')
-		invokeMock = invoke as ReturnType<typeof vi.fn>
+		invokeWithRetryMock = vi.mocked(invokeWithRetry)
 		gotoMock = goto as ReturnType<typeof vi.fn>
+		displayErrorMock = vi.mocked(displayError)
+		displaySuccessMock = vi.mocked(displaySuccess)
 
-		invokeMock.mockClear()
+		invokeWithRetryMock.mockClear()
 		gotoMock.mockClear()
+		displayErrorMock.mockClear()
+		displaySuccessMock.mockClear()
+
+		// Default mock for displayError returns inline type
+		displayErrorMock.mockReturnValue({ type: 'inline', message: 'Error' })
 	})
 
 	afterEach(() => {
@@ -64,12 +84,12 @@ describe('AssessmentForm', () => {
 
 	describe('Props', () => {
 		it('should accept assessmentCode prop', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
 			await waitFor(() => {
-				expect(invokeMock).toHaveBeenCalledWith('get_assessment_questions', {
+				expect(invokeWithRetryMock).toHaveBeenCalledWith('get_assessment_questions', {
 					assessmentTypeCode: 'PHQ9',
 				})
 			})
@@ -78,7 +98,7 @@ describe('AssessmentForm', () => {
 
 	describe('Loading State', () => {
 		it('should show loading message initially', () => {
-			invokeMock.mockReturnValue(new Promise(() => {}))
+			invokeWithRetryMock.mockReturnValue(new Promise(() => {}))
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -88,19 +108,22 @@ describe('AssessmentForm', () => {
 
 	describe('Error State', () => {
 		it('should display error message when fetch fails', async () => {
-			invokeMock.mockRejectedValue(new Error('Failed to load'))
+			const mockError = new Error('Failed to load')
+			invokeWithRetryMock.mockRejectedValue(mockError)
+			displayErrorMock.mockReturnValue({ type: 'inline', message: 'Failed to load' })
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
 			await waitFor(() => {
-				expect(container.textContent).toContain('Error: Error: Failed to load')
+				expect(displayErrorMock).toHaveBeenCalledWith(mockError)
+				expect(container.textContent).toContain('Failed to load')
 			})
 		})
 	})
 
 	describe('Questions Display', () => {
 		it('should display all questions', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -111,7 +134,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should display question numbers', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -122,7 +145,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should display all options for each question', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -137,7 +160,7 @@ describe('AssessmentForm', () => {
 
 	describe('Progress Tracking', () => {
 		it('should show 0% progress initially', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -147,7 +170,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should update progress when question answered', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -165,7 +188,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should show 100% when all questions answered', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -189,7 +212,7 @@ describe('AssessmentForm', () => {
 
 	describe('Answer Selection', () => {
 		it('should mark selected option', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -208,7 +231,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should allow changing answer', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -237,7 +260,7 @@ describe('AssessmentForm', () => {
 
 	describe('Notes Input', () => {
 		it('should have notes textarea', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -248,7 +271,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should allow entering notes', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -264,7 +287,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should have placeholder text', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -277,7 +300,7 @@ describe('AssessmentForm', () => {
 
 	describe('Form Validation', () => {
 		it('should disable submit button when no questions answered', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -288,7 +311,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should disable submit button when some questions unanswered', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -307,7 +330,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should enable submit button when all questions answered', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -330,7 +353,7 @@ describe('AssessmentForm', () => {
 
 	describe('Form Submission', () => {
 		it('should submit assessment with responses', async () => {
-			invokeMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
+			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -348,7 +371,7 @@ describe('AssessmentForm', () => {
 			await fireEvent.submit(form)
 
 			await waitFor(() => {
-				expect(invokeMock).toHaveBeenCalledWith('submit_assessment', {
+				expect(invokeWithRetryMock).toHaveBeenCalledWith('submit_assessment', {
 					request: {
 						assessment_type_code: 'PHQ9',
 						responses: [0, 1],
@@ -359,7 +382,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should include notes in submission', async () => {
-			invokeMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
+			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -380,7 +403,7 @@ describe('AssessmentForm', () => {
 			await fireEvent.submit(form)
 
 			await waitFor(() => {
-				expect(invokeMock).toHaveBeenCalledWith('submit_assessment', {
+				expect(invokeWithRetryMock).toHaveBeenCalledWith('submit_assessment', {
 					request: {
 						assessment_type_code: 'PHQ9',
 						responses: [0, 0],
@@ -391,7 +414,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should navigate to results after successful submission', async () => {
-			invokeMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
+			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -412,7 +435,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should show submitting state during submission', async () => {
-			invokeMock
+			invokeWithRetryMock
 				.mockResolvedValueOnce(mockQuestions)
 				.mockImplementationOnce(() => new Promise(() => {}))
 
@@ -435,9 +458,11 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should show error if submission fails', async () => {
-			invokeMock
+			const mockError = new Error('Submission failed')
+			invokeWithRetryMock
 				.mockResolvedValueOnce(mockQuestions)
-				.mockRejectedValueOnce(new Error('Submission failed'))
+				.mockRejectedValueOnce(mockError)
+			displayErrorMock.mockReturnValue({ type: 'inline', message: 'Submission failed' })
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -453,14 +478,15 @@ describe('AssessmentForm', () => {
 			await fireEvent.submit(form)
 
 			await waitFor(() => {
-				expect(container.textContent).toContain('Error: Submission failed')
+				expect(displayErrorMock).toHaveBeenCalledWith(mockError)
+				expect(container.textContent).toContain('Submission failed')
 			})
 		})
 	})
 
 	describe('Navigation Links', () => {
 		it('should have back to assessments link', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -474,7 +500,7 @@ describe('AssessmentForm', () => {
 
 	describe('Accessibility', () => {
 		it('should have progress bar with aria attributes', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -488,7 +514,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should have radio group with aria-labelledby', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -499,7 +525,7 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should have radio buttons with aria-checked', async () => {
-			invokeMock.mockResolvedValue(mockQuestions)
+			invokeWithRetryMock.mockResolvedValue(mockQuestions)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 

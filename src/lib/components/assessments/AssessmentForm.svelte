@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
 	import type {
 		AssessmentQuestion,
 		AssessmentResponse,
@@ -8,6 +7,9 @@
 	} from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
 
 	let { assessmentCode }: { assessmentCode: string } = $props()
 
@@ -16,16 +18,19 @@
 	let notes = $state('')
 	let loading = $state(true)
 	let submitting = $state(false)
-	let error = $state('')
+	let validationError = $state<unknown>(undefined)
 
 	$effect(() => {
 		let isMounted = true
 
 		async function fetchQuestions() {
 			try {
-				const fetchedQuestions = await invoke<AssessmentQuestion[]>('get_assessment_questions', {
-					assessmentTypeCode: assessmentCode,
-				})
+				const fetchedQuestions = await invokeWithRetry<AssessmentQuestion[]>(
+					'get_assessment_questions',
+					{
+						assessmentTypeCode: assessmentCode,
+					}
+				)
 
 				if (!isMounted) return
 
@@ -35,7 +40,10 @@
 			} catch (e) {
 				if (!isMounted) return
 
-				error = String(e)
+				const result = displayError(e)
+				if (result.type === 'inline') {
+					validationError = e
+				}
 				loading = false
 			}
 		}
@@ -57,12 +65,12 @@
 
 		// Validate all questions answered
 		if (responses.some((r) => r === -1)) {
-			error = 'Please answer all questions'
+			validationError = new Error('Please answer all questions')
 			return
 		}
 
 		submitting = true
-		error = ''
+		validationError = undefined
 
 		try {
 			const request: SubmitAssessmentRequest = {
@@ -71,12 +79,16 @@
 				notes: notes || null,
 			}
 
-			const result = await invoke<AssessmentResponse>('submit_assessment', { request })
+			const result = await invokeWithRetry<AssessmentResponse>('submit_assessment', { request })
 
+			displaySuccess('Assessment submitted successfully!')
 			// Navigate to results
 			await goto(`/assessments/${assessmentCode}/result/${result.id}`)
 		} catch (e) {
-			error = String(e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				validationError = e
+			}
 		} finally {
 			submitting = false
 		}
@@ -102,9 +114,9 @@
 		<Card>
 			<p class="text-gray-500">Loading assessment...</p>
 		</Card>
-	{:else if error && questions.length === 0}
+	{:else if validationError && questions.length === 0}
 		<Card>
-			<p class="text-red-500">Error: {error}</p>
+			<ErrorMessage error={validationError} />
 		</Card>
 	{:else}
 		<div
@@ -169,10 +181,8 @@
 				></textarea>
 			</Card>
 
-			{#if error && questions.length > 0}
-				<div class="bg-red-50 border border-red-200 rounded-lg p-4">
-					<p class="text-red-600">{error}</p>
-				</div>
+			{#if validationError && questions.length > 0}
+				<ErrorMessage error={validationError} />
 			{/if}
 
 			<Button

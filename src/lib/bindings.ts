@@ -44,7 +44,7 @@ export const commands = {
 	/**
 	 * Get all available assessment types
 	 */
-	async getAssessmentTypes(): Promise<Result<AssessmentType[], string>> {
+	async getAssessmentTypes(): Promise<Result<AssessmentType[], CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_assessment_types') }
 		} catch (e) {
@@ -57,7 +57,7 @@ export const commands = {
 	 */
 	async getAssessmentQuestions(
 		assessmentTypeCode: string
-	): Promise<Result<AssessmentQuestion[], string>> {
+	): Promise<Result<AssessmentQuestion[], CommandError>> {
 		try {
 			return {
 				status: 'ok',
@@ -76,7 +76,7 @@ export const commands = {
 		fromDate: string | null,
 		toDate: string | null,
 		limit: number | null
-	): Promise<Result<AssessmentResponse[], string>> {
+	): Promise<Result<AssessmentResponse[], CommandError>> {
 		try {
 			return {
 				status: 'ok',
@@ -95,7 +95,7 @@ export const commands = {
 	/**
 	 * Get a single assessment response by ID
 	 */
-	async getAssessmentResponse(id: number): Promise<Result<AssessmentResponse, string>> {
+	async getAssessmentResponse(id: number): Promise<Result<AssessmentResponse, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_assessment_response', { id }) }
 		} catch (e) {
@@ -108,7 +108,7 @@ export const commands = {
 	 */
 	async getLatestAssessment(
 		assessmentTypeCode: string
-	): Promise<Result<AssessmentResponse | null, string>> {
+	): Promise<Result<AssessmentResponse | null, CommandError>> {
 		try {
 			return {
 				status: 'ok',
@@ -166,7 +166,7 @@ export const commands = {
 		fromDate: string | null,
 		toDate: string | null,
 		limit: number | null
-	): Promise<Result<MoodCheckin[], string>> {
+	): Promise<Result<MoodCheckin[], CommandError>> {
 		try {
 			return {
 				status: 'ok',
@@ -177,7 +177,7 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
-	async getMoodCheckin(id: number): Promise<Result<MoodCheckin, string>> {
+	async getMoodCheckin(id: number): Promise<Result<MoodCheckin, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_mood_checkin', { id }) }
 		} catch (e) {
@@ -188,7 +188,7 @@ export const commands = {
 	async getMoodStats(
 		fromDate: string | null,
 		toDate: string | null
-	): Promise<Result<MoodStats, string>> {
+	): Promise<Result<MoodStats, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_mood_stats', { fromDate, toDate }) }
 		} catch (e) {
@@ -196,7 +196,7 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
-	async getActivities(includeDeleted: boolean): Promise<Result<Activity[], string>> {
+	async getActivities(includeDeleted: boolean): Promise<Result<Activity[], CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_activities', { includeDeleted }) }
 		} catch (e) {
@@ -212,7 +212,7 @@ export const commands = {
 		timeRange: TimeRange,
 		fromDate: string | null,
 		toDate: string | null
-	): Promise<Result<AssessmentChartData, string>> {
+	): Promise<Result<AssessmentChartData, CommandError>> {
 		try {
 			return {
 				status: 'ok',
@@ -236,7 +236,7 @@ export const commands = {
 		fromDate: string | null,
 		toDate: string | null,
 		groupByActivity: boolean
-	): Promise<Result<MoodChartData, string>> {
+	): Promise<Result<MoodChartData, CommandError>> {
 		try {
 			return {
 				status: 'ok',
@@ -293,7 +293,7 @@ export const commands = {
 	/**
 	 * T168: Get all schedules (optionally filtered to enabled only)
 	 */
-	async getSchedules(enabledOnly: boolean): Promise<Result<AssessmentSchedule[], string>> {
+	async getSchedules(enabledOnly: boolean): Promise<Result<AssessmentSchedule[], CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_schedules', { enabledOnly }) }
 		} catch (e) {
@@ -304,7 +304,7 @@ export const commands = {
 	/**
 	 * T169: Get a single schedule by ID
 	 */
-	async getSchedule(id: number): Promise<Result<AssessmentSchedule, string>> {
+	async getSchedule(id: number): Promise<Result<AssessmentSchedule, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('get_schedule', { id }) }
 		} catch (e) {
@@ -433,9 +433,9 @@ export type CommandError = {
 	message: string
 	/**
 	 * Machine-readable error type for conditional logic
-	 * Examples: "validation", "not_found", "database_locked", "transient"
+	 * Auto-generated to TypeScript via specta for type safety
 	 */
-	error_type: string
+	error_type: ErrorType
 	/**
 	 * Whether this error is retryable (e.g., database locks, transient network issues)
 	 * - true: Client should retry the operation (e.g., SQLITE_BUSY, lock timeout)
@@ -457,6 +457,28 @@ export type CreateScheduleRequest = {
 	day_of_week: number | null
 	day_of_month: number | null
 }
+/**
+ * Error type enumeration for type-safe error classification
+ *
+ * This enum is auto-generated to TypeScript via specta, eliminating duplication
+ * between Rust and TypeScript error type constants.
+ */
+export type ErrorType =
+	| 'validation'
+	| 'not_found'
+	| 'database_error'
+	| 'database_locked'
+	| 'lock_poisoned'
+	| 'constraint_violation'
+	| 'duplicate'
+	| 'transaction_failure'
+	| 'no_data'
+	| 'calculation_error'
+	| 'transient'
+	| 'internal'
+	| 'config'
+	| 'io_error'
+	| 'serialization'
 /**
  * Request to log a mood check-in
  */

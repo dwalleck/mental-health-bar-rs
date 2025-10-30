@@ -6,9 +6,15 @@
 		size?: 'small' | 'medium' | 'large'
 		text?: string
 		center?: boolean
+		class?: string
 	}
 
-	let { size = 'medium', text = 'Loading...', center = false }: Props = $props()
+	let {
+		size = 'medium',
+		text = 'Loading...',
+		center = false,
+		class: className = '',
+	}: Props = $props()
 
 	const sizeClasses = {
 		small: 'w-5 h-5',
@@ -24,7 +30,7 @@
 </script>
 
 <div
-	class="loading-spinner {center ? 'flex items-center justify-center' : ''}"
+	class="loading-spinner {center ? 'flex items-center justify-center' : ''} {className}"
 	transition:fade={{ duration: 150 }}
 	role="status"
 	aria-live="polite"

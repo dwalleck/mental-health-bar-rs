@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use crate::AppState;
+use crate::{errors::ToCommandError, AppState, CommandError};
 
 use super::models::AssessmentSchedule;
 use super::repository::SchedulingRepository;
@@ -14,19 +14,18 @@ use super::repository::SchedulingRepository;
 pub fn get_schedules(
     enabled_only: bool,
     state: State<AppState>,
-) -> Result<Vec<AssessmentSchedule>, String> {
+) -> Result<Vec<AssessmentSchedule>, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
 
     repo.get_schedules(enabled_only)
-        .map_err(|e| format!("Failed to get schedules: {}", e))
+        .map_err(|e| e.to_command_error())
 }
 
 /// T169: Get a single schedule by ID
 #[tauri::command]
 #[specta::specta]
-pub fn get_schedule(id: i32, state: State<AppState>) -> Result<AssessmentSchedule, String> {
+pub fn get_schedule(id: i32, state: State<AppState>) -> Result<AssessmentSchedule, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
 
-    repo.get_schedule(id)
-        .map_err(|e| format!("Failed to get schedule: {}", e))
+    repo.get_schedule(id).map_err(|e| e.to_command_error())
 }

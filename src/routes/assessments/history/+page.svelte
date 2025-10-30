@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
 	import type { AssessmentResponse } from '$lib/bindings'
 	import { formatSeverity } from '$lib/utils/severity'
-	import { formatUserError } from '$lib/utils/errors'
+	import { displayError } from '$lib/utils/errors'
 	import Card from '$lib/components/ui/Card.svelte'
 
 	let history = $state<AssessmentResponse[]>([])
@@ -13,14 +13,17 @@
 	$effect(() => {
 		async function loadHistory() {
 			try {
-				history = await invoke('get_assessment_history', {
+				history = await invokeWithRetry('get_assessment_history', {
 					assessmentTypeCode: null,
 					fromDate: null,
 					toDate: null,
 					limit: null,
 				})
 			} catch (e) {
-				error = formatUserError(e)
+				const result = displayError(e)
+				if (result.type === 'inline') {
+					error = result.message || 'Failed to load history'
+				}
 			} finally {
 				loading = false
 			}

@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::errors::{CommandError, ErrorType, ToCommandError};
 use crate::features::assessments::models::AssessmentType;
 use crate::features::mood::models::Activity;
 
@@ -22,11 +23,47 @@ pub enum VisualizationError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
 
-    #[error("Lock poisoned - database in inconsistent state")]
+    #[error("Database lock issue. This request will be retried automatically.")]
     LockPoisoned,
 
     #[error("JSON serialization error: {0}")]
     JsonError(#[from] serde_json::Error),
+}
+
+impl ToCommandError for VisualizationError {
+    fn to_command_error(&self) -> CommandError {
+        match self {
+            // Validation errors - not retryable
+            VisualizationError::InvalidAssessmentType(code) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "assessment_type_code",
+                        "value": code
+                    }),
+                )
+            }
+            VisualizationError::NoData => {
+                CommandError::permanent(self.to_string(), ErrorType::NoData)
+            }
+            VisualizationError::StatisticsError(_) => {
+                CommandError::permanent(self.to_string(), ErrorType::CalculationError)
+            }
+
+            // Database errors - use the shared helper
+            VisualizationError::Database(e) => CommandError::from_rusqlite_error(e),
+
+            // Lock poisoned - retryable
+            VisualizationError::LockPoisoned => CommandError::retryable(
+                "Database lock issue. This request will be retried automatically.".to_string(),
+                ErrorType::LockPoisoned,
+            ),
+
+            // JSON errors - not retryable (internal error)
+            VisualizationError::JsonError(_) => {
+                CommandError::permanent(self.to_string(), ErrorType::Internal)
+            }
+        }
+    }
 }
 
 /// Chart data point for time-series visualization

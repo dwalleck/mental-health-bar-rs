@@ -1,7 +1,9 @@
 <script lang="ts">
 	// T087: ActivitySelector component - Multi-select activity picker with create new capability
 
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 	import type { Activity } from '$lib/bindings'
 
 	interface Props {
@@ -13,7 +15,7 @@
 
 	let activities = $state<Activity[]>([])
 	let loading = $state(true)
-	let error = $state<string | null>(null)
+	let error = $state<string | undefined>(undefined)
 	let showCreateForm = $state(false)
 	let newActivityName = $state('')
 	let newActivityColor = $state('#3B82F6')
@@ -26,8 +28,8 @@
 		async function loadActivities() {
 			try {
 				loading = true
-				error = null
-				const data = await invoke<Activity[]>('get_activities', { includeDeleted: false })
+				error = undefined
+				const data = await invokeWithRetry<Activity[]>('get_activities', { includeDeleted: false })
 
 				if (!isMounted) return
 
@@ -36,7 +38,10 @@
 			} catch (e) {
 				if (!isMounted) return
 
-				error = e instanceof Error ? e.message : String(e)
+				const result = displayError(e)
+				if (result.type === 'inline') {
+					error = result.message || 'Failed to load activities'
+				}
 				console.error('Failed to load activities:', e)
 				loading = false
 			}
@@ -62,8 +67,8 @@
 
 		try {
 			creating = true
-			error = null
-			const activity: Activity = await invoke('create_activity', {
+			error = undefined
+			const activity: Activity = await invokeWithRetry('create_activity', {
 				request: {
 					name: newActivityName.trim(),
 					color: newActivityColor,
@@ -76,8 +81,12 @@
 			newActivityColor = '#3B82F6'
 			newActivityIcon = ''
 			showCreateForm = false
+			displaySuccess('Activity created successfully!')
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to create activity'
+			}
 			console.error('Failed to create activity:', e)
 		} finally {
 			creating = false
@@ -98,11 +107,7 @@
 		</button>
 	</div>
 
-	{#if error}
-		<div class="mb-3 p-2 bg-red-100 border border-red-300 text-red-700 rounded text-sm">
-			{error}
-		</div>
-	{/if}
+	<ErrorMessage message={error} />
 
 	{#if showCreateForm}
 		<div

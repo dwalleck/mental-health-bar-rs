@@ -1,24 +1,29 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentResponse } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError } from '$lib/utils/errors'
 
 	let { assessmentId }: { assessmentId: number } = $props()
 
 	let assessment = $state<AssessmentResponse | null>(null)
 	let loading = $state(true)
-	let error = $state('')
+	let loadError = $state<unknown>(undefined)
 
 	$effect(() => {
 		let isMounted = true
 
 		async function fetchAssessment() {
 			try {
-				const response = await invoke<AssessmentResponse>('get_assessment_response', {
-					id: assessmentId,
-				})
+				const response = await invokeWithRetry<AssessmentResponse>(
+					'get_assessment_response',
+					{
+						id: assessmentId,
+					}
+				)
 
 				if (!isMounted) return
 
@@ -27,7 +32,10 @@
 			} catch (e) {
 				if (!isMounted) return
 
-				error = String(e)
+				const result = displayError(e)
+				if (result.type === 'inline') {
+					loadError = e
+				}
 				loading = false
 			}
 		}
@@ -73,9 +81,9 @@
 		<Card>
 			<p class="text-gray-500">Loading results...</p>
 		</Card>
-	{:else if error}
+	{:else if loadError}
 		<Card>
-			<p class="text-red-500">Error: {error}</p>
+			<ErrorMessage error={loadError} />
 		</Card>
 	{:else if assessment}
 		<Card>

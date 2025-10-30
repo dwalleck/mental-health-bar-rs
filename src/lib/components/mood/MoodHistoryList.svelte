@@ -5,6 +5,7 @@
 	import { MOOD_COLORS, MOOD_LABELS } from '$lib/utils/colors'
 	import type { MoodCheckin } from '$lib/bindings'
 	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 
 	interface Props {
 		checkins: MoodCheckin[]
@@ -49,12 +50,8 @@
 
 <div class="mood-history-list">
 	{#if error}
-		<div
-			class="p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg"
-			transition:fade={{ duration: 200 }}
-		>
-			<div class="font-semibold">Error loading mood history</div>
-			<div class="text-sm mt-1">{error}</div>
+		<div transition:fade={{ duration: 200 }}>
+			<ErrorMessage message={error} />
 		</div>
 	{:else if loading}
 		<!-- T181: Loading skeleton for list items -->

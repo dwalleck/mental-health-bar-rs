@@ -1,11 +1,11 @@
 <script lang="ts">
 	// T114: /mood/activities route - Manage custom activities (CRUD operations)
 
-	import { invoke } from '@tauri-apps/api/core'
+	import { invokeWithRetry } from '$lib/utils/retry'
 	import Card from '$lib/components/ui/Card.svelte'
 	import ActivityForm from '$lib/components/mood/ActivityForm.svelte'
 	import ActivityList from '$lib/components/mood/ActivityList.svelte'
-	import { formatUserError } from '$lib/utils/errors'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
 	import type { Activity } from '$lib/bindings'
 
 	let activities: Activity[] = $state([])
@@ -23,10 +23,12 @@
 		try {
 			loading = true
 			error = null
-			activities = await invoke('get_activities', { includeDeleted: false })
+			activities = await invokeWithRetry('get_activities', { includeDeleted: false })
 		} catch (e) {
-			error = formatUserError(e)
-			console.error('Failed to load activities:', e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to load activities'
+			}
 		} finally {
 			loading = false
 		}
@@ -53,7 +55,7 @@
 
 			if (editingActivity) {
 				// Update existing activity
-				await invoke('update_activity', {
+				await invokeWithRetry('update_activity', {
 					id: editingActivity.id,
 					request: {
 						name: name || null,
@@ -63,7 +65,7 @@
 				})
 			} else {
 				// Create new activity
-				await invoke('create_activity', {
+				await invokeWithRetry('create_activity', {
 					request: {
 						name,
 						color: color || null,
@@ -72,10 +74,14 @@
 				})
 			}
 
+			displaySuccess('Activity saved successfully!')
 			await loadActivities()
 			handleCancel()
 		} catch (e) {
-			error = formatUserError(e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to save activity'
+			}
 			throw e // Re-throw so form can handle it
 		}
 	}
@@ -83,11 +89,14 @@
 	async function handleDelete(id: number) {
 		try {
 			error = null
-			await invoke('delete_activity', { id })
+			await invokeWithRetry('delete_activity', { id })
+			displaySuccess('Activity deleted successfully!')
 			await loadActivities()
 		} catch (e) {
-			error = formatUserError(e)
-			console.error('Failed to delete activity:', e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to delete activity'
+			}
 		}
 	}
 </script>

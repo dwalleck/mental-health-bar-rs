@@ -1,6 +1,7 @@
 // T183: Retry logic for persistence errors using p-retry
 import { invoke } from '@tauri-apps/api/core'
 import pRetry, { AbortError } from 'p-retry'
+import { isCommandError } from '$lib/utils/types'
 
 /**
  * Configuration options for retry behavior
@@ -27,8 +28,12 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 	maxDelay: 2000,
 	backoffMultiplier: 2,
 	shouldRetry: (error: unknown) => {
-		// Retry only on persistence-related errors (transient failures)
-		// Type-safe error checking to avoid false positives from user data
+		// Check if error is a CommandError with retryable flag
+		if (isCommandError(error)) {
+			return error.retryable
+		}
+
+		// Fallback: Check Error objects for transient error patterns
 		if (error instanceof Error) {
 			const errorMessage = error.message.toLowerCase()
 			const errorName = error.name?.toLowerCase() || ''
@@ -45,6 +50,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 				errorMessage.includes('timed out')
 			)
 		}
+
 		// Don't retry non-Error objects
 		return false
 	},
@@ -110,11 +116,15 @@ export async function invokeWithRetry<T>(
 			maxTimeout: opts.maxDelay,
 			randomize: true, // Built-in jitter to prevent thundering herd
 			onFailedAttempt: (error) => {
-				console.warn(
-					`Tauri command '${command}' failed (attempt ${error.attemptNumber}/${opts.maxAttempts}). ` +
-						`Retrying... (${error.retriesLeft} retries left)`,
-					error
-				)
+				// Only log retry warnings in development to reduce production noise
+				// In production, final failures will still be logged via error handlers
+				if (import.meta.env.DEV) {
+					console.warn(
+						`Tauri command '${command}' failed (attempt ${error.attemptNumber}/${opts.maxAttempts}). ` +
+							`Retrying... (${error.retriesLeft} retries left)`,
+						error
+					)
+				}
 			},
 		}
 	)

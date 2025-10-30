@@ -32,7 +32,8 @@ Rust (latest stable) + TypeScript/JavaScript (ES2022): Follow standard conventio
 
 ### Error Handling
 - Use `thiserror` for feature-level error types (models, repository, domain logic)
-- Use `anyhow` for Tauri commands and application-level errors
+- Use `CommandError` struct for Tauri commands (provides structured error responses)
+- Implement `ToCommandError` trait for feature errors to convert to `CommandError`
 - Always provide context with `.context()` or `.with_context()`
 - Example:
   ```rust
@@ -42,16 +43,28 @@ Rust (latest stable) + TypeScript/JavaScript (ES2022): Follow standard conventio
       #[error("Assessment not found: {0}")]
       NotFound(String),
       #[error("Database error: {0}")]
-      Database(#[from] duckdb::Error),
+      Database(#[from] rusqlite::Error),
   }
 
-  // Command usage
+  // Implement ToCommandError trait for feature errors
+  impl ToCommandError for AssessmentError {
+      fn to_command_error(&self) -> CommandError {
+          match self {
+              AssessmentError::NotFound(id) => CommandError::permanent(
+                  format!("Assessment not found: {}", id),
+                  ErrorType::NotFound,
+              ),
+              AssessmentError::Database(e) => CommandError::from_rusqlite_error(e),
+          }
+      }
+  }
+
+  // Command usage with structured error responses
   #[tauri::command]
-  pub async fn submit_assessment(req: Request) -> Result<Response, String> {
+  pub async fn submit_assessment(req: Request) -> Result<Response, CommandError> {
       commands::submit(req)
           .await
-          .context("Failed to submit assessment")
-          .map_err(|e| e.to_string())
+          .map_err(|e| e.to_command_error())
   }
   ```
 

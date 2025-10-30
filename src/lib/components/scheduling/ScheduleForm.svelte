@@ -5,6 +5,9 @@
 		type CreateScheduleRequest,
 		type ScheduleFrequency,
 	} from '$lib/bindings'
+	import { invokeWithRetry } from '$lib/utils/retry'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 
 	let { onSuccess }: { onSuccess?: () => void } = $props()
 
@@ -16,8 +19,7 @@
 	let dayOfWeek = $state<number | null>(null)
 	let dayOfMonth = $state<number | null>(null)
 	let loading = $state(false)
-	let error = $state<string | null>(null)
-	let success = $state(false)
+	let validationError = $state<unknown>(undefined)
 
 	const daysOfWeek = [
 		{ value: 0, label: 'Sunday' },
@@ -37,6 +39,7 @@
 	})
 
 	async function loadAssessmentTypes() {
+		validationError = undefined
 		try {
 			const result = await commands.getAssessmentTypes()
 			if (result.status === 'ok') {
@@ -46,18 +49,23 @@
 				}
 			} else {
 				// getAssessmentTypes is a query command - still returns string error
-				error = result.error
+				const errorResult = displayError(result.error)
+				if (errorResult.type === 'inline') {
+					validationError = result.error
+				}
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load assessment types'
+			const errorResult = displayError(e)
+			if (errorResult.type === 'inline') {
+				validationError = e
+			}
 		}
 	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault()
 		loading = true
-		error = null
-		success = false
+		validationError = undefined
 
 		try {
 			const request: CreateScheduleRequest = {
@@ -68,23 +76,24 @@
 				day_of_month: frequency === 'monthly' ? dayOfMonth : null,
 			}
 
-			const result = await commands.createSchedule(request)
-			if (result.status === 'ok') {
-				success = true
-				// Reset form
-				frequency = 'daily'
-				timeOfDay = '09:00'
-				dayOfWeek = null
-				dayOfMonth = null
-				if (assessmentTypes.length > 0) {
-					selectedAssessmentTypeId = assessmentTypes[0].id
-				}
-				onSuccess?.()
-			} else {
-				error = result.error.message
+			await invokeWithRetry('create_schedule', {
+				request,
+			})
+			displaySuccess('Schedule created successfully!')
+			// Reset form
+			frequency = 'daily'
+			timeOfDay = '09:00'
+			dayOfWeek = null
+			dayOfMonth = null
+			if (assessmentTypes.length > 0) {
+				selectedAssessmentTypeId = assessmentTypes[0].id
 			}
+			onSuccess?.()
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to create schedule'
+			const errorResult = displayError(e)
+			if (errorResult.type === 'inline') {
+				validationError = e
+			}
 		} finally {
 			loading = false
 		}
@@ -97,17 +106,7 @@
 <form onsubmit={handleSubmit} class="space-y-6 bg-white p-6 rounded-lg shadow">
 	<h2 class="text-2xl font-bold text-gray-900">Create Schedule</h2>
 
-	{#if error}
-		<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-			{error}
-		</div>
-	{/if}
-
-	{#if success}
-		<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-			Schedule created successfully!
-		</div>
-	{/if}
+	<ErrorMessage error={validationError} />
 
 	<div>
 		<label for="assessment-type" class="block text-sm font-medium text-gray-700 mb-2">

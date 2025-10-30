@@ -3,9 +3,18 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AssessmentList from './AssessmentList.svelte'
 import type { AssessmentType } from '$lib/bindings'
 
-// Mock Tauri's invoke
-vi.mock('@tauri-apps/api/core', () => ({
-	invoke: vi.fn(),
+// Mock retry utility
+vi.mock('$lib/utils/retry', () => ({
+	invokeWithRetry: vi.fn(),
+}))
+
+// Mock error handling utilities
+vi.mock('$lib/utils/errors', () => ({
+	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displaySuccess: vi.fn(),
+	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	isValidationError: vi.fn(() => false),
+	isCommandError: vi.fn(() => false),
 }))
 
 // Mock SvelteKit's goto
@@ -13,18 +22,26 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
 }))
 
+import { invokeWithRetry } from '$lib/utils/retry'
+import { displayError } from '$lib/utils/errors'
+
 describe('AssessmentList', () => {
-	let invokeMock: ReturnType<typeof vi.fn>
+	let invokeWithRetryMock: ReturnType<typeof vi.fn>
 	let gotoMock: ReturnType<typeof vi.fn>
+	let displayErrorMock: ReturnType<typeof vi.fn>
 
 	beforeEach(async () => {
-		const { invoke } = await import('@tauri-apps/api/core')
 		const { goto } = await import('$app/navigation')
-		invokeMock = invoke as ReturnType<typeof vi.fn>
+		invokeWithRetryMock = vi.mocked(invokeWithRetry)
 		gotoMock = goto as ReturnType<typeof vi.fn>
+		displayErrorMock = vi.mocked(displayError)
 
-		invokeMock.mockClear()
+		invokeWithRetryMock.mockClear()
 		gotoMock.mockClear()
+		displayErrorMock.mockClear()
+
+		// Default mock for displayError returns inline type
+		displayErrorMock.mockReturnValue({ type: 'inline', message: 'Error' })
 	})
 
 	afterEach(() => {
@@ -55,7 +72,7 @@ describe('AssessmentList', () => {
 	describe('Loading State', () => {
 		it('should show loading message initially', () => {
 			// Mock invoke to never resolve
-			invokeMock.mockReturnValue(new Promise(() => {}))
+			invokeWithRetryMock.mockReturnValue(new Promise(() => {}))
 
 			const { container } = render(AssessmentList)
 
@@ -63,7 +80,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should not show assessment list while loading', () => {
-			invokeMock.mockReturnValue(new Promise(() => {}))
+			invokeWithRetryMock.mockReturnValue(new Promise(() => {}))
 
 			const { container } = render(AssessmentList)
 
@@ -73,12 +90,12 @@ describe('AssessmentList', () => {
 
 	describe('Success State', () => {
 		it('should fetch and display assessment types', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
 			await waitFor(() => {
-				expect(invokeMock).toHaveBeenCalledWith('get_assessment_types')
+				expect(invokeWithRetryMock).toHaveBeenCalledWith('get_assessment_types')
 			})
 
 			await waitFor(() => {
@@ -88,7 +105,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should display assessment descriptions', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -99,7 +116,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should display question counts', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -110,7 +127,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should display score ranges', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -121,7 +138,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should render Take Assessment buttons', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -138,7 +155,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should hide loading message after data loads', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -160,7 +177,7 @@ describe('AssessmentList', () => {
 				},
 			]
 
-			invokeMock.mockResolvedValue(assessmentWithoutDescription)
+			invokeWithRetryMock.mockResolvedValue(assessmentWithoutDescription)
 
 			const { container } = render(AssessmentList)
 
@@ -172,17 +189,20 @@ describe('AssessmentList', () => {
 
 	describe('Error State', () => {
 		it('should display error message when fetch fails', async () => {
-			invokeMock.mockRejectedValue(new Error('Network error'))
+			const mockError = new Error('Network error')
+			invokeWithRetryMock.mockRejectedValue(mockError)
+			displayErrorMock.mockReturnValue({ type: 'inline', message: 'Network error' })
 
 			const { container } = render(AssessmentList)
 
 			await waitFor(() => {
-				expect(container.textContent).toContain('Error: Error: Network error')
+				expect(displayErrorMock).toHaveBeenCalledWith(mockError)
+				expect(container.textContent).toContain('Network error')
 			})
 		})
 
 		it('should hide loading message on error', async () => {
-			invokeMock.mockRejectedValue(new Error('Network error'))
+			invokeWithRetryMock.mockRejectedValue(new Error('Network error'))
 
 			const { container } = render(AssessmentList)
 
@@ -192,7 +212,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should not show assessment grid on error', async () => {
-			invokeMock.mockRejectedValue(new Error('Network error'))
+			invokeWithRetryMock.mockRejectedValue(new Error('Network error'))
 
 			const { container } = render(AssessmentList)
 
@@ -204,7 +224,7 @@ describe('AssessmentList', () => {
 
 	describe('Navigation', () => {
 		it('should navigate to assessment page when button clicked', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -223,7 +243,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should navigate to correct assessment based on button clicked', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -244,7 +264,7 @@ describe('AssessmentList', () => {
 
 	describe('Header Content', () => {
 		it('should display page title', async () => {
-			invokeMock.mockResolvedValue([])
+			invokeWithRetryMock.mockResolvedValue([])
 
 			const { container } = render(AssessmentList)
 
@@ -255,7 +275,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should display page description', async () => {
-			invokeMock.mockResolvedValue([])
+			invokeWithRetryMock.mockResolvedValue([])
 
 			const { container } = render(AssessmentList)
 
@@ -267,7 +287,7 @@ describe('AssessmentList', () => {
 		})
 
 		it('should mention data privacy', async () => {
-			invokeMock.mockResolvedValue([])
+			invokeWithRetryMock.mockResolvedValue([])
 
 			const { container } = render(AssessmentList)
 
@@ -280,7 +300,7 @@ describe('AssessmentList', () => {
 
 	describe('Layout', () => {
 		it('should use grid layout for assessment cards', async () => {
-			invokeMock.mockResolvedValue(mockAssessmentTypes)
+			invokeWithRetryMock.mockResolvedValue(mockAssessmentTypes)
 
 			const { container } = render(AssessmentList)
 
@@ -294,7 +314,7 @@ describe('AssessmentList', () => {
 
 	describe('Empty State', () => {
 		it('should handle empty assessment list', async () => {
-			invokeMock.mockResolvedValue([])
+			invokeWithRetryMock.mockResolvedValue([])
 
 			const { container } = render(AssessmentList)
 

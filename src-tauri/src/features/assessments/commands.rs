@@ -2,7 +2,10 @@
 use super::models::*;
 use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
-use crate::{AppState, CommandError};
+use crate::{
+    errors::{ErrorType, ToCommandError},
+    AppState, CommandError,
+};
 use tauri::State;
 use tracing::error;
 use validator::Validate;
@@ -15,9 +18,9 @@ pub async fn submit_assessment(
     state: State<'_, AppState>,
 ) -> Result<AssessmentResponse, CommandError> {
     // Validate request
-    request
-        .validate()
-        .map_err(|e| CommandError::permanent(format!("Validation failed: {}", e), "validation"))?;
+    request.validate().map_err(|e| {
+        CommandError::permanent(format!("Validation failed: {}", e), ErrorType::Validation)
+    })?;
 
     let repo = AssessmentRepository::new(state.db.clone());
     submit_assessment_impl(&repo, &request).map_err(|e| {

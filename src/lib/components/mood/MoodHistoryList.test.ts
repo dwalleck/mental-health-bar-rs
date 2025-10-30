@@ -66,7 +66,6 @@ describe('MoodHistoryList', () => {
 				props: { checkins: [], error: 'Failed to load mood history' },
 			})
 
-			expect(container.textContent).toContain('Error loading mood history')
 			expect(container.textContent).toContain('Failed to load mood history')
 		})
 
@@ -75,9 +74,8 @@ describe('MoodHistoryList', () => {
 				props: { checkins: [], error: 'Failed to load' },
 			})
 
-			const errorDiv = container.querySelector('.bg-red-100')
-			expect(errorDiv).toBeInTheDocument()
-			expect(errorDiv).toHaveClass('border-red-300', 'text-red-700')
+			const errorMessage = container.querySelector('.error-message')
+			expect(errorMessage).toBeInTheDocument()
 		})
 
 		it('should not show checkins when error present', () => {

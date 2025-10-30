@@ -1,7 +1,7 @@
 // Scheduling feature models (User Story 6)
 // T156-T159: Models for assessment scheduling
 
-use crate::CommandError;
+use crate::errors::{CommandError, ErrorType, ToCommandError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -29,20 +29,19 @@ pub enum SchedulingError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
 
-    #[error("Lock poisoned - database in inconsistent state")]
+    #[error("Database lock issue. This request will be retried automatically.")]
     LockPoisoned,
 
     #[error("Date parsing error: {0}")]
     DateParseError(String),
 }
 
-impl SchedulingError {
-    /// Convert to structured CommandError for frontend consumption
-    pub fn to_command_error(&self) -> CommandError {
+impl ToCommandError for SchedulingError {
+    fn to_command_error(&self) -> CommandError {
         match self {
             // Validation errors - not retryable
             SchedulingError::InvalidTimeFormat(time) => {
-                CommandError::permanent(self.to_string(), "validation").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "time_of_day",
                         "value": time
@@ -50,7 +49,7 @@ impl SchedulingError {
                 )
             }
             SchedulingError::InvalidFrequency(freq) => {
-                CommandError::permanent(self.to_string(), "validation").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "frequency",
                         "value": freq
@@ -58,7 +57,7 @@ impl SchedulingError {
                 )
             }
             SchedulingError::InvalidDayOfWeek(day) => {
-                CommandError::permanent(self.to_string(), "validation").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "day_of_week",
                         "value": day
@@ -66,7 +65,7 @@ impl SchedulingError {
                 )
             }
             SchedulingError::InvalidDayOfMonth(day) => {
-                CommandError::permanent(self.to_string(), "validation").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "day_of_month",
                         "value": day
@@ -74,7 +73,7 @@ impl SchedulingError {
                 )
             }
             SchedulingError::DateParseError(msg) => {
-                CommandError::permanent(self.to_string(), "validation").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "details": msg
                     }),
@@ -82,32 +81,20 @@ impl SchedulingError {
             }
 
             // Not found errors - not retryable
-            SchedulingError::NotFound(id) => CommandError::permanent(self.to_string(), "not_found")
-                .with_details(serde_json::json!({
-                    "resource": "schedule",
-                    "id": id
-                })),
+            SchedulingError::NotFound(id) => {
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
+                    serde_json::json!({
+                        "resource": "schedule",
+                        "id": id
+                    }),
+                )
+            }
 
             // Database lock/transient errors - retryable
             SchedulingError::LockPoisoned => {
-                CommandError::retryable(self.to_string(), "lock_poisoned")
+                CommandError::retryable(self.to_string(), ErrorType::LockPoisoned)
             }
-            SchedulingError::Database(e) => {
-                // Classify SQLite errors as retryable or permanent
-                match e {
-                    rusqlite::Error::SqliteFailure(err, _) => {
-                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
-                        if err.code == rusqlite::ErrorCode::DatabaseBusy
-                            || err.code == rusqlite::ErrorCode::DatabaseLocked
-                        {
-                            CommandError::retryable(self.to_string(), "database_locked")
-                        } else {
-                            CommandError::permanent(self.to_string(), "database")
-                        }
-                    }
-                    _ => CommandError::permanent(self.to_string(), "database"),
-                }
-            }
+            SchedulingError::Database(e) => CommandError::from_rusqlite_error(e),
         }
     }
 }

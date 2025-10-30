@@ -24,9 +24,29 @@ function createToastStore() {
 		 * @param message - The message to display
 		 * @param type - The type of toast (success, error, info, warning)
 		 * @param duration - How long to show the toast in ms (default: 5000, 0 = manual dismiss only)
-		 * @returns The toast ID
+		 * @param deduplicate - If true, prevent duplicate messages of the same type (default: true)
+		 * @returns The toast ID (or existing toast ID if deduplicated)
 		 */
-		show: (message: string, type: ToastType = 'info', duration: number = 5000): string => {
+		show: (
+			message: string,
+			type: ToastType = 'info',
+			duration: number = 5000,
+			deduplicate: boolean = true
+		): string => {
+			// Check for existing toast with same message and type (deduplication)
+			let existingToast: Toast | undefined
+			update((state) => {
+				if (deduplicate) {
+					existingToast = state.toasts.find((t) => t.message === message && t.type === type)
+				}
+				return state
+			})
+
+			// If duplicate found, return existing ID without creating new toast
+			if (existingToast) {
+				return existingToast.id
+			}
+
 			const id = `toast-${Date.now()}-${Math.random()}`
 			const toast: Toast = { id, message, type, duration }
 
@@ -44,28 +64,40 @@ function createToastStore() {
 			return id
 		},
 		/**
-		 * Show a success toast
+		 * Show a success toast (with deduplication by default)
+		 * @param message - The message to display
+		 * @param duration - How long to show the toast in ms
+		 * @param deduplicate - If true, prevent duplicate messages (default: true)
 		 */
-		success: (message: string, duration?: number): string => {
-			return toastStore.show(message, 'success', duration)
+		success: (message: string, duration?: number, deduplicate?: boolean): string => {
+			return toastStore.show(message, 'success', duration, deduplicate)
 		},
 		/**
-		 * Show an error toast
+		 * Show an error toast (with deduplication by default)
+		 * @param message - The message to display
+		 * @param duration - How long to show the toast in ms
+		 * @param deduplicate - If true, prevent duplicate messages (default: true)
 		 */
-		error: (message: string, duration?: number): string => {
-			return toastStore.show(message, 'error', duration)
+		error: (message: string, duration?: number, deduplicate?: boolean): string => {
+			return toastStore.show(message, 'error', duration, deduplicate)
 		},
 		/**
-		 * Show an info toast
+		 * Show an info toast (with deduplication by default)
+		 * @param message - The message to display
+		 * @param duration - How long to show the toast in ms
+		 * @param deduplicate - If true, prevent duplicate messages (default: true)
 		 */
-		info: (message: string, duration?: number): string => {
-			return toastStore.show(message, 'info', duration)
+		info: (message: string, duration?: number, deduplicate?: boolean): string => {
+			return toastStore.show(message, 'info', duration, deduplicate)
 		},
 		/**
-		 * Show a warning toast
+		 * Show a warning toast (with deduplication by default)
+		 * @param message - The message to display
+		 * @param duration - How long to show the toast in ms
+		 * @param deduplicate - If true, prevent duplicate messages (default: true)
 		 */
-		warning: (message: string, duration?: number): string => {
-			return toastStore.show(message, 'warning', duration)
+		warning: (message: string, duration?: number, deduplicate?: boolean): string => {
+			return toastStore.show(message, 'warning', duration, deduplicate)
 		},
 		/**
 		 * Dismiss a specific toast by ID

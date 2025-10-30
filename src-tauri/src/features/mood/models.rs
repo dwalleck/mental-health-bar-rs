@@ -1,4 +1,7 @@
-use crate::{CommandError, MAX_NOTES_LENGTH};
+use crate::{
+    errors::{CommandError, ErrorType, ToCommandError},
+    MAX_NOTES_LENGTH,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
@@ -43,29 +46,32 @@ pub enum MoodError {
     TransactionFailure(String),
 }
 
-impl MoodError {
-    /// Convert to structured CommandError for frontend consumption
-    pub fn to_command_error(&self) -> CommandError {
+impl ToCommandError for MoodError {
+    fn to_command_error(&self) -> CommandError {
         match self {
             // Validation errors - not retryable
-            MoodError::InvalidRating(_) => CommandError::permanent(self.to_string(), "validation"),
-            MoodError::EmptyActivityName => CommandError::permanent(self.to_string(), "validation"),
+            MoodError::InvalidRating(_) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
+            }
+            MoodError::EmptyActivityName => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
+            }
             MoodError::ActivityNameTooLong(_) => {
-                CommandError::permanent(self.to_string(), "validation")
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::InvalidColorFormat(_) => {
-                CommandError::permanent(self.to_string(), "validation")
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::ActivityIconTooLong(_) => {
-                CommandError::permanent(self.to_string(), "validation")
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::NotesLengthExceeded(_, _) => {
-                CommandError::permanent(self.to_string(), "validation")
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
 
             // Not found errors - not retryable
             MoodError::ActivityNotFound(id) => {
-                CommandError::permanent(self.to_string(), "not_found").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
                     serde_json::json!({
                         "resource": "activity",
                         "id": id
@@ -73,7 +79,7 @@ impl MoodError {
                 )
             }
             MoodError::MoodCheckinNotFound(id) => {
-                CommandError::permanent(self.to_string(), "not_found").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
                     serde_json::json!({
                         "resource": "mood_checkin",
                         "id": id
@@ -83,7 +89,7 @@ impl MoodError {
 
             // Duplicate errors - not retryable
             MoodError::DuplicateActivityName(name) => {
-                CommandError::permanent(self.to_string(), "duplicate").with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Duplicate).with_details(
                     serde_json::json!({
                         "field": "name",
                         "value": name
@@ -92,26 +98,13 @@ impl MoodError {
             }
 
             // Database lock/transient errors - retryable
-            MoodError::LockPoisoned => CommandError::retryable(self.to_string(), "lock_poisoned"),
+            MoodError::LockPoisoned => {
+                CommandError::retryable(self.to_string(), ErrorType::LockPoisoned)
+            }
             MoodError::TransactionFailure(_) => {
-                CommandError::retryable(self.to_string(), "transaction_failure")
+                CommandError::retryable(self.to_string(), ErrorType::TransactionFailure)
             }
-            MoodError::Database(e) => {
-                // Classify SQLite errors as retryable or permanent
-                match e {
-                    rusqlite::Error::SqliteFailure(err, _) => {
-                        // SQLITE_BUSY (5), SQLITE_LOCKED (6) are retryable
-                        if err.code == rusqlite::ErrorCode::DatabaseBusy
-                            || err.code == rusqlite::ErrorCode::DatabaseLocked
-                        {
-                            CommandError::retryable(self.to_string(), "database_locked")
-                        } else {
-                            CommandError::permanent(self.to_string(), "database")
-                        }
-                    }
-                    _ => CommandError::permanent(self.to_string(), "database"),
-                }
-            }
+            MoodError::Database(e) => CommandError::from_rusqlite_error(e),
         }
     }
 }

@@ -2,6 +2,8 @@
 	// T112: ActivityForm component - Form for creating/editing activities with validation
 
 	import type { Activity } from '$lib/bindings'
+	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 
 	interface Props {
 		activity?: Activity | null
@@ -16,6 +18,7 @@
 	let icon = $state(activity?.icon || '')
 	let isSubmitting = $state(false)
 	let errors = $state<Record<string, string>>({})
+	let formError = $state<unknown>(undefined)
 
 	const isEditing = activity !== null
 
@@ -45,9 +48,14 @@
 
 		try {
 			isSubmitting = true
+			formError = undefined
 			await onSubmit(name.trim(), color, icon.trim())
+			displaySuccess(`Activity ${isEditing ? 'updated' : 'created'} successfully!`)
 		} catch (error) {
-			// Error handling is done by parent component
+			const result = displayError(error)
+			if (result.type === 'inline') {
+				formError = error
+			}
 			console.error('Form submission error:', error)
 		} finally {
 			isSubmitting = false
@@ -56,6 +64,8 @@
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-4">
+	<ErrorMessage error={formError} />
+
 	<div>
 		<label
 			for="activity-name"
