@@ -1,5 +1,5 @@
 use crate::{
-    errors::{error_types, CommandError, ToCommandError},
+    errors::{CommandError, ErrorType, ToCommandError},
     MAX_NOTES_LENGTH,
 };
 use serde::{Deserialize, Serialize};
@@ -51,27 +51,27 @@ impl ToCommandError for MoodError {
         match self {
             // Validation errors - not retryable
             MoodError::InvalidRating(_) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION)
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::EmptyActivityName => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION)
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::ActivityNameTooLong(_) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION)
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::InvalidColorFormat(_) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION)
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::ActivityIconTooLong(_) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION)
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             MoodError::NotesLengthExceeded(_, _) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION)
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
 
             // Not found errors - not retryable
             MoodError::ActivityNotFound(id) => {
-                CommandError::permanent(self.to_string(), error_types::NOT_FOUND).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
                     serde_json::json!({
                         "resource": "activity",
                         "id": id
@@ -79,7 +79,7 @@ impl ToCommandError for MoodError {
                 )
             }
             MoodError::MoodCheckinNotFound(id) => {
-                CommandError::permanent(self.to_string(), error_types::NOT_FOUND).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
                     serde_json::json!({
                         "resource": "mood_checkin",
                         "id": id
@@ -89,7 +89,7 @@ impl ToCommandError for MoodError {
 
             // Duplicate errors - not retryable
             MoodError::DuplicateActivityName(name) => {
-                CommandError::permanent(self.to_string(), error_types::DUPLICATE).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Duplicate).with_details(
                     serde_json::json!({
                         "field": "name",
                         "value": name
@@ -99,10 +99,10 @@ impl ToCommandError for MoodError {
 
             // Database lock/transient errors - retryable
             MoodError::LockPoisoned => {
-                CommandError::retryable(self.to_string(), error_types::LOCK_POISONED)
+                CommandError::retryable(self.to_string(), ErrorType::LockPoisoned)
             }
             MoodError::TransactionFailure(_) => {
-                CommandError::retryable(self.to_string(), error_types::TRANSACTION_FAILURE)
+                CommandError::retryable(self.to_string(), ErrorType::TransactionFailure)
             }
             MoodError::Database(e) => CommandError::from_rusqlite_error(e),
         }

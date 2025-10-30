@@ -5,7 +5,7 @@ use super::models::*;
 use super::repository::MoodRepository;
 use super::repository_trait::MoodRepositoryTrait;
 use crate::{
-    errors::{error_types, ToCommandError},
+    errors::{ErrorType, ToCommandError},
     AppState, CommandError,
 };
 use tauri::State;
@@ -21,7 +21,7 @@ pub async fn log_mood(
 ) -> Result<MoodCheckin, CommandError> {
     // Validate request
     request.validate().map_err(|e| {
-        CommandError::permanent(format!("Validation failed: {}", e), error_types::VALIDATION)
+        CommandError::permanent(format!("Validation failed: {}", e), ErrorType::Validation)
     })?;
 
     let repo = MoodRepository::new(state.db.clone());
@@ -58,7 +58,7 @@ pub async fn create_activity(
 ) -> Result<Activity, CommandError> {
     // Validate request
     request.validate().map_err(|e| {
-        CommandError::permanent(format!("Validation failed: {}", e), error_types::VALIDATION)
+        CommandError::permanent(format!("Validation failed: {}", e), ErrorType::Validation)
     })?;
 
     let repo = MoodRepository::new(state.db.clone());
@@ -96,7 +96,7 @@ pub async fn update_activity(
 ) -> Result<Activity, CommandError> {
     // Validate request
     request.validate().map_err(|e| {
-        CommandError::permanent(format!("Validation failed: {}", e), error_types::VALIDATION)
+        CommandError::permanent(format!("Validation failed: {}", e), ErrorType::Validation)
     })?;
 
     let repo = MoodRepository::new(state.db.clone());

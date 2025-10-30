@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::errors::{error_types, CommandError, ToCommandError};
+use crate::errors::{CommandError, ErrorType, ToCommandError};
 use crate::features::assessments::models::AssessmentType;
 use crate::features::mood::models::Activity;
 
@@ -35,7 +35,7 @@ impl ToCommandError for VisualizationError {
         match self {
             // Validation errors - not retryable
             VisualizationError::InvalidAssessmentType(code) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "assessment_type_code",
                         "value": code
@@ -43,10 +43,10 @@ impl ToCommandError for VisualizationError {
                 )
             }
             VisualizationError::NoData => {
-                CommandError::permanent(self.to_string(), error_types::NO_DATA)
+                CommandError::permanent(self.to_string(), ErrorType::NoData)
             }
             VisualizationError::StatisticsError(_) => {
-                CommandError::permanent(self.to_string(), error_types::CALCULATION_ERROR)
+                CommandError::permanent(self.to_string(), ErrorType::CalculationError)
             }
 
             // Database errors - use the shared helper
@@ -55,12 +55,12 @@ impl ToCommandError for VisualizationError {
             // Lock poisoned - retryable
             VisualizationError::LockPoisoned => CommandError::retryable(
                 "Database lock issue. This request will be retried automatically.".to_string(),
-                error_types::LOCK_POISONED,
+                ErrorType::LockPoisoned,
             ),
 
             // JSON errors - not retryable (internal error)
             VisualizationError::JsonError(_) => {
-                CommandError::permanent(self.to_string(), error_types::INTERNAL)
+                CommandError::permanent(self.to_string(), ErrorType::Internal)
             }
         }
     }

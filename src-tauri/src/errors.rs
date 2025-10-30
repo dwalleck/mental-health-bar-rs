@@ -124,31 +124,6 @@ pub struct CommandError {
     pub details: Option<serde_json::Value>,
 }
 
-/// Error type constants for consistency across the application
-///
-/// DEPRECATED: Use ErrorType enum directly instead of these string constants.
-/// These are kept temporarily for backwards compatibility during migration.
-#[deprecated(note = "Use ErrorType enum variants instead (e.g., ErrorType::Validation)")]
-pub mod error_types {
-    use super::ErrorType;
-
-    pub const VALIDATION: ErrorType = ErrorType::Validation;
-    pub const NOT_FOUND: ErrorType = ErrorType::NotFound;
-    pub const DATABASE_ERROR: ErrorType = ErrorType::DatabaseError;
-    pub const DATABASE_LOCKED: ErrorType = ErrorType::DatabaseLocked;
-    pub const LOCK_POISONED: ErrorType = ErrorType::LockPoisoned;
-    pub const CONSTRAINT_VIOLATION: ErrorType = ErrorType::ConstraintViolation;
-    pub const DUPLICATE: ErrorType = ErrorType::Duplicate;
-    pub const TRANSACTION_FAILURE: ErrorType = ErrorType::TransactionFailure;
-    pub const NO_DATA: ErrorType = ErrorType::NoData;
-    pub const CALCULATION_ERROR: ErrorType = ErrorType::CalculationError;
-    pub const TRANSIENT: ErrorType = ErrorType::Transient;
-    pub const INTERNAL: ErrorType = ErrorType::Internal;
-    pub const CONFIG: ErrorType = ErrorType::Config;
-    pub const IO_ERROR: ErrorType = ErrorType::IoError;
-    pub const SERIALIZATION: ErrorType = ErrorType::Serialization;
-}
-
 impl CommandError {
     /// Create a new retryable error (e.g., database locked, transient issues)
     pub fn retryable(message: impl Into<String>, error_type: ErrorType) -> Self {

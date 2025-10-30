@@ -1,7 +1,7 @@
 // Scheduling feature models (User Story 6)
 // T156-T159: Models for assessment scheduling
 
-use crate::errors::{error_types, CommandError, ToCommandError};
+use crate::errors::{CommandError, ErrorType, ToCommandError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -41,7 +41,7 @@ impl ToCommandError for SchedulingError {
         match self {
             // Validation errors - not retryable
             SchedulingError::InvalidTimeFormat(time) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "time_of_day",
                         "value": time
@@ -49,7 +49,7 @@ impl ToCommandError for SchedulingError {
                 )
             }
             SchedulingError::InvalidFrequency(freq) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "frequency",
                         "value": freq
@@ -57,7 +57,7 @@ impl ToCommandError for SchedulingError {
                 )
             }
             SchedulingError::InvalidDayOfWeek(day) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "day_of_week",
                         "value": day
@@ -65,7 +65,7 @@ impl ToCommandError for SchedulingError {
                 )
             }
             SchedulingError::InvalidDayOfMonth(day) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "day_of_month",
                         "value": day
@@ -73,7 +73,7 @@ impl ToCommandError for SchedulingError {
                 )
             }
             SchedulingError::DateParseError(msg) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "details": msg
                     }),
@@ -82,7 +82,7 @@ impl ToCommandError for SchedulingError {
 
             // Not found errors - not retryable
             SchedulingError::NotFound(id) => {
-                CommandError::permanent(self.to_string(), error_types::NOT_FOUND).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
                     serde_json::json!({
                         "resource": "schedule",
                         "id": id
@@ -92,7 +92,7 @@ impl ToCommandError for SchedulingError {
 
             // Database lock/transient errors - retryable
             SchedulingError::LockPoisoned => {
-                CommandError::retryable(self.to_string(), error_types::LOCK_POISONED)
+                CommandError::retryable(self.to_string(), ErrorType::LockPoisoned)
             }
             SchedulingError::Database(e) => CommandError::from_rusqlite_error(e),
         }

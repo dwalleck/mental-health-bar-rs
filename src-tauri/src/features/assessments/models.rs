@@ -1,4 +1,4 @@
-use crate::errors::{error_types, CommandError, ToCommandError};
+use crate::errors::{CommandError, ErrorType, ToCommandError};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -45,7 +45,7 @@ impl ToCommandError for AssessmentError {
         match self {
             // Validation errors - not retryable
             AssessmentError::InvalidType(code) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "assessment_type_code",
                         "value": code
@@ -53,7 +53,7 @@ impl ToCommandError for AssessmentError {
                 )
             }
             AssessmentError::IncompleteResponses { expected, actual } => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "responses",
                         "expected": expected,
@@ -62,7 +62,7 @@ impl ToCommandError for AssessmentError {
                 )
             }
             AssessmentError::InvalidResponse(msg) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "field": "responses",
                         "details": msg
@@ -70,7 +70,7 @@ impl ToCommandError for AssessmentError {
                 )
             }
             AssessmentError::Deserialization(msg) => {
-                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
                         "details": msg
                     }),
@@ -79,7 +79,7 @@ impl ToCommandError for AssessmentError {
 
             // Not found errors - not retryable
             AssessmentError::NotFound(id) => {
-                CommandError::permanent(self.to_string(), error_types::NOT_FOUND).with_details(
+                CommandError::permanent(self.to_string(), ErrorType::NotFound).with_details(
                     serde_json::json!({
                         "resource": "assessment",
                         "id": id
@@ -89,7 +89,7 @@ impl ToCommandError for AssessmentError {
 
             // Constraint errors - not retryable
             AssessmentError::HasChildren(msg) => {
-                CommandError::permanent(self.to_string(), error_types::CONSTRAINT_VIOLATION)
+                CommandError::permanent(self.to_string(), ErrorType::ConstraintViolation)
                     .with_details(serde_json::json!({
                         "details": msg
                     }))
@@ -97,7 +97,7 @@ impl ToCommandError for AssessmentError {
 
             // Database lock/transient errors - retryable
             AssessmentError::LockPoisoned => {
-                CommandError::retryable(self.to_string(), error_types::LOCK_POISONED)
+                CommandError::retryable(self.to_string(), ErrorType::LockPoisoned)
             }
             AssessmentError::Database(e) => CommandError::from_rusqlite_error(e),
         }

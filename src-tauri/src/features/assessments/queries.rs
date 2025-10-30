@@ -3,7 +3,7 @@ use super::content;
 use super::models::*;
 use super::repository::AssessmentRepository;
 use crate::{
-    errors::{error_types, ToCommandError},
+    errors::{ErrorType, ToCommandError},
     AppState, CommandError,
 };
 use tauri::State;
@@ -33,7 +33,7 @@ pub async fn get_assessment_questions(
         _ => {
             return Err(CommandError::permanent(
                 format!("Unknown assessment type: {}", assessment_type_code),
-                error_types::VALIDATION,
+                ErrorType::Validation,
             ))
         }
     };
