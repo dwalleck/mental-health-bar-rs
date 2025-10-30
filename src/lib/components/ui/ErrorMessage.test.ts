@@ -247,7 +247,7 @@ describe('ErrorMessage', () => {
 			})
 
 			expect(screen.getByText('Partial error')).toBeInTheDocument()
-			expect(screen.getByText('unknown')).toBeInTheDocument()
+			expect(screen.getByText('internal')).toBeInTheDocument()
 		})
 	})
 
