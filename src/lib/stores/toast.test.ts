@@ -287,4 +287,78 @@ describe('Toast Store', () => {
 			expect(infoId).toMatch(/^toast-\d+-/)
 		})
 	})
+
+	describe('Deduplication', () => {
+		it('should prevent duplicate error messages by default', () => {
+			const id1 = toastStore.error('Database connection failed')
+			const id2 = toastStore.error('Database connection failed')
+
+			// Should return same ID and not create duplicate
+			expect(id1).toBe(id2)
+
+			const state = get(toastStore)
+			expect(state.toasts).toHaveLength(1)
+			expect(state.toasts[0].message).toBe('Database connection failed')
+		})
+
+		it('should allow multiple toasts with same message but different types', () => {
+			toastStore.error('Operation failed')
+			toastStore.warning('Operation failed')
+
+			const state = get(toastStore)
+			expect(state.toasts).toHaveLength(2)
+			expect(state.toasts[0].type).toBe('error')
+			expect(state.toasts[1].type).toBe('warning')
+		})
+
+		it('should allow duplicates when deduplicate is false', () => {
+			const id1 = toastStore.error('Error message', undefined, false)
+			const id2 = toastStore.error('Error message', undefined, false)
+
+			// Should create different IDs
+			expect(id1).not.toBe(id2)
+
+			const state = get(toastStore)
+			expect(state.toasts).toHaveLength(2)
+		})
+
+		it('should deduplicate across all toast types', () => {
+			toastStore.success('Operation complete')
+			toastStore.success('Operation complete')
+
+			toastStore.error('Failed to load')
+			toastStore.error('Failed to load')
+
+			const state = get(toastStore)
+			expect(state.toasts).toHaveLength(2) // Only one of each
+		})
+
+		it('should allow new toast after previous one is dismissed', () => {
+			const id1 = toastStore.error('Error message')
+			const state1 = get(toastStore)
+			expect(state1.toasts).toHaveLength(1)
+
+			// Dismiss the first toast
+			toastStore.dismiss(id1)
+			const state2 = get(toastStore)
+			expect(state2.toasts).toHaveLength(0)
+
+			// Should allow same message after dismissal
+			const id2 = toastStore.error('Error message')
+			const state3 = get(toastStore)
+			expect(state3.toasts).toHaveLength(1)
+			expect(id1).not.toBe(id2) // Different IDs since previous was dismissed
+		})
+
+		it('should deduplicate rapid error bursts (spam prevention)', () => {
+			// Simulate rapid failure scenario (e.g., dashboard loading multiple widgets)
+			for (let i = 0; i < 10; i++) {
+				toastStore.error('Failed to load data')
+			}
+
+			const state = get(toastStore)
+			expect(state.toasts).toHaveLength(1) // Only one toast shown
+			expect(state.toasts[0].message).toBe('Failed to load data')
+		})
+	})
 })

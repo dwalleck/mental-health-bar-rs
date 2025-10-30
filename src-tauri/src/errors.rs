@@ -65,7 +65,13 @@ pub struct CommandError {
     /// - false: Client should not retry (e.g., validation error, not found)
     pub retryable: bool,
 
-    /// Optional additional context as JSON (for debugging or detailed error info)
+    /// Optional additional context as JSON (for server-side debugging only)
+    ///
+    /// IMPORTANT: This field is intentionally hidden from TypeScript (#[specta(skip)])
+    /// to avoid exposing internal implementation details (field names, values, etc.)
+    /// to the frontend. Use server-side logging to access this information.
+    ///
+    /// The `message` field already contains user-friendly error text.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(skip)]
     pub details: Option<serde_json::Value>,
