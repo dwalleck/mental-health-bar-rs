@@ -182,9 +182,10 @@ impl CommandError {
 
         match err {
             rusqlite::Error::SqliteFailure(err, _) => match err.code {
-                ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked => {
-                    Self::retryable("Database is temporarily busy", error_types::DATABASE_LOCKED)
-                }
+                ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked => Self::retryable(
+                    "Database is temporarily busy. This request will be retried automatically.",
+                    error_types::DATABASE_LOCKED,
+                ),
                 _ => Self::permanent(err.to_string(), error_types::DATABASE_ERROR),
             },
             _ => Self::permanent(err.to_string(), error_types::DATABASE_ERROR),

@@ -29,7 +29,7 @@ pub enum SchedulingError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
 
-    #[error("Lock poisoned - database in inconsistent state")]
+    #[error("Database lock issue. This request will be retried automatically.")]
     LockPoisoned,
 
     #[error("Date parsing error: {0}")]

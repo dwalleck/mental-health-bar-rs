@@ -116,11 +116,15 @@ export async function invokeWithRetry<T>(
 			maxTimeout: opts.maxDelay,
 			randomize: true, // Built-in jitter to prevent thundering herd
 			onFailedAttempt: (error) => {
-				console.warn(
-					`Tauri command '${command}' failed (attempt ${error.attemptNumber}/${opts.maxAttempts}). ` +
-						`Retrying... (${error.retriesLeft} retries left)`,
-					error
-				)
+				// Only log retry warnings in development to reduce production noise
+				// In production, final failures will still be logged via error handlers
+				if (import.meta.env.DEV) {
+					console.warn(
+						`Tauri command '${command}' failed (attempt ${error.attemptNumber}/${opts.maxAttempts}). ` +
+							`Retrying... (${error.retriesLeft} retries left)`,
+						error
+					)
+				}
 			},
 		}
 	)

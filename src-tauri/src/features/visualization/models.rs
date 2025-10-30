@@ -23,7 +23,7 @@ pub enum VisualizationError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
 
-    #[error("Lock poisoned - database in inconsistent state")]
+    #[error("Database lock issue. This request will be retried automatically.")]
     LockPoisoned,
 
     #[error("JSON serialization error: {0}")]
@@ -54,7 +54,7 @@ impl ToCommandError for VisualizationError {
 
             // Lock poisoned - retryable
             VisualizationError::LockPoisoned => CommandError::retryable(
-                "Database lock issue. Please try again.".to_string(),
+                "Database lock issue. This request will be retried automatically.".to_string(),
                 error_types::LOCK_POISONED,
             ),
 
