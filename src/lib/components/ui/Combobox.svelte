@@ -57,8 +57,11 @@
 	let isOpen = $state(false)
 	let searchQuery = $state('')
 	let highlightedIndex = $state(0)
-	let inputElement: HTMLInputElement
-	let listElement: HTMLUListElement
+	let inputElement = $state<HTMLInputElement>()
+	let listElement = $state<HTMLUListElement>()
+
+	// Generate unique ID for accessibility
+	const comboboxId = `combobox-${Math.random().toString(36).substr(2, 9)}`
 
 	// Filter options based on search
 	const filteredOptions = $derived(
@@ -72,8 +75,8 @@
 
 	// Get display value
 	const displayValue = $derived(() => {
-		if (multiple && Array.isArray(value)) {
-			const selected = options.filter((opt) => value.includes(opt.value))
+		if (multiple && Array.isArray(value) && value !== null) {
+			const selected = options.filter((opt) => (value as (string | number)[]).includes(opt.value))
 			return selected.length > 0
 				? `${selected.length} selected`
 				: placeholder
@@ -187,7 +190,7 @@
 
 <div class="combobox-container">
 	{#if label}
-		<label class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-2">
+		<label for={comboboxId} class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-2">
 			{label}
 			{#if required}
 				<span class="text-red-500">*</span>
@@ -202,6 +205,7 @@
 	<div class="relative">
 		<!-- Trigger button -->
 		<button
+			id={comboboxId}
 			type="button"
 			class="relative w-full cursor-default rounded-md bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6
 				{disabled ? 'opacity-50 cursor-not-allowed' : ''}
@@ -268,7 +272,7 @@
 							{emptyMessage}
 						</li>
 					{:else}
-						{#each filteredOptions as option, index}
+						{#each filteredOptions as option, index (option.value)}
 							<li
 								class="relative cursor-default select-none py-2 pl-3 pr-9
 									{highlightedIndex === index ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-100'}

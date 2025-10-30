@@ -295,7 +295,7 @@
 				<div class="form-col-span-full">
 					<label class="form-label mb-3">Mood Rating</label>
 					<div class="flex gap-2">
-						{#each [1, 2, 3, 4, 5] as rating}
+						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<button
 								type="button"
 								class="flex-1 py-3 px-4 rounded-lg border-2 transition-colors {moodRating === rating

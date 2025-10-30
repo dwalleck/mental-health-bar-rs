@@ -2,9 +2,11 @@
 	let {
 		title = undefined,
 		padding = 'medium',
+		children,
 	}: {
 		title?: string
 		padding?: 'small' | 'medium' | 'large'
+		children?: import('svelte').Snippet
 	} = $props()
 
 	const paddingClasses = {
@@ -19,5 +21,5 @@
 		<h2 class="text-xl font-semibold text-gray-800 mb-4">{title}</h2>
 	{/if}
 
-	<slot />
+	{@render children?.()}
 </div>

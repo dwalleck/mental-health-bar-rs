@@ -5,12 +5,14 @@
 		disabled = false,
 		fullWidth = false,
 		onclick,
+		children,
 	}: {
 		variant?: 'primary' | 'secondary' | 'danger'
 		type?: 'button' | 'submit' | 'reset'
 		disabled?: boolean
 		fullWidth?: boolean
 		onclick?: (event: MouseEvent) => void
+		children?: import('svelte').Snippet
 	} = $props()
 
 	const variantClasses = {
@@ -29,5 +31,5 @@
 		variant
 	]} {fullWidth ? 'w-full' : ''}"
 >
-	<slot />
+	{@render children?.()}
 </button>

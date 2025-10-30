@@ -20,7 +20,7 @@
 	}
 
 	// State management with Svelte 5 runes
-	let assessments: SvelteMap<string, AssessmentResponse | null> = new SvelteMap()
+	let assessments = $state<SvelteMap<string, AssessmentResponse | null>>(new SvelteMap())
 	let loading = $state(true)
 	let error = $state<string | null>(null)
 	let failedAssessments = $state<string[]>([])

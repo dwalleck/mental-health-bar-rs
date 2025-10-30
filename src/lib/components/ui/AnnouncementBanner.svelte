@@ -86,7 +86,7 @@
 						<button
 							type="button"
 							class="inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-blue-50 focus:ring-blue-600 dark:focus:ring-offset-blue-900"
-							on:click={() => dismissed = true}
+							onclick={() => dismissed = true}
 						>
 							<span class="sr-only">Dismiss</span>
 							<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

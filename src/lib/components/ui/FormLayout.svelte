@@ -18,7 +18,11 @@
 		description?: string
 	}
 
-	interface Props {
+	interface SectionSlots {
+		[key: `section-${number}`]: import('svelte').Snippet | undefined
+	}
+
+	interface Props extends SectionSlots {
 		title?: string
 		description?: string
 		sections?: FormSection[]
@@ -29,8 +33,7 @@
 		showCancel?: boolean
 		onSubmit?: (e: Event) => void
 		onCancel?: () => void
-		children?: any
-		[key: `section-${number}`]: any
+		children?: import('svelte').Snippet
 	}
 
 	let {
@@ -49,7 +52,7 @@
 	}: Props = $props()
 </script>
 
-<form on:submit|preventDefault={onSubmit} class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
+<form onsubmit={(e) => { e.preventDefault(); onSubmit(e); }} class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
 	<!-- Form header -->
 	{#if title || description}
 		<div class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
@@ -73,7 +76,7 @@
 
 	<!-- Form sections -->
 	<div class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
-		{#each sections as section, i}
+		{#each sections as section, i (i)}
 			<div class="pt-8 first:pt-0">
 				{#if section.title || section.description}
 					<div>
@@ -91,7 +94,8 @@
 				{/if}
 
 				<div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-					{@render slots[`section-${i}`]?.()}
+					{@const sectionSlot = slots[`section-${i}` as keyof typeof slots] as import('svelte').Snippet | undefined}
+					{@render sectionSlot?.()}
 				</div>
 			</div>
 		{/each}

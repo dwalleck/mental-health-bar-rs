@@ -32,8 +32,8 @@
 			loading?: boolean
 		}>
 		onclose?: () => void
-		children?: any
-		icon?: any
+		children?: import('svelte').Snippet
+		icon?: import('svelte').Snippet
 	}
 
 	let {
@@ -80,8 +80,8 @@
 	}
 
 	// Focus trap
-	let modalElement: HTMLDivElement
-	let previousActiveElement: Element | null = null
+	let modalElement = $state<HTMLDivElement>()
+	let previousActiveElement = $state<Element | null>(null)
 
 	$effect(() => {
 		if (open && modalElement) {
@@ -224,7 +224,7 @@
 				<!-- Actions -->
 				{#if actions.length > 0}
 					<div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-						{#each actions as action}
+						{#each actions as action (action.label)}
 								<button
 									type="button"
 									class="{getButtonClass(action.variant)} disabled:opacity-50 disabled:cursor-not-allowed"

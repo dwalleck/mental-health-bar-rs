@@ -1,9 +1,7 @@
 <script lang="ts">
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
-	import { displaySuccess, displayInfo, displayWarning, displayError } from '$lib/utils/errors'
-
-	let showModal = $state(false)
+	import { displaySuccess, displayInfo } from '$lib/utils/errors'
 </script>
 
 <div class="space-y-8">

@@ -130,13 +130,13 @@
 										type="checkbox"
 										class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
 										bind:checked={selectAll}
-										on:change={toggleSelectAll}
+										onchange={toggleSelectAll}
 										aria-label="Select all"
 									/>
 								</th>
 							{/if}
 
-							{#each columns as column}
+							{#each columns as column (column.key)}
 								<th
 									scope="col"
 									class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100
@@ -144,7 +144,7 @@
 										{column.align === 'right' ? 'text-right' : ''}
 										{column.sortable ? 'cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700' : ''}"
 									style="width: {column.width || 'auto'}"
-									on:click={() => handleSort(column)}
+									onclick={() => handleSort(column)}
 								>
 									<div class="flex items-center gap-2">
 										<span>{column.label}</span>
@@ -211,7 +211,7 @@
 								</td>
 							</tr>
 						{:else}
-							{#each paginatedData as item, index}
+							{#each paginatedData as item, index (item[keyField])}
 								<tr class="{striped && index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/50' : ''}">
 									{#if selectable}
 										<td class="relative px-7 sm:w-12 sm:px-6">
@@ -219,13 +219,13 @@
 												type="checkbox"
 												class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
 												checked={isSelected(item)}
-												on:change={() => toggleSelect(item)}
+												onchange={() => toggleSelect(item)}
 												aria-label="Select row"
 											/>
 										</td>
 									{/if}
 
-									{#each columns as column}
+									{#each columns as column (column.key)}
 										<td
 											class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 dark:text-gray-100
 												{column.align === 'center' ? 'text-center' : ''}
@@ -242,14 +242,14 @@
 									{#if actions.length > 0}
 										<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
 											<div class="flex justify-end gap-2">
-												{#each actions as action}
+												{#each actions as action (action.label)}
 													{#if !action.show || action.show(item)}
 														<button
 															type="button"
 															class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300
 																{action.variant === 'danger' ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300' : ''}
 																{action.variant === 'secondary' ? 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300' : ''}"
-															on:click={() => action.onClick(item)}
+															onclick={() => action.onClick(item)}
 														>
 															{action.label}
 														</button>
@@ -285,14 +285,14 @@
 						<div class="flex flex-1 justify-between sm:justify-end">
 							<button
 								class="relative inline-flex items-center rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-								on:click={() => goToPage(currentPage - 1)}
+								onclick={() => goToPage(currentPage - 1)}
 								disabled={currentPage === 1}
 							>
 								Previous
 							</button>
 							<button
 								class="relative ml-3 inline-flex items-center rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-								on:click={() => goToPage(currentPage + 1)}
+								onclick={() => goToPage(currentPage + 1)}
 								disabled={currentPage === totalPages}
 							>
 								Next
