@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 
 use super::models::*;
 use super::repository::VisualizationRepository;

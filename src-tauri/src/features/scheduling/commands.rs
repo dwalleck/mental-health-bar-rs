@@ -4,7 +4,7 @@
 use tauri::State;
 use tracing::error;
 
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 
 use super::models::{AssessmentSchedule, CreateScheduleRequest, UpdateScheduleRequest};
 use super::repository::SchedulingRepository;

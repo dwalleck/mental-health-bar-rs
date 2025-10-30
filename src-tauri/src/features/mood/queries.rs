@@ -3,7 +3,7 @@
 
 use super::models::*;
 use super::repository::MoodRepository;
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 use tauri::State;
 use tracing::error;
 
@@ -28,14 +28,16 @@ pub async fn get_mood_history(
 // T082: get_mood_checkin command
 #[tauri::command]
 #[specta::specta]
-pub async fn get_mood_checkin(id: i32, state: State<'_, AppState>) -> Result<MoodCheckin, CommandError> {
+pub async fn get_mood_checkin(
+    id: i32,
+    state: State<'_, AppState>,
+) -> Result<MoodCheckin, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
-    repo.get_mood_checkin(id)
-        .map_err(|e| {
-            error!("get_mood_checkin error: {}", e);
-            e.to_command_error()
-        })
+    repo.get_mood_checkin(id).map_err(|e| {
+        error!("get_mood_checkin error: {}", e);
+        e.to_command_error()
+    })
 }
 
 // T083: get_mood_stats command
@@ -48,11 +50,10 @@ pub async fn get_mood_stats(
 ) -> Result<MoodStats, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
-    repo.get_mood_stats(from_date, to_date)
-        .map_err(|e| {
-            error!("get_mood_stats error: {}", e);
-            e.to_command_error()
-        })
+    repo.get_mood_stats(from_date, to_date).map_err(|e| {
+        error!("get_mood_stats error: {}", e);
+        e.to_command_error()
+    })
 }
 
 // T109: get_activities command
@@ -64,9 +65,8 @@ pub async fn get_activities(
 ) -> Result<Vec<Activity>, CommandError> {
     let repo = MoodRepository::new(state.db.clone());
 
-    repo.get_activities(include_deleted)
-        .map_err(|e| {
-            error!("get_activities error: {}", e);
-            e.to_command_error()
-        })
+    repo.get_activities(include_deleted).map_err(|e| {
+        error!("get_activities error: {}", e);
+        e.to_command_error()
+    })
 }

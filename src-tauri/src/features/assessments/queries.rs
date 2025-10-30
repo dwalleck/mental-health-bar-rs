@@ -2,7 +2,7 @@
 use super::content;
 use super::models::*;
 use super::repository::AssessmentRepository;
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 use tauri::State;
 
 /// Get all available assessment types

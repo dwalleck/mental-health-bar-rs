@@ -4,7 +4,7 @@
 use super::models::*;
 use super::repository::MoodRepository;
 use super::repository_trait::MoodRepositoryTrait;
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 use tauri::State;
 use tracing::error;
 use validator::Validate;

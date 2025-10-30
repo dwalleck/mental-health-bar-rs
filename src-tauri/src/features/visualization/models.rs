@@ -4,9 +4,9 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::errors::{error_types, CommandError, ToCommandError};
 use crate::features::assessments::models::AssessmentType;
 use crate::features::mood::models::Activity;
-use crate::CommandError;
 
 /// Visualization-specific errors
 #[derive(Error, Debug)]
@@ -30,13 +30,12 @@ pub enum VisualizationError {
     JsonError(#[from] serde_json::Error),
 }
 
-impl VisualizationError {
-    /// Convert to structured CommandError for frontend consumption
-    pub fn to_command_error(&self) -> CommandError {
+impl ToCommandError for VisualizationError {
+    fn to_command_error(&self) -> CommandError {
         match self {
             // Validation errors - not retryable
             VisualizationError::InvalidAssessmentType(code) => {
-                CommandError::permanent(self.to_string(), "validation").with_details(
+                CommandError::permanent(self.to_string(), error_types::VALIDATION).with_details(
                     serde_json::json!({
                         "field": "assessment_type_code",
                         "value": code
@@ -44,40 +43,24 @@ impl VisualizationError {
                 )
             }
             VisualizationError::NoData => {
-                CommandError::permanent(self.to_string(), "no_data")
+                CommandError::permanent(self.to_string(), error_types::NO_DATA)
             }
             VisualizationError::StatisticsError(_) => {
-                CommandError::permanent(self.to_string(), "calculation_error")
+                CommandError::permanent(self.to_string(), error_types::CALCULATION_ERROR)
             }
 
-            // Database errors - retryable based on underlying error
-            VisualizationError::Database(db_err) => {
-                use rusqlite::ErrorCode;
-                match db_err {
-                    rusqlite::Error::SqliteFailure(err, _) => match err.code {
-                        ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy => {
-                            CommandError::retryable(
-                                "Database is temporarily busy. Please try again.".to_string(),
-                                "database_locked",
-                            )
-                        }
-                        _ => CommandError::permanent(self.to_string(), "database_error"),
-                    },
-                    _ => CommandError::permanent(self.to_string(), "database_error"),
-                }
-            }
+            // Database errors - use the shared helper
+            VisualizationError::Database(e) => CommandError::from_rusqlite_error(e),
 
             // Lock poisoned - retryable
-            VisualizationError::LockPoisoned => {
-                CommandError::retryable(
-                    "Database lock issue. Please try again.".to_string(),
-                    "lock_poisoned",
-                )
-            }
+            VisualizationError::LockPoisoned => CommandError::retryable(
+                "Database lock issue. Please try again.".to_string(),
+                error_types::LOCK_POISONED,
+            ),
 
             // JSON errors - not retryable (internal error)
             VisualizationError::JsonError(_) => {
-                CommandError::permanent(self.to_string(), "internal_error")
+                CommandError::permanent(self.to_string(), error_types::INTERNAL)
             }
         }
     }

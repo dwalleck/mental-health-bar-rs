@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 
 use super::models::AssessmentSchedule;
 use super::repository::SchedulingRepository;
@@ -27,6 +27,5 @@ pub fn get_schedules(
 pub fn get_schedule(id: i32, state: State<AppState>) -> Result<AssessmentSchedule, CommandError> {
     let repo = SchedulingRepository::new(state.db.clone());
 
-    repo.get_schedule(id)
-        .map_err(|e| e.to_command_error())
+    repo.get_schedule(id).map_err(|e| e.to_command_error())
 }

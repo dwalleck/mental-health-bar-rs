@@ -79,6 +79,10 @@ pub mod error_types {
     pub const DATABASE_LOCKED: &str = "database_locked";
     pub const LOCK_POISONED: &str = "lock_poisoned";
     pub const CONSTRAINT_VIOLATION: &str = "constraint_violation";
+    pub const DUPLICATE: &str = "duplicate";
+    pub const TRANSACTION_FAILURE: &str = "transaction_failure";
+    pub const NO_DATA: &str = "no_data";
+    pub const CALCULATION_ERROR: &str = "calculation_error";
     pub const TRANSIENT: &str = "transient";
     pub const INTERNAL: &str = "internal";
     pub const CONFIG: &str = "config";

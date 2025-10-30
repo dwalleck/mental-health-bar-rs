@@ -2,7 +2,7 @@
 use super::models::*;
 use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
-use crate::{AppState, CommandError};
+use crate::{errors::ToCommandError, AppState, CommandError};
 use tauri::State;
 use tracing::error;
 use validator::Validate;
