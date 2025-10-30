@@ -3,7 +3,10 @@
 
 use tauri::State;
 
-use crate::{errors::ToCommandError, AppState, CommandError};
+use crate::{
+    errors::{error_types, ToCommandError},
+    AppState, CommandError,
+};
 
 use super::models::*;
 use super::repository::VisualizationRepository;
@@ -27,7 +30,7 @@ pub fn get_assessment_chart_data(
             if from_date.is_none() || to_date.is_none() {
                 return Err(CommandError::permanent(
                     "from_date and to_date required for custom time range".to_string(),
-                    "validation",
+                    error_types::VALIDATION,
                 ));
             }
             (from_date, to_date)
@@ -65,7 +68,7 @@ pub fn get_mood_chart_data(
             if from_date.is_none() || to_date.is_none() {
                 return Err(CommandError::permanent(
                     "from_date and to_date required for custom time range".to_string(),
-                    "validation",
+                    error_types::VALIDATION,
                 ));
             }
             (from_date, to_date)
