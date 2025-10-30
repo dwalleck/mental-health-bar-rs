@@ -6,6 +6,16 @@
 	import Combobox from '$lib/components/ui/Combobox.svelte'
 	import { displaySuccess, displayInfo, displayWarning } from '$lib/utils/errors'
 
+	// Type definitions
+	interface AssessmentTableItem {
+		id: number
+		date: string
+		type: string
+		score: number
+		severity: string
+		status: string
+	}
+
 	// Navigation items for sidebar
 	const navItems = [
 		{ name: 'Dashboard', href: '/', icon: 'home' },
@@ -68,12 +78,12 @@
 			label: 'Score',
 			sortable: true,
 			align: 'center' as const,
-			render: (item: any) => `<span class="font-semibold">${item.score}</span>`,
+			render: (item: AssessmentTableItem) => `<span class="font-semibold">${item.score}</span>`,
 		},
 		{
 			key: 'severity',
 			label: 'Severity',
-			render: (item: any) => {
+			render: (item: AssessmentTableItem) => {
 				const colors: Record<string, string> = {
 					Mild: 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900',
 					Moderate: 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900',
@@ -87,7 +97,7 @@
 		{
 			key: 'status',
 			label: 'Status',
-			render: (item: any) =>
+			render: (item: AssessmentTableItem) =>
 				`<span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-200">${item.status}</span>`,
 		},
 	]
@@ -95,12 +105,12 @@
 	const tableActions = [
 		{
 			label: 'View',
-			onClick: (item: any) => displayInfo(`Viewing assessment ${item.id}`),
+			onClick: (item: AssessmentTableItem) => displayInfo(`Viewing assessment ${item.id}`),
 		},
 		{
 			label: 'Delete',
 			variant: 'danger' as const,
-			onClick: (item: any) => displayWarning(`Delete assessment ${item.id}?`),
+			onClick: (item: AssessmentTableItem) => displayWarning(`Delete assessment ${item.id}?`),
 		},
 	]
 
@@ -149,7 +159,7 @@
 	]
 
 	// Form submission
-	async function handleFormSubmit(e: Event) {
+	async function handleFormSubmit() {
 		formLoading = true
 		// Simulate API call
 		await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -161,7 +171,9 @@
 <SidebarLayout {navItems} userProfile={{ name: 'John Doe', email: 'john@example.com' }}>
 	<div class="space-y-8">
 		<div>
-			<h1 class="text-3xl font-bold text-gray-900 dark:text-white">Tailwind UI Components Showcase</h1>
+			<h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+				Tailwind UI Components Showcase
+			</h1>
 			<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
 				Modern UI components integrated with your mental health tracking app
 			</p>
@@ -186,43 +198,47 @@
 				onSubmit={handleFormSubmit}
 				loading={formLoading}
 			>
-				<div slot="section-0" class="form-col-span-4">
-					<Combobox
-						options={assessmentOptions}
-						bind:value={selectedAssessment}
-						label="Assessment Type"
-						description="Select the assessment you want to schedule"
-						placeholder="Choose an assessment"
-						required
-					/>
-				</div>
+				{#snippet section_0()}
+					<div class="form-col-span-4">
+						<Combobox
+							options={assessmentOptions}
+							bind:value={selectedAssessment}
+							label="Assessment Type"
+							description="Select the assessment you want to schedule"
+							placeholder="Choose an assessment"
+							required
+						/>
+					</div>
 
-				<div slot="section-0" class="form-col-span-2">
-					<label for="frequency" class="form-label">Frequency</label>
-					<select id="frequency" class="form-select">
-						<option>Daily</option>
-						<option>Weekly</option>
-						<option>Bi-weekly</option>
-						<option>Monthly</option>
-					</select>
-				</div>
+					<div class="form-col-span-2">
+						<label for="frequency" class="form-label">Frequency</label>
+						<select id="frequency" class="form-select">
+							<option>Daily</option>
+							<option>Weekly</option>
+							<option>Bi-weekly</option>
+							<option>Monthly</option>
+						</select>
+					</div>
 
-				<div slot="section-0" class="form-col-span-2">
-					<label for="time" class="form-label">Time</label>
-					<input type="time" id="time" value="09:00" class="form-input" />
-				</div>
+					<div class="form-col-span-2">
+						<label for="time" class="form-label">Time</label>
+						<input type="time" id="time" value="09:00" class="form-input" />
+					</div>
+				{/snippet}
 
-				<div slot="section-1" class="form-col-span-full">
-					<label for="notes" class="form-label">Notes</label>
-					<textarea
-						id="notes"
-						bind:value={notes}
-						rows="4"
-						class="form-textarea"
-						placeholder="Add any additional notes or reminders..."
-					></textarea>
-					<p class="form-description">These notes will be included with your reminder</p>
-				</div>
+				{#snippet section_1()}
+					<div class="form-col-span-full">
+						<label for="notes" class="form-label">Notes</label>
+						<textarea
+							id="notes"
+							bind:value={notes}
+							rows="4"
+							class="form-textarea"
+							placeholder="Add any additional notes or reminders..."
+						></textarea>
+						<p class="form-description">These notes will be included with your reminder</p>
+					</div>
+				{/snippet}
 			</FormLayout>
 		</div>
 
@@ -304,10 +320,26 @@
 								onclick={() => (moodRating = rating)}
 							>
 								<div class="text-2xl mb-1">
-									{rating === 1 ? '😔' : rating === 2 ? '😟' : rating === 3 ? '😐' : rating === 4 ? '🙂' : '😄'}
+									{rating === 1
+										? '😔'
+										: rating === 2
+											? '😟'
+											: rating === 3
+												? '😐'
+												: rating === 4
+													? '🙂'
+													: '😄'}
 								</div>
 								<div class="text-xs text-gray-600 dark:text-gray-400">
-									{rating === 1 ? 'Very Bad' : rating === 2 ? 'Bad' : rating === 3 ? 'Neutral' : rating === 4 ? 'Good' : 'Very Good'}
+									{rating === 1
+										? 'Very Bad'
+										: rating === 2
+											? 'Bad'
+											: rating === 3
+												? 'Neutral'
+												: rating === 4
+													? 'Good'
+													: 'Very Good'}
 								</div>
 							</button>
 						{/each}
@@ -339,7 +371,9 @@
 		{
 			label: 'Cancel',
 			variant: 'secondary',
-			onClick: () => (showModal = false),
+			onClick: () => {
+				showModal = false
+			},
 		},
 		{
 			label: 'Schedule',
@@ -376,7 +410,9 @@
 		{
 			label: 'Cancel',
 			variant: 'secondary',
-			onClick: () => (showDeleteModal = false),
+			onClick: () => {
+				showDeleteModal = false
+			},
 		},
 		{
 			label: 'Delete',
@@ -388,13 +424,21 @@
 		},
 	]}
 >
-	<div slot="icon">
-		<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-			/>
-		</svg>
-	</div>
+	{#snippet icon()}
+		<div>
+			<svg
+				class="h-6 w-6 text-red-600"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="1.5"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+				/>
+			</svg>
+		</div>
+	{/snippet}
 </Modal>

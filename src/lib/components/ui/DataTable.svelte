@@ -127,7 +127,7 @@
 									<input
 										type="checkbox"
 										class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
-										bind:checked={selectAll}
+										checked={selectAll}
 										onchange={toggleSelectAll}
 										aria-label="Select all"
 									/>

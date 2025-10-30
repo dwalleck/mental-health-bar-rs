@@ -19,7 +19,7 @@
 	}
 
 	interface SectionSlots {
-		[key: `section-${number}`]: import('svelte').Snippet | undefined
+		[key: `section_${number}`]: import('svelte').Snippet | undefined
 	}
 
 	interface Props extends SectionSlots {
@@ -52,7 +52,13 @@
 	}: Props = $props()
 </script>
 
-<form onsubmit={(e) => { e.preventDefault(); onSubmit(e); }} class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
+<form
+	onsubmit={(e) => {
+		e.preventDefault()
+		onSubmit(e)
+	}}
+	class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700"
+>
 	<!-- Form header -->
 	{#if title || description}
 		<div class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
@@ -94,8 +100,12 @@
 				{/if}
 
 				<div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-					{@const sectionSlot = slots[`section-${i}` as keyof typeof slots] as import('svelte').Snippet | undefined}
-					{@render sectionSlot?.()}
+					{#if true}
+						{@const sectionSlot = slots[`section_${i}` as keyof typeof slots] as
+							| import('svelte').Snippet
+							| undefined}
+						{@render sectionSlot?.()}
+					{/if}
 				</div>
 			</div>
 		{/each}

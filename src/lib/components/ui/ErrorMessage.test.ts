@@ -233,11 +233,11 @@ describe('ErrorMessage', () => {
 		})
 
 		it('handles CommandError with missing optional fields', () => {
-			const partialError = {
+			const partialError: CommandError = {
 				message: 'Partial error',
-				error_type: 'unknown',
+				error_type: 'internal',
 				retryable: true,
-			} as CommandError
+			}
 
 			render(ErrorMessage, {
 				props: {
