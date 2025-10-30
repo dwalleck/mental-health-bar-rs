@@ -11,7 +11,8 @@
 
 <script lang="ts">
 	import { dev } from '$app/environment'
-	import { isCommandError, formatUserError, isValidationError } from '$lib/utils/errors'
+	import { formatUserError, isValidationError } from '$lib/utils/errors'
+	import { isCommandError } from '$lib/utils/types'
 	import type { CommandError } from '$lib/bindings'
 
 	// Props - accept either an error object or a message string
@@ -50,7 +51,12 @@
 				stroke-width="1.5"
 				stroke-linejoin="round"
 			/>
-			<path d="M8 6v3.5M8 11.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+			<path
+				d="M8 6v3.5M8 11.5v.5"
+				stroke="currentColor"
+				stroke-width="1.5"
+				stroke-linecap="round"
+			/>
 		</svg>
 
 		<div class="content">

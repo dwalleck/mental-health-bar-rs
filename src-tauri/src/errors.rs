@@ -29,6 +29,12 @@ pub enum AppError {
 /// Result type alias for application errors
 pub type AppResult<T> = Result<T, AppError>;
 
+/// Trait for converting feature-specific errors to CommandError
+/// This provides a consistent pattern across all features
+pub trait ToCommandError {
+    fn to_command_error(&self) -> CommandError;
+}
+
 /// Convert AppError to String for Tauri commands
 impl From<AppError> for String {
     fn from(error: AppError) -> String {
@@ -65,6 +71,21 @@ pub struct CommandError {
     pub details: Option<serde_json::Value>,
 }
 
+/// Error type constants for consistency across the application
+pub mod error_types {
+    pub const VALIDATION: &str = "validation";
+    pub const NOT_FOUND: &str = "not_found";
+    pub const DATABASE_ERROR: &str = "database_error";
+    pub const DATABASE_LOCKED: &str = "database_locked";
+    pub const LOCK_POISONED: &str = "lock_poisoned";
+    pub const CONSTRAINT_VIOLATION: &str = "constraint_violation";
+    pub const TRANSIENT: &str = "transient";
+    pub const INTERNAL: &str = "internal";
+    pub const CONFIG: &str = "config";
+    pub const IO_ERROR: &str = "io_error";
+    pub const SERIALIZATION: &str = "serialization";
+}
+
 impl CommandError {
     /// Create a new retryable error (e.g., database locked, transient issues)
     pub fn retryable(message: impl Into<String>, error_type: impl Into<String>) -> Self {
@@ -90,5 +111,20 @@ impl CommandError {
     pub fn with_details(mut self, details: serde_json::Value) -> Self {
         self.details = Some(details);
         self
+    }
+
+    /// Helper to convert rusqlite errors to CommandError with proper classification
+    pub fn from_rusqlite_error(err: &rusqlite::Error) -> Self {
+        use rusqlite::ErrorCode;
+
+        match err {
+            rusqlite::Error::SqliteFailure(err, _) => match err.code {
+                ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked => {
+                    Self::retryable("Database is temporarily busy", error_types::DATABASE_LOCKED)
+                }
+                _ => Self::permanent(err.to_string(), error_types::DATABASE_ERROR),
+            },
+            _ => Self::permanent(err.to_string(), error_types::DATABASE_ERROR),
+        }
     }
 }

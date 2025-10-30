@@ -2,34 +2,8 @@
  * Centralized error handling utilities for user-facing error messages
  */
 
-import type { CommandError } from '$lib/bindings'
 import { toastStore } from '$lib/stores/toast'
-
-/**
- * Type guard to check if an error is a CommandError
- *
- * @param error - The error to check
- * @returns True if the error is a CommandError
- *
- * @example
- * ```typescript
- * if (isCommandError(error)) {
- *   console.log(error.error_type) // Type-safe access
- * }
- * ```
- */
-export function isCommandError(error: unknown): error is CommandError {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'message' in error &&
-		'error_type' in error &&
-		'retryable' in error &&
-		typeof (error as CommandError).message === 'string' &&
-		typeof (error as CommandError).error_type === 'string' &&
-		typeof (error as CommandError).retryable === 'boolean'
-	)
-}
+import { isCommandError, ERROR_TYPES } from '$lib/utils/types'
 
 /**
  * Get the error type from an unknown error
@@ -106,7 +80,7 @@ export function formatUserError(error: unknown): string {
 export function isValidationError(error: unknown): boolean {
 	// Check CommandError error_type first (most reliable)
 	if (isCommandError(error)) {
-		return error.error_type === 'validation'
+		return error.error_type === ERROR_TYPES.VALIDATION
 	}
 
 	// Fallback: Check Error message for validation keywords
@@ -217,10 +191,10 @@ export function displayError(error: unknown): { type: 'inline' | 'toast'; messag
 	} else {
 		// System errors should be shown as toast notifications
 		const message = formatUserError(error)
-		const errorType = getErrorType(error)
 
-		// Use longer duration for critical errors
-		const duration = errorType === 'internal_error' || !isTransientError(error) ? 8000 : 5000
+		// Use longer duration for transient errors (user needs time to read before retry)
+		// Shorter duration for permanent errors (no retry available)
+		const duration = isTransientError(error) ? 8000 : 5000
 
 		toastStore.error(message, duration)
 		return { type: 'toast' }

@@ -1,24 +1,7 @@
 // T183: Retry logic for persistence errors using p-retry
 import { invoke } from '@tauri-apps/api/core'
 import pRetry, { AbortError } from 'p-retry'
-import type { CommandError } from '$lib/bindings'
-
-/**
- * Type guard to check if an error is a CommandError
- * Note: This is duplicated here to avoid circular dependency with errors.ts
- */
-function isCommandError(error: unknown): error is CommandError {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'message' in error &&
-		'error_type' in error &&
-		'retryable' in error &&
-		typeof (error as CommandError).message === 'string' &&
-		typeof (error as CommandError).error_type === 'string' &&
-		typeof (error as CommandError).retryable === 'boolean'
-	)
-}
+import { isCommandError } from '$lib/utils/types'
 
 /**
  * Configuration options for retry behavior
