@@ -2,7 +2,7 @@
  * Shared TypeScript type utilities and guards
  */
 
-import type { CommandError } from '$lib/bindings'
+import type { CommandError, ErrorType as GeneratedErrorType } from '$lib/bindings'
 
 /**
  * Type guard to check if an error is a CommandError
@@ -31,9 +31,13 @@ export function isCommandError(error: unknown): error is CommandError {
 }
 
 /**
- * Error type constants matching the Rust backend
+ * Error type constants - auto-generated from Rust via specta
+ * Source of truth: src-tauri/src/errors.rs::ErrorType enum
+ *
+ * These constants provide a convenient way to reference error types
+ * while maintaining compile-time type safety with the generated ErrorType union.
  */
-export const ERROR_TYPES = {
+export const ERROR_TYPES: Record<string, GeneratedErrorType> = {
 	VALIDATION: 'validation',
 	NOT_FOUND: 'not_found',
 	DATABASE_ERROR: 'database_error',
@@ -51,4 +55,8 @@ export const ERROR_TYPES = {
 	SERIALIZATION: 'serialization',
 } as const
 
-export type ErrorType = (typeof ERROR_TYPES)[keyof typeof ERROR_TYPES]
+/**
+ * Re-export the generated ErrorType for convenience
+ * This is auto-generated from the Rust ErrorType enum via specta
+ */
+export type ErrorType = GeneratedErrorType

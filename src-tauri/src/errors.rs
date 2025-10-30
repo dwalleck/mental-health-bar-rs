@@ -1,6 +1,53 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Error type enumeration for type-safe error classification
+///
+/// This enum is auto-generated to TypeScript via specta, eliminating duplication
+/// between Rust and TypeScript error type constants.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorType {
+    Validation,
+    NotFound,
+    DatabaseError,
+    DatabaseLocked,
+    LockPoisoned,
+    ConstraintViolation,
+    Duplicate,
+    TransactionFailure,
+    NoData,
+    CalculationError,
+    Transient,
+    Internal,
+    Config,
+    IoError,
+    Serialization,
+}
+
+impl ErrorType {
+    /// Convert ErrorType to string (for backwards compatibility with existing code)
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ErrorType::Validation => "validation",
+            ErrorType::NotFound => "not_found",
+            ErrorType::DatabaseError => "database_error",
+            ErrorType::DatabaseLocked => "database_locked",
+            ErrorType::LockPoisoned => "lock_poisoned",
+            ErrorType::ConstraintViolation => "constraint_violation",
+            ErrorType::Duplicate => "duplicate",
+            ErrorType::TransactionFailure => "transaction_failure",
+            ErrorType::NoData => "no_data",
+            ErrorType::CalculationError => "calculation_error",
+            ErrorType::Transient => "transient",
+            ErrorType::Internal => "internal",
+            ErrorType::Config => "config",
+            ErrorType::IoError => "io_error",
+            ErrorType::Serialization => "serialization",
+        }
+    }
+}
+
 /// Application-level errors using thiserror for structured error handling
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -57,8 +104,8 @@ pub struct CommandError {
     pub message: String,
 
     /// Machine-readable error type for conditional logic
-    /// Examples: "validation", "not_found", "database_locked", "transient"
-    pub error_type: String,
+    /// Auto-generated to TypeScript via specta for type safety
+    pub error_type: ErrorType,
 
     /// Whether this error is retryable (e.g., database locks, transient network issues)
     /// - true: Client should retry the operation (e.g., SQLITE_BUSY, lock timeout)
@@ -78,44 +125,46 @@ pub struct CommandError {
 }
 
 /// Error type constants for consistency across the application
+///
+/// DEPRECATED: Use ErrorType enum directly instead of these string constants.
+/// These are kept temporarily for backwards compatibility during migration.
+#[deprecated(note = "Use ErrorType enum variants instead (e.g., ErrorType::Validation)")]
 pub mod error_types {
-    pub const VALIDATION: &str = "validation";
-    pub const NOT_FOUND: &str = "not_found";
-    pub const DATABASE_ERROR: &str = "database_error";
-    pub const DATABASE_LOCKED: &str = "database_locked";
-    pub const LOCK_POISONED: &str = "lock_poisoned";
-    pub const CONSTRAINT_VIOLATION: &str = "constraint_violation";
-    pub const DUPLICATE: &str = "duplicate";
-    pub const TRANSACTION_FAILURE: &str = "transaction_failure";
-    pub const NO_DATA: &str = "no_data";
-    pub const CALCULATION_ERROR: &str = "calculation_error";
-    #[allow(dead_code)]
-    pub const TRANSIENT: &str = "transient";
-    pub const INTERNAL: &str = "internal";
-    #[allow(dead_code)]
-    pub const CONFIG: &str = "config";
-    #[allow(dead_code)]
-    pub const IO_ERROR: &str = "io_error";
-    #[allow(dead_code)]
-    pub const SERIALIZATION: &str = "serialization";
+    use super::ErrorType;
+
+    pub const VALIDATION: ErrorType = ErrorType::Validation;
+    pub const NOT_FOUND: ErrorType = ErrorType::NotFound;
+    pub const DATABASE_ERROR: ErrorType = ErrorType::DatabaseError;
+    pub const DATABASE_LOCKED: ErrorType = ErrorType::DatabaseLocked;
+    pub const LOCK_POISONED: ErrorType = ErrorType::LockPoisoned;
+    pub const CONSTRAINT_VIOLATION: ErrorType = ErrorType::ConstraintViolation;
+    pub const DUPLICATE: ErrorType = ErrorType::Duplicate;
+    pub const TRANSACTION_FAILURE: ErrorType = ErrorType::TransactionFailure;
+    pub const NO_DATA: ErrorType = ErrorType::NoData;
+    pub const CALCULATION_ERROR: ErrorType = ErrorType::CalculationError;
+    pub const TRANSIENT: ErrorType = ErrorType::Transient;
+    pub const INTERNAL: ErrorType = ErrorType::Internal;
+    pub const CONFIG: ErrorType = ErrorType::Config;
+    pub const IO_ERROR: ErrorType = ErrorType::IoError;
+    pub const SERIALIZATION: ErrorType = ErrorType::Serialization;
 }
 
 impl CommandError {
     /// Create a new retryable error (e.g., database locked, transient issues)
-    pub fn retryable(message: impl Into<String>, error_type: impl Into<String>) -> Self {
+    pub fn retryable(message: impl Into<String>, error_type: ErrorType) -> Self {
         Self {
             message: message.into(),
-            error_type: error_type.into(),
+            error_type,
             retryable: true,
             details: None,
         }
     }
 
     /// Create a new non-retryable error (e.g., validation, not found)
-    pub fn permanent(message: impl Into<String>, error_type: impl Into<String>) -> Self {
+    pub fn permanent(message: impl Into<String>, error_type: ErrorType) -> Self {
         Self {
             message: message.into(),
-            error_type: error_type.into(),
+            error_type,
             retryable: false,
             details: None,
         }
