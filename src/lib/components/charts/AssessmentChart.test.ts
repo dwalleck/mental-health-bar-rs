@@ -3,8 +3,15 @@ import { render, screen } from '@testing-library/svelte'
 import AssessmentChart from './AssessmentChart.svelte'
 import type { AssessmentChartData } from '$lib/bindings'
 
-// NOTE: We no longer mock Chart.js to catch real integration bugs!
-// We only mock the Canvas API which is unavailable in Node.js test environment
+/**
+ * Week 0 Chart.js + Svelte 5 + Tauri Validation Suite (21 tests)
+ *
+ * This test suite validates the Chart.js integration with Svelte 5 runes
+ * and the component's behavior across various states.
+ *
+ * NOTE: We no longer mock Chart.js to catch real integration bugs!
+ * We only mock the Canvas API which is unavailable in Node.js test environment.
+ */
 
 describe('AssessmentChart', () => {
 	beforeEach(() => {

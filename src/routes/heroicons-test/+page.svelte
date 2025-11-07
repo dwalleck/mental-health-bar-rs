@@ -1,3 +1,13 @@
+<!--
+  TODO: Temporary Week 0 validation page
+
+  This page was created for Week 0 validation sprint to demonstrate
+  Heroicons integration (solid, outline, mini variants).
+
+  Consider removing this page or moving it to a /dev route after
+  validation is complete, as it may clutter production navigation.
+-->
+
 <script lang="ts">
 	import {
 		Icon,

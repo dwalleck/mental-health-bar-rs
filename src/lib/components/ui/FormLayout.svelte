@@ -83,6 +83,9 @@
 	<!-- Form sections -->
 	<div class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
 		{#each sections as section, i (i)}
+			{@const sectionSlot = slots[`section_${i}` as keyof typeof slots] as
+				| import('svelte').Snippet
+				| undefined}
 			<div class="pt-8 first:pt-0">
 				{#if section.title || section.description}
 					<div>
@@ -100,12 +103,7 @@
 				{/if}
 
 				<div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-					{#if true}
-						{@const sectionSlot = slots[`section_${i}` as keyof typeof slots] as
-							| import('svelte').Snippet
-							| undefined}
-						{@render sectionSlot?.()}
-					{/if}
+					{@render sectionSlot?.()}
 				</div>
 			</div>
 		{/each}

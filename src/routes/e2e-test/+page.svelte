@@ -1,3 +1,13 @@
+<!--
+  TODO: Temporary Week 0 validation page
+
+  This page was created for Week 0 validation sprint to demonstrate
+  end-to-end functionality (PHQ-9 → Database → Chart visualization).
+
+  Consider removing this page or moving it to a /dev route after
+  validation is complete, as it may clutter production navigation.
+-->
+
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { invoke } from '@tauri-apps/api/core'
@@ -5,6 +15,30 @@
 	import AssessmentChart from '$lib/components/charts/AssessmentChart.svelte'
 	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte'
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import { getSeverityRanges, formatSeverity } from '$lib/utils/severity'
+
+	// Helper function to get severity info for a score
+	function getSeverityInfo(score: number) {
+		const ranges = getSeverityRanges('PHQ9', 27)
+		const range = ranges.find((r) => score >= r.min && score <= r.max)
+
+		if (!range) {
+			return { level: 'Unknown', colorClass: 'bg-gray-100 dark:bg-gray-900/20' }
+		}
+
+		const colorMap: Record<string, string> = {
+			minimal: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300',
+			mild: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300',
+			moderate: 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300',
+			moderately_severe: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300',
+			severe: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300',
+		}
+
+		return {
+			level: formatSeverity(range.level),
+			colorClass: colorMap[range.level] || 'bg-gray-100 dark:bg-gray-900/20',
+		}
+	}
 
 	// State
 	let assessments = $state<AssessmentResponse[]>([])
@@ -195,6 +229,7 @@
 				{:else if assessments.length > 0}
 					<div class="space-y-3">
 						{#each assessments as assessment (assessment.id)}
+							{@const severityInfo = getSeverityInfo(assessment.total_score)}
 							<div
 								class="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
 							>
@@ -205,25 +240,8 @@
 											{new Date(assessment.submitted_at).toLocaleString()}
 										</p>
 									</div>
-									<div
-										class="px-3 py-1 rounded text-sm font-medium
-										{assessment.total_score < 5
-											? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300'
-											: assessment.total_score < 10
-												? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300'
-												: assessment.total_score < 15
-													? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300'
-													: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'}"
-									>
-										{assessment.total_score < 5
-											? 'Minimal'
-											: assessment.total_score < 10
-												? 'Mild'
-												: assessment.total_score < 15
-													? 'Moderate'
-													: assessment.total_score < 20
-														? 'Moderately Severe'
-														: 'Severe'}
+									<div class="px-3 py-1 rounded text-sm font-medium {severityInfo.colorClass}">
+										{severityInfo.level}
 									</div>
 								</div>
 							</div>
