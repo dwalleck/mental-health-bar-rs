@@ -77,7 +77,7 @@
 				<div class={getToastStyles(toast.type)}>
 					<!-- Icon -->
 					<div
-						class={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-bold ${getIconColorClass(toast.type)}`}
+						class={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-bold ${getIconColorClass(toast.type)}`}
 					>
 						{getIconForType(toast.type)}
 					</div>
@@ -90,7 +90,7 @@
 					<!-- Close button -->
 					<button
 						onclick={() => dismiss(toast.id)}
-						class="flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+						class="shrink-0 ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
 						aria-label="Dismiss notification"
 					>
 						<svg
@@ -115,7 +115,7 @@
 				<div class={getToastStyles(toast.type)}>
 					<!-- Icon -->
 					<div
-						class={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-bold ${getIconColorClass(toast.type)}`}
+						class={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-bold ${getIconColorClass(toast.type)}`}
 					>
 						{getIconForType(toast.type)}
 					</div>
@@ -128,7 +128,7 @@
 					<!-- Close button -->
 					<button
 						onclick={() => dismiss(toast.id)}
-						class="flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+						class="shrink-0 ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
 						aria-label="Dismiss notification"
 					>
 						<svg

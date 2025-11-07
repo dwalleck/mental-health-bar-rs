@@ -127,7 +127,7 @@
 	{:else}
 		<div class="mb-4">
 			<button
-				class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition-colors inline-flex items-center gap-2"
+				class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-xs transition-colors inline-flex items-center gap-2"
 				onclick={handleCreateNew}
 			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -63,15 +63,12 @@
 		error = ''
 
 		try {
-			chartData = await invokeWithRetry<AssessmentChartData>(
-				'get_assessment_chart_data',
-				{
-					code: selectedType,
-					timeRange: selectedTimeRange,
-					fromDate: null,
-					toDate: null,
-				}
-			)
+			chartData = await invokeWithRetry<AssessmentChartData>('get_assessment_chart_data', {
+				code: selectedType,
+				timeRange: selectedTimeRange,
+				fromDate: null,
+				toDate: null,
+			})
 		} catch (err) {
 			displayError(err)
 			error = 'Failed to load chart data'
@@ -155,7 +152,7 @@
 		{/if}
 
 		<!-- Assessment Selection and Filters -->
-		<div class="controls-section bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+		<div class="controls-section bg-white rounded-lg shadow-xs border border-gray-200 p-6 mb-6">
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<!-- Assessment Type Selector -->
 				<div>
@@ -166,7 +163,7 @@
 						id="assessment-type"
 						value={selectedType}
 						onchange={handleTypeChange}
-						class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-4 py-2 border"
+						class="block w-full rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-4 py-2 border"
 					>
 						{#each assessmentTypes as type (type.id)}
 							<option value={type.code}>{type.name}</option>
@@ -183,7 +180,7 @@
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 			<!-- Chart -->
 			<div class="lg:col-span-2">
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+				<div class="bg-white rounded-lg shadow-xs border border-gray-200">
 					<AssessmentChart data={chartData} {loading} />
 				</div>
 			</div>
@@ -224,19 +221,19 @@
 		{/if}
 
 		<!-- Mood Time Range Selector -->
-		<div class="controls-section bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+		<div class="controls-section bg-white rounded-lg shadow-xs border border-gray-200 p-6 mb-6">
 			<TimeRangeSelector selected={moodTimeRange} onchange={handleMoodTimeRangeChange} />
 		</div>
 
 		<!-- Mood Chart -->
-		<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+		<div class="bg-white rounded-lg shadow-xs border border-gray-200 mb-6">
 			<MoodChart data={moodChartData} loading={moodLoading} />
 		</div>
 
 		<!-- Mood Statistics -->
 		{#if moodChartData && moodChartData.data_points.length >= 2}
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+				<div class="bg-white rounded-lg shadow-xs border border-gray-200 p-6">
 					<h3 class="text-lg font-semibold text-gray-900 mb-4">Mood Statistics</h3>
 					<div class="grid grid-cols-2 gap-4">
 						<div>
@@ -267,7 +264,7 @@
 				</div>
 
 				<!-- Activity Correlation Chart (T150) -->
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200">
+				<div class="bg-white rounded-lg shadow-xs border border-gray-200">
 					<ActivityCorrelationChart data={moodChartData.activity_breakdown} loading={moodLoading} />
 				</div>
 			</div>

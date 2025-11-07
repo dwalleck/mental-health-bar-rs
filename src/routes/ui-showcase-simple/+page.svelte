@@ -18,14 +18,15 @@
 		<Card title="🎯 Modern Sidebar Navigation">
 			<div class="space-y-4">
 				<p class="text-sm text-gray-600 dark:text-gray-400">
-					A responsive sidebar with collapsible mobile menu, user profile section, and badge support.
+					A responsive sidebar with collapsible mobile menu, user profile section, and badge
+					support.
 				</p>
 				<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 					<div class="flex gap-2">
-						<div class="w-16 h-48 bg-gray-100 dark:bg-gray-800 rounded"></div>
+						<div class="w-16 h-48 bg-gray-100 dark:bg-gray-800 rounded-sm"></div>
 						<div class="flex-1 space-y-2">
-							<div class="h-8 bg-gray-50 dark:bg-gray-900 rounded"></div>
-							<div class="h-32 bg-gray-50 dark:bg-gray-900 rounded"></div>
+							<div class="h-8 bg-gray-50 dark:bg-gray-900 rounded-sm"></div>
+							<div class="h-32 bg-gray-50 dark:bg-gray-900 rounded-sm"></div>
 						</div>
 					</div>
 				</div>
@@ -43,12 +44,12 @@
 				</p>
 				<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 					<div class="space-y-3">
-						<div class="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
-						<div class="h-10 bg-gray-50 dark:bg-gray-900 rounded"></div>
-						<div class="h-10 bg-gray-50 dark:bg-gray-900 rounded"></div>
+						<div class="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded-sm"></div>
+						<div class="h-10 bg-gray-50 dark:bg-gray-900 rounded-sm"></div>
+						<div class="h-10 bg-gray-50 dark:bg-gray-900 rounded-sm"></div>
 						<div class="flex gap-2 justify-end">
-							<div class="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-							<div class="h-8 w-20 bg-blue-600 rounded"></div>
+							<div class="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded-sm"></div>
+							<div class="h-8 w-20 bg-blue-600 rounded-sm"></div>
 						</div>
 					</div>
 				</div>
@@ -68,9 +69,15 @@
 					<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
-								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
-								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Score</th>
+								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+									>Date</th
+								>
+								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+									>Type</th
+								>
+								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+									>Score</th
+								>
 							</tr>
 						</thead>
 						<tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -103,11 +110,11 @@
 					<div class="relative">
 						<div class="bg-gray-100/50 dark:bg-gray-800/50 rounded-lg p-4">
 							<div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-4 space-y-2">
-								<div class="h-4 w-32 bg-gray-800 dark:bg-gray-200 rounded"></div>
-								<div class="h-3 w-full bg-gray-200 dark:bg-gray-700 rounded"></div>
+								<div class="h-4 w-32 bg-gray-800 dark:bg-gray-200 rounded-sm"></div>
+								<div class="h-3 w-full bg-gray-200 dark:bg-gray-700 rounded-sm"></div>
 								<div class="flex gap-2 justify-end mt-4">
-									<div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded text-xs"></div>
-									<div class="h-6 w-16 bg-blue-600 rounded"></div>
+									<div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-sm text-xs"></div>
+									<div class="h-6 w-16 bg-blue-600 rounded-sm"></div>
 								</div>
 							</div>
 						</div>
@@ -130,10 +137,16 @@
 				</p>
 				<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 					<div class="space-y-2">
-						<div class="border border-gray-300 dark:border-gray-700 rounded-md p-2 flex justify-between">
+						<div
+							class="border border-gray-300 dark:border-gray-700 rounded-md p-2 flex justify-between"
+						>
 							<span class="text-sm text-gray-500">Select an option...</span>
 							<svg class="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-								<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+								<path
+									fill-rule="evenodd"
+									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+									clip-rule="evenodd"
+								/>
 							</svg>
 						</div>
 					</div>
@@ -150,12 +163,18 @@
 				<p class="text-sm text-gray-600 dark:text-gray-400">
 					Highlight new features or important messages with dismissible banners.
 				</p>
-				<div class="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+				<div
+					class="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3"
+				>
 					<div class="flex items-start">
 						<div class="text-blue-600 dark:text-blue-400">ℹ️</div>
 						<div class="ml-2 flex-1">
-							<p class="text-sm font-medium text-blue-800 dark:text-blue-200">New feature available!</p>
-							<p class="text-xs text-blue-700 dark:text-blue-300 mt-1">Check out the latest updates</p>
+							<p class="text-sm font-medium text-blue-800 dark:text-blue-200">
+								New feature available!
+							</p>
+							<p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+								Check out the latest updates
+							</p>
 						</div>
 						<button class="text-blue-600 dark:text-blue-400">✕</button>
 					</div>
@@ -175,7 +194,8 @@
 				<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
 					Replace the current sidebar with the modern SidebarLayout for a professional look.
 				</p>
-				<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-x-auto">{`<SidebarLayout navItems={items}>
+				<pre
+					class="bg-gray-100 dark:bg-gray-800 p-3 rounded-sm text-xs overflow-x-auto">{`<SidebarLayout navItems={items}>
   <slot />
 </SidebarLayout>`}</pre>
 			</div>
@@ -185,7 +205,8 @@
 				<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
 					Use FormLayout for consistent, professional forms with built-in validation.
 				</p>
-				<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-x-auto">{`<FormLayout
+				<pre
+					class="bg-gray-100 dark:bg-gray-800 p-3 rounded-sm text-xs overflow-x-auto">{`<FormLayout
   title="Assessment"
   sections={[...]}
   onSubmit={handle}>
@@ -198,7 +219,8 @@
 				<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
 					Replace basic tables with DataTable for sorting, pagination, and actions.
 				</p>
-				<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-x-auto">{`<DataTable
+				<pre
+					class="bg-gray-100 dark:bg-gray-800 p-3 rounded-sm text-xs overflow-x-auto">{`<DataTable
   columns={cols}
   data={items}
   actions={[...]}
@@ -210,7 +232,7 @@
 				<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
 					Replace confirm() dialogs with Modal components for better UX.
 				</p>
-				<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-x-auto">{`<Modal
+				<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-sm text-xs overflow-x-auto">{`<Modal
   open={show}
   title="Confirm"
   actions={[...]} />`}</pre>
@@ -220,7 +242,10 @@
 				<Button variant="primary" onclick={() => displaySuccess('Ready to upgrade your UI!')}>
 					Start Integration
 				</Button>
-				<Button variant="secondary" onclick={() => displayInfo('Components are in /lib/components/ui/')}>
+				<Button
+					variant="secondary"
+					onclick={() => displayInfo('Components are in /lib/components/ui/')}
+				>
 					View Component Files
 				</Button>
 			</div>

@@ -51,7 +51,7 @@
 		label = '',
 		description = '',
 		error = '',
-		required = false
+		required = false,
 	}: Props = $props()
 
 	let isOpen = $state(false)
@@ -66,9 +66,10 @@
 	// Filter options based on search
 	const filteredOptions = $derived(
 		searchQuery
-			? options.filter((option) =>
-					option.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					option.description?.toLowerCase().includes(searchQuery.toLowerCase())
+			? options.filter(
+					(option) =>
+						option.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+						option.description?.toLowerCase().includes(searchQuery.toLowerCase())
 				)
 			: options
 	)
@@ -77,9 +78,7 @@
 	const displayValue = $derived(() => {
 		if (multiple && Array.isArray(value) && value !== null) {
 			const selected = options.filter((opt) => (value as (string | number)[]).includes(opt.value))
-			return selected.length > 0
-				? `${selected.length} selected`
-				: placeholder
+			return selected.length > 0 ? `${selected.length} selected` : placeholder
 		} else if (value !== null) {
 			const selected = options.find((opt) => opt.value === value)
 			return selected?.label || placeholder
@@ -190,7 +189,10 @@
 
 <div class="combobox-container">
 	{#if label}
-		<label for={comboboxId} class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-2">
+		<label
+			for={comboboxId}
+			class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-2"
+		>
 			{label}
 			{#if required}
 				<span class="text-red-500">*</span>
@@ -207,7 +209,7 @@
 		<button
 			id={comboboxId}
 			type="button"
-			class="relative w-full cursor-default rounded-md bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6
+			class="relative w-full cursor-default rounded-md bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-gray-900 dark:text-gray-100 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:outline-hidden focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6
 				{disabled ? 'opacity-50 cursor-not-allowed' : ''}
 				{error ? 'ring-red-600 dark:ring-red-400' : ''}"
 			onclick={toggle}
@@ -220,13 +222,7 @@
 			<span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
 				{#if loading}
 					<svg class="h-5 w-5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-						<circle
-							class="opacity-25"
-							cx="12"
-							cy="12"
-							r="10"
-							stroke="currentColor"
-							stroke-width="4"
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
 						></circle>
 						<path
 							class="opacity-75"
@@ -249,7 +245,7 @@
 		<!-- Dropdown -->
 		{#if isOpen && !loading}
 			<div
-				class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm"
+				class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-hidden sm:text-sm"
 				transition:fly={{ y: -10, duration: 150 }}
 				role="listbox"
 			>
@@ -259,7 +255,7 @@
 							bind:this={inputElement}
 							bind:value={searchQuery}
 							type="text"
-							class="w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6 bg-white dark:bg-gray-900"
+							class="w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 dark:text-gray-100 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6 bg-white dark:bg-gray-900"
 							placeholder={searchPlaceholder}
 							onkeydown={handleKeydown}
 						/>
@@ -276,7 +272,9 @@
 							<li
 								class="relative cursor-default select-none py-2 pl-3 pr-9
 									{highlightedIndex === index ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-100'}
-									{option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'}"
+									{option.disabled
+									? 'opacity-50 cursor-not-allowed'
+									: 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'}"
 								onclick={() => selectOption(option)}
 								onmouseenter={() => (highlightedIndex = index)}
 								onkeydown={(e) => e.key === 'Enter' && selectOption(option)}
@@ -285,10 +283,12 @@
 							>
 								<div class="flex items-center">
 									{#if option.icon}
-										<span class="mr-3 flex-shrink-0">{option.icon}</span>
+										<span class="mr-3 shrink-0">{option.icon}</span>
 									{/if}
 									<div>
-										<span class="block truncate {isSelected(option) ? 'font-semibold' : 'font-normal'}">
+										<span
+											class="block truncate {isSelected(option) ? 'font-semibold' : 'font-normal'}"
+										>
 											{option.label}
 										</span>
 										{#if option.description}
@@ -305,7 +305,8 @@
 
 								{#if isSelected(option)}
 									<span
-										class="absolute inset-y-0 right-0 flex items-center pr-4 {highlightedIndex === index
+										class="absolute inset-y-0 right-0 flex items-center pr-4 {highlightedIndex ===
+										index
 											? 'text-white'
 											: 'text-blue-600 dark:text-blue-400'}"
 									>

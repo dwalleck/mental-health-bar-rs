@@ -62,7 +62,7 @@ describe('MoodScaleInput', () => {
 			expect(buttons[4]).toHaveAttribute('aria-pressed', 'false')
 		})
 
-		it('should add ring styles to selected button', () => {
+		it('should add ring-3 styles to selected button', () => {
 			const onChange = vi.fn()
 			const { container } = render(MoodScaleInput, { props: { value: 2, onChange } })
 
@@ -240,7 +240,7 @@ describe('MoodScaleInput', () => {
 			})
 		})
 
-		it('should have focus ring styles', () => {
+		it('should have focus ring-3 styles', () => {
 			const onChange = vi.fn()
 			const { container } = render(MoodScaleInput, { props: { value: 3, onChange } })
 

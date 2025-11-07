@@ -20,7 +20,7 @@
 	}
 
 	// State management with Svelte 5 runes
-	let assessments = $state<SvelteMap<string, AssessmentResponse | null>>(new SvelteMap())
+	let assessments = new SvelteMap<string, AssessmentResponse | null>()
 	let loading = $state(true)
 	let error = $state<string | null>(null)
 	let failedAssessments = $state<string[]>([])
@@ -48,9 +48,7 @@
 							return { code, data: result, failed: false }
 						} catch (err) {
 							// T225: Handle individual assessment failures gracefully
-							console.warn(
-								`Failed to fetch assessment ${code}: ${formatErrorForLogging(err)}`
-							)
+							console.warn(`Failed to fetch assessment ${code}: ${formatErrorForLogging(err)}`)
 							return { code, data: null, failed: true }
 						}
 					})
@@ -145,7 +143,7 @@
 						<!-- Assessment has data - render clickable score bar -->
 						<button
 							type="button"
-							class="w-full text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class="w-full text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 							onclick={() => navigateToChart(assessmentType)}
 							aria-label={`View ${ASSESSMENT_METADATA[assessmentType].name} chart`}
 						>

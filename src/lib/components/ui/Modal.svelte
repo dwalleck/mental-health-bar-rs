@@ -47,7 +47,7 @@
 		actions = [],
 		onclose,
 		children,
-		icon
+		icon,
 	}: Props = $props()
 
 	// Size classes
@@ -135,11 +135,11 @@
 	function getButtonClass(variant?: 'primary' | 'secondary' | 'danger') {
 		const classes: Record<'primary' | 'secondary' | 'danger', string> = {
 			primary:
-				'inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+				'inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
 			secondary:
-				'inline-flex justify-center rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700',
+				'inline-flex justify-center rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700',
 			danger:
-				'inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600',
+				'inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600',
 		}
 		return classes[variant || 'secondary']
 	}
@@ -176,11 +176,17 @@
 					<div class="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
 						<button
 							type="button"
-							class="rounded-md bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+							class="rounded-md bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
 							onclick={close}
 						>
 							<span class="sr-only">Close</span>
-							<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<svg
+								class="h-6 w-6"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+								stroke="currentColor"
+							>
 								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 							</svg>
 						</button>
@@ -191,7 +197,7 @@
 				<div class="sm:flex sm:items-start">
 					{#if icon}
 						<div
-							class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 sm:mx-0 sm:h-10 sm:w-10"
+							class="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 sm:mx-0 sm:h-10 sm:w-10"
 						>
 							{@render icon()}
 						</div>
@@ -200,7 +206,10 @@
 					<div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left flex-1">
 						<!-- Title -->
 						{#if title}
-							<h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white" id="modal-title">
+							<h3
+								class="text-base font-semibold leading-6 text-gray-900 dark:text-white"
+								id="modal-title"
+							>
 								{title}
 							</h3>
 						{/if}
@@ -225,36 +234,38 @@
 				{#if actions.length > 0}
 					<div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
 						{#each actions as action (action.label)}
-								<button
-									type="button"
-									class="{getButtonClass(action.variant)} disabled:opacity-50 disabled:cursor-not-allowed"
-									onclick={action.onClick}
-									disabled={action.disabled || action.loading}
-								>
-									{#if action.loading}
-										<svg
-											class="animate-spin -ml-1 mr-2 h-4 w-4"
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<circle
-												class="opacity-25"
-												cx="12"
-												cy="12"
-												r="10"
-												stroke="currentColor"
-												stroke-width="4"
-											></circle>
-											<path
-												class="opacity-75"
-												fill="currentColor"
-												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-											></path>
-										</svg>
-									{/if}
-									{action.label}
-								</button>
+							<button
+								type="button"
+								class="{getButtonClass(
+									action.variant
+								)} disabled:opacity-50 disabled:cursor-not-allowed"
+								onclick={action.onClick}
+								disabled={action.disabled || action.loading}
+							>
+								{#if action.loading}
+									<svg
+										class="animate-spin -ml-1 mr-2 h-4 w-4"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
+									</svg>
+								{/if}
+								{action.label}
+							</button>
 						{/each}
 					</div>
 				{/if}

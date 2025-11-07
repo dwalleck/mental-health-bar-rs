@@ -35,7 +35,7 @@
 				class="mood-button flex-1 min-w-[80px] py-3 px-4 rounded-lg font-medium transition-all transform
 					{option.color} {option.textColor}
 					{value === option.rating ? 'ring-4 ring-offset-2 ring-blue-500 scale-105' : 'opacity-75'}
-					focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-blue-500"
+					focus:outline-hidden focus:ring-4 focus:ring-offset-2 focus:ring-blue-500"
 				onclick={() => onChange(option.rating)}
 				onkeydown={(e) => handleKeydown(e, option.rating)}
 				aria-label={`Rate your mood as ${option.label} (${option.rating} out of 5)`}

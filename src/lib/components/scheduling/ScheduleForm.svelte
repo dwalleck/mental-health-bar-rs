@@ -103,7 +103,7 @@
 	let needsDayOfMonth = $derived(frequency === 'monthly')
 </script>
 
-<form onsubmit={handleSubmit} class="space-y-6 bg-white p-6 rounded-lg shadow">
+<form onsubmit={handleSubmit} class="space-y-6 bg-white p-6 rounded-lg shadow-sm">
 	<h2 class="text-2xl font-bold text-gray-900">Create Schedule</h2>
 
 	<ErrorMessage error={validationError} />
@@ -115,7 +115,7 @@
 		<select
 			id="assessment-type"
 			bind:value={selectedAssessmentTypeId}
-			class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+			class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 			required
 		>
 			{#each assessmentTypes as type (type.id)}
@@ -131,7 +131,7 @@
 		<select
 			id="frequency"
 			bind:value={frequency}
-			class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+			class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 			required
 		>
 			<option value="daily">Daily</option>
@@ -147,7 +147,7 @@
 			type="time"
 			id="time"
 			bind:value={timeOfDay}
-			class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+			class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 			required
 		/>
 	</div>
@@ -160,7 +160,7 @@
 			<select
 				id="day-of-week"
 				bind:value={dayOfWeek}
-				class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+				class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 				required
 			>
 				{#each daysOfWeek as day (day.value)}
@@ -180,7 +180,7 @@
 			<select
 				id="day-of-month"
 				bind:value={dayOfMonth}
-				class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+				class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 				required
 			>
 				{#each daysOfMonth as day (day)}
@@ -195,7 +195,7 @@
 	<button
 		type="submit"
 		disabled={loading}
-		class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300 disabled:cursor-not-allowed"
+		class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300 disabled:cursor-not-allowed"
 	>
 		{loading ? 'Creating...' : 'Create Schedule'}
 	</button>

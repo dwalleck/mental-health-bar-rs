@@ -80,7 +80,7 @@
 			placeholder="e.g., Exercise, Meditation, Reading"
 			class="w-full px-3 py-2 border rounded-md
 				{errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
-				focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+				focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 			maxlength="100"
 			disabled={isSubmitting}
 		/>
@@ -104,7 +104,7 @@
 				id="activity-color"
 				type="color"
 				bind:value={color}
-				class="w-16 h-10 rounded cursor-pointer border border-gray-300 dark:border-gray-600"
+				class="w-16 h-10 rounded-sm cursor-pointer border border-gray-300 dark:border-gray-600"
 				disabled={isSubmitting}
 			/>
 			<input
@@ -113,7 +113,7 @@
 				placeholder="#3B82F6"
 				class="flex-1 px-3 py-2 border rounded-md font-mono text-sm
 					{errors.color ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
-					focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+					focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 				maxlength="7"
 				disabled={isSubmitting}
 			/>
@@ -136,7 +136,7 @@
 			bind:value={icon}
 			placeholder="🏃 (emoji)"
 			class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
-				focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+				focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 			maxlength="20"
 			disabled={isSubmitting}
 		/>

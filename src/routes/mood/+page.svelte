@@ -170,7 +170,7 @@
 					placeholder="How are you feeling? What's on your mind?"
 					rows="3"
 					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
-						focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+						focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 					maxlength="5000"
 				></textarea>
 				<div class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
@@ -181,7 +181,7 @@
 			<button
 				type="submit"
 				class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg
-					disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+					disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
 				disabled={isSubmitting}
 			>
 				{isSubmitting ? 'Logging Mood...' : 'Log Mood'}
@@ -204,7 +204,7 @@
 			<div class="grid gap-3">
 				{#each recentCheckins as checkin (checkin.id)}
 					<div
-						class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+						class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200 dark:border-gray-700"
 					>
 						<div class="flex items-center gap-3">
 							<div class="text-2xl font-bold text-gray-700 dark:text-gray-300">
@@ -223,7 +223,7 @@
 							<div class="mt-2 flex flex-wrap gap-1">
 								{#each checkin.activities as activity (activity.id)}
 									<span
-										class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs"
+										class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-sm text-xs"
 									>
 										{#if activity.icon}{activity.icon}{/if}
 										{activity.name}

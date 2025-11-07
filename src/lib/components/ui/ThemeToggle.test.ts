@@ -256,7 +256,7 @@ describe('ThemeToggle', () => {
 			expect(button).toHaveClass('p-2')
 		})
 
-		it('should have rounded corners', () => {
+		it('should have rounded-sm corners', () => {
 			const { container } = render(ThemeToggle)
 
 			const button = container.querySelector('button')
