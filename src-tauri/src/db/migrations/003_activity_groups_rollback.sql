@@ -7,11 +7,12 @@ DROP TABLE IF EXISTS activity_goals;
 DROP TABLE IF EXISTS activity_logs;
 
 -- Recreate original activities table (without group_id)
+-- Include CHECK constraints to prevent invalid data during rollback state
 CREATE TABLE activities_rollback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL CHECK(length(name) <= 50),
     color TEXT,
-    icon TEXT,
+    icon TEXT CHECK(length(icon) <= 20 AND (icon IS NULL OR length(icon) > 0)),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     deleted_at TEXT  -- Soft delete timestamp
 );

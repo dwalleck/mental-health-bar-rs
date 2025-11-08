@@ -251,7 +251,7 @@ pub struct UpdateActivityRequest {
     #[validate(length(min = 1, max = 50))]
     pub name: Option<String>,
     pub color: Option<String>,
-    #[validate(length(min = 1, max = 50))]
+    #[validate(length(min = 1, max = 20))]
     pub icon: Option<String>,
 }
 
