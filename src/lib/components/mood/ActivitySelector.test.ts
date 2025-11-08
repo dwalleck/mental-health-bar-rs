@@ -12,10 +12,10 @@ vi.mock('$lib/utils/retry', () => ({
 vi.mock('$lib/utils/errors', () => ({
 	displayError: vi.fn((error) => ({
 		type: 'inline',
-		message: error instanceof Error ? error.message : String(error)
+		message: error instanceof Error ? error.message : String(error),
 	})),
 	displaySuccess: vi.fn(),
-	formatUserError: vi.fn((error) => error instanceof Error ? error.message : String(error)),
+	formatUserError: vi.fn((error) => (error instanceof Error ? error.message : String(error))),
 	isValidationError: vi.fn(() => false),
 	isCommandError: vi.fn(() => false),
 }))
@@ -43,6 +43,7 @@ describe('ActivitySelector', () => {
 	const mockActivities: Activity[] = [
 		{
 			id: 1,
+			group_id: 1,
 			name: 'Exercise',
 			color: '#22C55E',
 			icon: '🏃',
@@ -51,6 +52,7 @@ describe('ActivitySelector', () => {
 		},
 		{
 			id: 2,
+			group_id: 1,
 			name: 'Reading',
 			color: '#3B82F6',
 			icon: '📚',
@@ -427,6 +429,7 @@ describe('ActivitySelector', () => {
 		it('should create activity with name and defaults', async () => {
 			invokeWithRetry.mockResolvedValueOnce([]).mockResolvedValueOnce({
 				id: 3,
+				group_id: 1,
 				name: 'Meditation',
 				color: '#3B82F6',
 				icon: null,
@@ -480,6 +483,7 @@ describe('ActivitySelector', () => {
 		it('should automatically select newly created activity', async () => {
 			invokeWithRetry.mockResolvedValueOnce([]).mockResolvedValueOnce({
 				id: 3,
+				group_id: 1,
 				name: 'Meditation',
 				color: '#3B82F6',
 				icon: null,
@@ -524,6 +528,7 @@ describe('ActivitySelector', () => {
 		it('should close form after successful creation', async () => {
 			invokeWithRetry.mockResolvedValueOnce([]).mockResolvedValueOnce({
 				id: 3,
+				group_id: 1,
 				name: 'Meditation',
 				color: '#3B82F6',
 				icon: null,

@@ -60,6 +60,7 @@ describe('MoodChart', () => {
 			{
 				activity: {
 					id: 1,
+					group_id: 1,
 					name: 'Exercise',
 					color: '#4CAF50',
 					icon: '🏃',
@@ -75,6 +76,7 @@ describe('MoodChart', () => {
 			{
 				activity: {
 					id: 2,
+					group_id: 1,
 					name: 'Reading',
 					color: '#2196F3',
 					icon: '📚',

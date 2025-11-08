@@ -7,6 +7,7 @@ describe('ActivityList', () => {
 	const mockActivities: Activity[] = [
 		{
 			id: 1,
+			group_id: 1,
 			name: 'Exercise',
 			color: '#22C55E',
 			icon: '🏃',
@@ -15,6 +16,7 @@ describe('ActivityList', () => {
 		},
 		{
 			id: 2,
+			group_id: 1,
 			name: 'Meditation',
 			color: '#3B82F6',
 			icon: '🧘',
@@ -23,6 +25,7 @@ describe('ActivityList', () => {
 		},
 		{
 			id: 3,
+			group_id: 1,
 			name: 'Reading',
 			color: null,
 			icon: null,
