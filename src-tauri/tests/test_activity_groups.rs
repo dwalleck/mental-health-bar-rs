@@ -112,3 +112,33 @@ fn test_create_activity_group_name_at_limit() {
         "Group name with exactly 100 characters should succeed"
     );
 }
+
+// Additional test: Description field boundary conditions (500 char limit)
+#[test]
+fn test_create_activity_group_description_boundary() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // 499 characters - should succeed
+    let desc_499 = Some("a".repeat(499).as_str());
+    let result = repo.create_activity_group("Group 499", desc_499);
+    assert!(
+        result.is_ok(),
+        "Description with 499 characters should succeed"
+    );
+
+    // 500 characters - should succeed (at boundary)
+    let desc_500 = Some("b".repeat(500).as_str());
+    let result = repo.create_activity_group("Group 500", desc_500);
+    assert!(
+        result.is_ok(),
+        "Description with exactly 500 characters should succeed"
+    );
+
+    // 501 characters - should fail (exceeds limit)
+    let desc_501 = Some("c".repeat(501).as_str());
+    let result = repo.create_activity_group("Group 501", desc_501);
+    assert!(
+        result.is_err(),
+        "Description with 501 characters should fail"
+    );
+}

@@ -203,15 +203,53 @@ pub struct ActivityLog {
 }
 
 /// Activity Goal model
+///
+/// Represents a user-defined goal for tracking activity completion or improvement.
+///
+/// # Goal Target (Mutually Exclusive)
+///
+/// Goals must target either:
+/// - A specific `activity_id` (e.g., "Exercise 3 times per week")
+/// - An entire `group_id` (e.g., "Do any social activity 5 times per week")
+///
+/// Setting both or neither is invalid and enforced by:
+/// - Database CHECK constraint: `NOT (activity_id IS NOT NULL AND group_id IS NOT NULL)`
+/// - Validation layer: `validate_goal_target_exclusivity()` function
+///
+/// # Goal Types
+///
+/// - `"days_per_period"`: Track frequency of activity within a time period
+///   - Example: "Exercise 3 days per 7-day period"
+///   - `target_value`: number of days activity should be performed
+///   - `period_days`: rolling window size in days
+///
+/// - `"percent_improvement"`: Track improvement over baseline period
+///   - Example: "Increase meditation by 20% over 30-day baseline"
+///   - `target_value`: percentage improvement (e.g., 20 = 20%)
+///   - `period_days`: baseline comparison period in days
+///
+/// # Soft Deletes
+///
+/// Goals use soft delete pattern via `deleted_at` timestamp, allowing:
+/// - Historical goal tracking and analysis
+/// - Recovery of accidentally deleted goals
+/// - Audit trail of goal changes over time
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct ActivityGoal {
     pub id: i32,
+    /// ID of specific activity this goal targets (mutually exclusive with group_id)
     pub activity_id: Option<i32>,
+    /// ID of activity group this goal targets (mutually exclusive with activity_id)
     pub group_id: Option<i32>,
-    pub goal_type: String, // 'days_per_period' or 'percent_improvement'
+    /// Type of goal: 'days_per_period' or 'percent_improvement'
+    pub goal_type: String,
+    /// Target value: days count for 'days_per_period', percentage for 'percent_improvement'
     pub target_value: i32,
+    /// Time period in days for goal measurement or baseline comparison
     pub period_days: i32,
+    /// ISO 8601 timestamp when goal was created
     pub created_at: String,
+    /// ISO 8601 timestamp when goal was soft-deleted (None if active)
     pub deleted_at: Option<String>,
 }
 

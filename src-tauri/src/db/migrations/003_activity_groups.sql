@@ -63,10 +63,11 @@ CREATE TABLE activities_new (
 );
 
 -- Step 2: Create default activity group if existing activities need to be migrated
--- Only create the group if there are existing activities to migrate
+-- Idempotent: only create if (1) activities exist AND (2) group doesn't already exist
 INSERT INTO activity_groups (id, name, description)
 SELECT 1, 'Default Group', 'Auto-created during migration for existing activities'
-WHERE EXISTS (SELECT 1 FROM activities);
+WHERE EXISTS (SELECT 1 FROM activities)
+  AND NOT EXISTS (SELECT 1 FROM activity_groups WHERE id = 1);
 
 -- Step 3: Copy existing data (if any - though none exists in practice)
 INSERT INTO activities_new (id, group_id, name, color, icon, created_at, deleted_at)
@@ -79,8 +80,9 @@ DROP TABLE IF EXISTS activities;
 ALTER TABLE activities_new RENAME TO activities;
 
 -- Step 5: Recreate indexes
+-- Note: idx_activities_group_id not needed - composite index idx_activities_group_deleted
+-- can serve queries filtering by group_id alone (leftmost prefix optimization)
 CREATE INDEX idx_activities_deleted_at ON activities(deleted_at);
-CREATE INDEX idx_activities_group_id ON activities(group_id);
 CREATE INDEX idx_activities_group_deleted ON activities(group_id, deleted_at);
 CREATE UNIQUE INDEX idx_activities_name_unique ON activities(name) WHERE deleted_at IS NULL;
 
