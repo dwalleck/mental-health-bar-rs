@@ -8,10 +8,13 @@
 
 ## Activity Groups
 
-I want to create a two level heirarchy of activities:
+I want to create a two level hierarchy of activities:
 
-- Activity Group: A name of a group of activities that could fufil a goal or habit the user is trying to meet (ex: Exercise)
-- Activities: One to one relationship with Activity Groups (ex: hiking, swiming)
+- Activity Group: A name of a group of activities that could fulfill a goal or habit the user is trying to meet (ex: Exercise)
+- Activities: **Many-to-one relationship** with Activity Groups - many activities can belong to one group (ex: hiking, swimming, running all belong to "Exercise" group)
+- **MANDATORY**: An activity MUST belong to exactly one group (group_id NOT NULL)
+- Activities can be moved between groups
+- **DELETE behavior**: Deleting an activity group CASCADE deletes all its activities (with warning)
 
 When it comes to reporting, we
 will say how many days a week they did the activity or activity group and the percent change from the previous week.
