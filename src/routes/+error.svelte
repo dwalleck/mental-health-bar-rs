@@ -90,7 +90,7 @@
 						</summary>
 						<div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
 							<pre
-								class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{String(
+								class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap wrap-break-word">{String(
 									error.message
 								)}</pre>
 						</div>
@@ -101,7 +101,7 @@
 				<div class="flex flex-col sm:flex-row gap-3 justify-center">
 					<button
 						onclick={handleGoHome}
-						class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition-colors inline-flex items-center justify-center gap-2"
+						class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-xs transition-colors inline-flex items-center justify-center gap-2"
 					>
 						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -116,7 +116,7 @@
 
 					<button
 						onclick={handleRefresh}
-						class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-sm transition-colors inline-flex items-center justify-center gap-2"
+						class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-xs transition-colors inline-flex items-center justify-center gap-2"
 					>
 						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path

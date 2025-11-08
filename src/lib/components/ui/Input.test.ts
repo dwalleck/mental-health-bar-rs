@@ -214,7 +214,7 @@ describe('Input', () => {
 				'py-2',
 				'border',
 				'rounded-lg',
-				'focus:outline-none',
+				'focus:outline-hidden',
 				'focus:ring-2',
 				'focus:ring-blue-500'
 			)

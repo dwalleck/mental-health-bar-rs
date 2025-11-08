@@ -46,39 +46,42 @@
 	<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 		<button
 			on:click={showSuccess}
-			class="p-4 bg-green-600 text-white rounded hover:bg-green-700 transition"
+			class="p-4 bg-green-600 text-white rounded-sm hover:bg-green-700 transition"
 		>
 			Show Success Toast
 		</button>
 
 		<button
 			on:click={showError}
-			class="p-4 bg-red-600 text-white rounded hover:bg-red-700 transition"
+			class="p-4 bg-red-600 text-white rounded-sm hover:bg-red-700 transition"
 		>
 			Show Error Toast
 		</button>
 
 		<button
 			on:click={showWarning}
-			class="p-4 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition"
+			class="p-4 bg-yellow-600 text-white rounded-sm hover:bg-yellow-700 transition"
 		>
 			Show Warning Toast
 		</button>
 
-		<button on:click={showInfo} class="p-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+		<button
+			on:click={showInfo}
+			class="p-4 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition"
+		>
 			Show Info Toast
 		</button>
 
 		<button
 			on:click={showValidationError}
-			class="p-4 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
+			class="p-4 bg-purple-600 text-white rounded-sm hover:bg-purple-700 transition"
 		>
 			Test Validation Error (Inline)
 		</button>
 
 		<button
 			on:click={showRetryableError}
-			class="p-4 bg-orange-600 text-white rounded hover:bg-orange-700 transition"
+			class="p-4 bg-orange-600 text-white rounded-sm hover:bg-orange-700 transition"
 		>
 			Test Database Error (Toast)
 		</button>
@@ -88,8 +91,8 @@
 		<h2 class="text-xl font-semibold mb-4">How Toast Notifications Work in This App:</h2>
 		<ul class="space-y-2 list-disc list-inside">
 			<li>
-				<strong>Success messages:</strong> Show as green toast notifications (e.g., "Assessment
-				submitted successfully!")
+				<strong>Success messages:</strong> Show as green toast notifications (e.g., "Assessment submitted
+				successfully!")
 			</li>
 			<li>
 				<strong>System errors:</strong> Show as red toast notifications (e.g., database errors, network
@@ -107,9 +110,9 @@
 	<div class="mt-8 p-6 bg-blue-50 dark:bg-blue-900 rounded-lg">
 		<h3 class="text-lg font-semibold mb-2">Migration Status:</h3>
 		<p class="text-sm">
-			✅ All components have been migrated to use the toast notification system. Every success action
-			now shows a toast, and system errors are automatically displayed as toasts while validation
-			errors show inline with forms.
+			✅ All components have been migrated to use the toast notification system. Every success
+			action now shows a toast, and system errors are automatically displayed as toasts while
+			validation errors show inline with forms.
 		</p>
 	</div>
 </div>

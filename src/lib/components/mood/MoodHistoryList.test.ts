@@ -267,7 +267,7 @@ describe('MoodHistoryList', () => {
 			expect(card).toHaveClass('mood-checkin-card')
 		})
 
-		it('should have hover shadow effect on cards', () => {
+		it('should have hover shadow-sm effect on cards', () => {
 			const { container } = render(MoodHistoryList, {
 				props: { checkins: [mockCheckins[0]] },
 			})

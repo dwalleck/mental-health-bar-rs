@@ -40,7 +40,7 @@
 	}
 </script>
 
-<div class="statistics-card bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+<div class="statistics-card bg-white rounded-lg shadow-xs border border-gray-200 p-6">
 	<h3 class="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
 
 	<div class="grid grid-cols-2 gap-4">

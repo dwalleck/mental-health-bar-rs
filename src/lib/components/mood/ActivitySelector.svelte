@@ -118,7 +118,7 @@
 				bind:value={newActivityName}
 				placeholder="Activity name (e.g., Exercise)"
 				class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md mb-2
-					focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+					focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 				maxlength="100"
 				aria-label="Activity name"
 			/>
@@ -126,7 +126,7 @@
 				<input
 					type="color"
 					bind:value={newActivityColor}
-					class="w-12 h-10 rounded cursor-pointer"
+					class="w-12 h-10 rounded-sm cursor-pointer"
 					aria-label="Choose activity color"
 				/>
 				<input
@@ -134,7 +134,7 @@
 					bind:value={newActivityIcon}
 					placeholder="Emoji (optional)"
 					class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
-						focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+						focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
 					maxlength="20"
 					aria-label="Activity icon (emoji)"
 				/>

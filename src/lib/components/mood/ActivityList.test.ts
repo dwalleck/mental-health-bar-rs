@@ -162,7 +162,7 @@ describe('ActivityList', () => {
 				props: { activities: [mockActivities[0]], onEdit, onDelete },
 			})
 
-			const colorSwatch = container.querySelector('.w-6.h-6.rounded')
+			const colorSwatch = container.querySelector('.w-6.h-6.rounded-sm')
 			expect(colorSwatch).toBeInTheDocument()
 			expect(colorSwatch).toHaveStyle('background-color: #22C55E')
 		})
@@ -174,7 +174,7 @@ describe('ActivityList', () => {
 				props: { activities: [mockActivities[2]], onEdit, onDelete },
 			})
 
-			const colorSwatch = container.querySelector('.w-6.h-6.rounded')
+			const colorSwatch = container.querySelector('.w-6.h-6.rounded-sm')
 			expect(colorSwatch).not.toBeInTheDocument()
 		})
 
@@ -201,7 +201,7 @@ describe('ActivityList', () => {
 			expect(activityCard).toHaveClass('activity-card')
 		})
 
-		it('should have hover shadow effect on cards', () => {
+		it('should have hover shadow-sm effect on cards', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {

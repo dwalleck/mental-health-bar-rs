@@ -20,14 +20,14 @@
 	}
 
 	// State management with Svelte 5 runes
-	let assessments = $state<SvelteMap<string, AssessmentResponse | null>>(new SvelteMap())
+	let assessments = new SvelteMap<string, AssessmentResponse | null>()
 	let loading = $state(true)
 	let error = $state<string | null>(null)
 	let failedAssessments = $state<string[]>([])
 
 	// T213, T221: Fetch latest assessments for all types on mount using Svelte 5 $effect
 	$effect(() => {
-		let isMounted = true
+		const abortController = new AbortController()
 
 		async function fetchAssessments() {
 			try {
@@ -48,16 +48,15 @@
 							return { code, data: result, failed: false }
 						} catch (err) {
 							// T225: Handle individual assessment failures gracefully
-							console.warn(
-								`Failed to fetch assessment ${code}: ${formatErrorForLogging(err)}`
-							)
+							// TODO: Replace console logging with production logging utility
+							console.warn(`Failed to fetch assessment ${code}: ${formatErrorForLogging(err)}`)
 							return { code, data: null, failed: true }
 						}
 					})
 				)
 
-				// Only update state if component is still mounted
-				if (!isMounted) return
+				// Only update state if not aborted
+				if (abortController.signal.aborted) return
 
 				// Populate the assessments map and track failures
 				const newAssessments = new SvelteMap<string, AssessmentResponse | null>()
@@ -71,13 +70,14 @@
 				assessments = newAssessments
 				failedAssessments = failed
 			} catch (err) {
+				// TODO: Replace console logging with production logging utility
 				console.error('Failed to fetch all assessments:', formatErrorForLogging(err))
-				// Only update error state if still mounted
-				if (isMounted) {
+				// Only update error state if not aborted
+				if (!abortController.signal.aborted) {
 					error = 'Failed to load assessment data. Please try again.'
 				}
 			} finally {
-				if (isMounted) {
+				if (!abortController.signal.aborted) {
 					loading = false
 				}
 			}
@@ -85,9 +85,9 @@
 
 		fetchAssessments()
 
-		// Cleanup function: mark component as unmounted to prevent state updates
+		// Cleanup function: abort any pending operations on unmount
 		return () => {
-			isMounted = false
+			abortController.abort()
 		}
 	})
 
@@ -145,7 +145,7 @@
 						<!-- Assessment has data - render clickable score bar -->
 						<button
 							type="button"
-							class="w-full text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class="w-full text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 							onclick={() => navigateToChart(assessmentType)}
 							aria-label={`View ${ASSESSMENT_METADATA[assessmentType].name} chart`}
 						>

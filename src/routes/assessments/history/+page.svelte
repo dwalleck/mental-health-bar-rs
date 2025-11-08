@@ -83,7 +83,9 @@
 							</div>
 							<div class="text-right">
 								<div class="text-2xl font-bold text-gray-800">{item.total_score}</div>
-								<div class="text-xs px-2 py-1 rounded {getSeverityColor(item.severity_level)} mt-1">
+								<div
+									class="text-xs px-2 py-1 rounded-sm {getSeverityColor(item.severity_level)} mt-1"
+								>
 									{formatSeverity(item.severity_level)}
 								</div>
 							</div>

@@ -144,7 +144,7 @@ describe('Button', () => {
 				'rounded-lg',
 				'font-medium',
 				'transition-colors',
-				'focus:outline-none',
+				'focus:outline-hidden',
 				'focus:ring-2',
 				'focus:ring-offset-2'
 			)

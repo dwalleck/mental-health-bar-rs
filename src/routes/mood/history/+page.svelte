@@ -163,7 +163,7 @@
 		<a
 			href="/mood"
 			data-sveltekit-preload-data="hover"
-			class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+			class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-xs"
 		>
 			← Back to Mood Check-In
 		</a>

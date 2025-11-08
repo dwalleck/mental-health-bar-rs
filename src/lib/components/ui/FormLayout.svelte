@@ -83,6 +83,9 @@
 	<!-- Form sections -->
 	<div class="space-y-8 divide-y divide-gray-200 dark:divide-gray-700">
 		{#each sections as section, i (i)}
+			{@const sectionSlot = slots[`section_${i}` as keyof typeof slots] as
+				| import('svelte').Snippet
+				| undefined}
 			<div class="pt-8 first:pt-0">
 				{#if section.title || section.description}
 					<div>
@@ -100,12 +103,7 @@
 				{/if}
 
 				<div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-					{#if true}
-						{@const sectionSlot = slots[`section_${i}` as keyof typeof slots] as
-							| import('svelte').Snippet
-							| undefined}
-						{@render sectionSlot?.()}
-					{/if}
+					{@render sectionSlot?.()}
 				</div>
 			</div>
 		{/each}
@@ -124,7 +122,7 @@
 			{#if showCancel}
 				<button
 					type="button"
-					class="rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+					class="rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
 					onclick={onCancel}
 					disabled={loading}
 				>
@@ -133,7 +131,7 @@
 			{/if}
 			<button
 				type="submit"
-				class="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+				class="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
 				disabled={loading}
 			>
 				{#if loading}
@@ -146,9 +144,11 @@
 </form>
 
 <style>
+	@reference 'tailwindcss';
+
 	/* Additional form field styles that can be applied to child elements */
 	:global(.form-input) {
-		@apply block w-full rounded-md border-0 px-3 py-1.5 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6 bg-white dark:bg-gray-800;
+		@apply block w-full rounded-md border-0 px-3 py-1.5 text-gray-900 dark:text-gray-100 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6 bg-white dark:bg-gray-800;
 	}
 
 	:global(.form-label) {
@@ -172,7 +172,7 @@
 	}
 
 	:global(.form-textarea) {
-		@apply block w-full rounded-md border-0 px-3 py-1.5 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6 bg-white dark:bg-gray-800;
+		@apply block w-full rounded-md border-0 px-3 py-1.5 text-gray-900 dark:text-gray-100 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:focus:ring-blue-400 sm:text-sm sm:leading-6 bg-white dark:bg-gray-800;
 	}
 
 	:global(.form-col-span-full) {

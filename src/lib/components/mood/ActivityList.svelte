@@ -36,7 +36,7 @@
 		<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each activities as activity (activity.id)}
 				<div
-					class="activity-card p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+					class="activity-card p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
 					style={activity.color ? `border-left: 4px solid ${activity.color}` : ''}
 				>
 					<div class="flex items-start justify-between gap-2">
@@ -52,7 +52,7 @@
 							{#if activity.color}
 								<div class="flex items-center gap-2 mt-2">
 									<div
-										class="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
+										class="w-6 h-6 rounded-sm border border-gray-300 dark:border-gray-600"
 										style={`background-color: ${activity.color}`}
 									></div>
 									<span class="text-xs font-mono text-gray-500 dark:text-gray-400">
@@ -63,7 +63,7 @@
 						</div>
 						<div class="flex flex-col gap-1">
 							<button
-								class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+								class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm transition-colors"
 								onclick={() => onEdit(activity)}
 								aria-label="Edit {activity.name}"
 								title="Edit"
@@ -78,7 +78,7 @@
 								</svg>
 							</button>
 							<button
-								class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+								class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-sm transition-colors"
 								onclick={() => confirmDelete(activity)}
 								aria-label="Delete {activity.name}"
 								title="Delete"

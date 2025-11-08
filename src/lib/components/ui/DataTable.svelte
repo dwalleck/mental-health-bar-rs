@@ -118,7 +118,7 @@
 <div class="flow-root">
 	<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
 		<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-			<div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+			<div class="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 sm:rounded-lg">
 				<table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
 					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
@@ -126,7 +126,7 @@
 								<th scope="col" class="relative px-7 sm:w-12 sm:px-6">
 									<input
 										type="checkbox"
-										class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
+										class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded-sm border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
 										checked={selectAll}
 										onchange={toggleSelectAll}
 										aria-label="Select all"
@@ -215,7 +215,7 @@
 										<td class="relative px-7 sm:w-12 sm:px-6">
 											<input
 												type="checkbox"
-												class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
+												class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded-sm border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-600"
 												checked={isSelected(item)}
 												onchange={() => toggleSelect(item)}
 												aria-label="Select row"

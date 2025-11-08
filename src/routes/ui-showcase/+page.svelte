@@ -180,7 +180,7 @@
 		</div>
 
 		<!-- Enhanced Form Layout -->
-		<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+		<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
 			<h2 class="text-xl font-semibold mb-6">Enhanced Form Layout</h2>
 			<FormLayout
 				title="Schedule Assessment"
@@ -243,7 +243,7 @@
 		</div>
 
 		<!-- Professional Data Table -->
-		<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+		<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
 			<h2 class="text-xl font-semibold mb-6">Professional Data Table</h2>
 			<DataTable
 				columns={tableColumns}
@@ -256,7 +256,7 @@
 		</div>
 
 		<!-- Enhanced Combobox -->
-		<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+		<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
 			<h2 class="text-xl font-semibold mb-6">Enhanced Combobox Components</h2>
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<Combobox
@@ -279,18 +279,18 @@
 		</div>
 
 		<!-- Modal Examples -->
-		<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+		<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
 			<h2 class="text-xl font-semibold mb-6">Modal Components</h2>
 			<div class="flex gap-4">
 				<button
-					class="inline-flex justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+					class="inline-flex justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500"
 					onclick={() => (showModal = true)}
 				>
 					Open Standard Modal
 				</button>
 
 				<button
-					class="inline-flex justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
+					class="inline-flex justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-500"
 					onclick={() => (showDeleteModal = true)}
 				>
 					Open Delete Confirmation
@@ -299,7 +299,7 @@
 		</div>
 
 		<!-- Mood Scale Example -->
-		<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+		<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
 			<h2 class="text-xl font-semibold mb-6">Mood Check-in Form</h2>
 			<FormLayout
 				title="How are you feeling?"

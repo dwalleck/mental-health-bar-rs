@@ -175,7 +175,7 @@
 			<Card title="Additional Notes (Optional)">
 				<textarea
 					bind:value={notes}
-					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 					rows="4"
 					placeholder="Any additional thoughts or context..."
 				></textarea>

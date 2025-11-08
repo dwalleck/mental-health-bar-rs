@@ -69,7 +69,7 @@
 		<div class="space-y-3">
 			{#each checkins as checkin (checkin.id)}
 				<div
-					class="mood-checkin-card p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+					class="mood-checkin-card p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
 				>
 					<div class="flex items-start justify-between gap-3">
 						<div class="flex-1">
