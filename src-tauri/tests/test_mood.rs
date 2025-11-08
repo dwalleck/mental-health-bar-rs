@@ -8,26 +8,39 @@ use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
 use tempfile::TempDir;
 
-/// Setup test environment with temporary database
-fn setup_test_repo() -> (MoodRepository, TempDir) {
+/// Setup test environment with temporary database and default activity group
+fn setup_test_repo() -> (MoodRepository, TempDir, i32) {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let db_path = temp_dir.path().to_path_buf();
     let db = Arc::new(Database::new(db_path).expect("Failed to create database"));
-    let repo = MoodRepository::new(db);
-    (repo, temp_dir)
+
+    // Create a default activity group for testing
+    let conn = db.get_connection();
+    let conn = conn.lock();
+    let group_id: i32 = conn
+        .query_row(
+            "INSERT INTO activity_groups (name, description) VALUES (?, ?) RETURNING id",
+            ["Default Group", "Default group for testing"],
+            |row| row.get(0),
+        )
+        .expect("Failed to create default activity group");
+    drop(conn); // Release lock before creating repo
+
+    let repo = MoodRepository::new(db.clone());
+    (repo, temp_dir, group_id)
 }
 
 // T069: Integration test - log_mood command
 #[test]
 fn test_log_mood_end_to_end() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create test activities
     let activity1 = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity 1");
     let activity2 = repo
-        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create activity 2");
 
     // Log mood with activities
@@ -60,7 +73,7 @@ fn test_log_mood_end_to_end() {
 
 #[test]
 fn test_log_mood_without_activities() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Log mood without activities
     let mood_checkin = repo
@@ -74,7 +87,7 @@ fn test_log_mood_without_activities() {
 
 #[test]
 fn test_log_mood_invalid_rating() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to log mood with invalid rating
     let result = repo.create_mood_checkin(0, vec![], None);
@@ -86,7 +99,7 @@ fn test_log_mood_invalid_rating() {
 
 #[test]
 fn test_log_mood_invalid_activity_id() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to log mood with non-existent activity ID
     let result = repo.create_mood_checkin(4, vec![9999], None);
@@ -96,7 +109,7 @@ fn test_log_mood_invalid_activity_id() {
 // T070: Integration test - get_mood_history query with date filtering
 #[test]
 fn test_get_mood_history_with_date_filtering() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create mood check-ins on different days
     let _yesterday = chrono::Utc::now()
@@ -143,7 +156,7 @@ fn test_get_mood_history_with_date_filtering() {
 
 #[test]
 fn test_get_mood_history_empty() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     let moods = repo
         .get_mood_history(None, None, None)
@@ -154,23 +167,23 @@ fn test_get_mood_history_empty() {
 // T071: Integration test - Mood check-in with multiple activities
 #[test]
 fn test_mood_checkin_with_multiple_activities() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create 5 activities
     let activity1 = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity 1");
     let activity2 = repo
-        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create activity 2");
     let activity3 = repo
-        .create_activity("Social", Some("#2196F3"), Some("👥"))
+        .create_activity("Social", Some("#2196F3"), Some("👥"), group_id)
         .expect("Failed to create activity 3");
     let activity4 = repo
-        .create_activity("Work", Some("#FF9800"), Some("💼"))
+        .create_activity("Work", Some("#FF9800"), Some("💼"), group_id)
         .expect("Failed to create activity 4");
     let activity5 = repo
-        .create_activity("Hobby", Some("#E91E63"), Some("🎨"))
+        .create_activity("Hobby", Some("#E91E63"), Some("🎨"), group_id)
         .expect("Failed to create activity 5");
 
     // Log mood with all 5 activities
@@ -206,10 +219,10 @@ fn test_mood_checkin_with_multiple_activities() {
 
 #[test]
 fn test_mood_checkin_with_duplicate_activity_ids() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     // Try to log mood with duplicate activity IDs
@@ -232,11 +245,11 @@ fn test_mood_checkin_with_duplicate_activity_ids() {
 
 #[test]
 fn test_get_mood_checkin_by_id() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity
     let activity = repo
-        .create_activity("Reading", Some("#FF5733"), Some("📚"))
+        .create_activity("Reading", Some("#FF5733"), Some("📚"), group_id)
         .expect("Failed to create activity");
 
     // Create mood check-in
@@ -257,7 +270,7 @@ fn test_get_mood_checkin_by_id() {
 
 #[test]
 fn test_get_mood_checkin_not_found() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     let result = repo.get_mood_checkin(9999);
     assert!(result.is_err());
@@ -266,14 +279,14 @@ fn test_get_mood_checkin_not_found() {
 // T093a: Integration test - Deleting mood_checkin cascades to mood_checkin_activities
 #[test]
 fn test_delete_mood_checkin_cascades_to_activities() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create test activities
     let activity1 = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity 1");
     let activity2 = repo
-        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create activity 2");
 
     // Create mood check-in with activities
@@ -316,7 +329,7 @@ fn test_delete_mood_checkin_cascades_to_activities() {
 // T150i: Test log_mood with notes exceeding 5,000 chars
 #[test]
 fn test_log_mood_notes_exceeds_max_length() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create notes with exactly 5,001 characters (1 over limit)
     let notes = "a".repeat(5_001);
@@ -331,7 +344,7 @@ fn test_log_mood_notes_exceeds_max_length() {
 // T150y: Test notes at exactly 5,000 characters (boundary)
 #[test]
 fn test_log_mood_notes_at_exact_limit() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Exactly 5,000 characters (at the limit)
     let notes = "a".repeat(5_000);
@@ -345,7 +358,7 @@ fn test_log_mood_notes_at_exact_limit() {
 // T150j: Test log_mood with boundary ratings (0, 6, -1, 100)
 #[test]
 fn test_log_mood_with_invalid_boundary_ratings() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Test rating 0 (below minimum of 1)
     let result = repo.create_mood_checkin(0, vec![], None);
@@ -371,7 +384,7 @@ fn test_log_mood_with_invalid_boundary_ratings() {
 // T150j continued: Test valid boundary ratings (1 and 5)
 #[test]
 fn test_log_mood_with_valid_boundary_ratings() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Test rating 1 (minimum valid)
     let result = repo.create_mood_checkin(1, vec![], None);
@@ -387,13 +400,18 @@ fn test_log_mood_with_valid_boundary_ratings() {
 // T150k: Test log_mood with very large activity_ids array (50+ ids)
 #[test]
 fn test_log_mood_with_large_activity_array() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create 60 activities
     let mut activity_ids = Vec::new();
     for i in 0..60 {
         let activity = repo
-            .create_activity(&format!("Activity {}", i), Some("#4CAF50"), Some("📝"))
+            .create_activity(
+                &format!("Activity {}", i),
+                Some("#4CAF50"),
+                Some("📝"),
+                group_id,
+            )
             .expect(&format!("Failed to create activity {}", i));
         activity_ids.push(activity.id);
     }
@@ -430,7 +448,7 @@ fn test_log_mood_with_large_activity_array() {
 // T150n: Test get_mood_history with invalid date formats
 #[test]
 fn test_get_mood_history_invalid_date_formats() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create a mood check-in
     repo.create_mood_checkin(4, vec![], Some("Test"))
@@ -479,7 +497,7 @@ fn test_get_mood_history_invalid_date_formats() {
 // T150o: Test get_mood_history with from_date > to_date
 #[test]
 fn test_get_mood_history_reversed_date_range() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create some mood check-ins
     repo.create_mood_checkin(4, vec![], Some("Test 1"))
@@ -520,7 +538,7 @@ fn test_get_mood_history_reversed_date_range() {
 // T150r: Test query with very large limit values
 #[test]
 fn test_get_mood_history_large_limit() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create 5 mood check-ins
     for i in 1..=5 {
@@ -549,7 +567,7 @@ fn test_get_mood_history_large_limit() {
 // T150s: Test get_mood_statistics with empty date ranges
 #[test]
 fn test_get_mood_statistics_empty_date_range() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create mood check-ins today
     repo.create_mood_checkin(4, vec![], Some("Today's mood"))

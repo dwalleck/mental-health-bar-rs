@@ -14,28 +14,41 @@ use tauri_sveltekit_modern_lib::features::visualization::models::{
 use tauri_sveltekit_modern_lib::features::visualization::repository::VisualizationRepository;
 use tempfile::TempDir;
 
-/// Setup test environment with temporary database
+/// Setup test environment with temporary database and default activity group
 fn setup_test_repo() -> (
     VisualizationRepository,
     AssessmentRepository,
     MoodRepository,
     TempDir,
+    i32,
 ) {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let db_path = temp_dir.path().to_path_buf();
     let db = Arc::new(Database::new(db_path).expect("Failed to create database"));
 
+    // Create a default activity group for testing
+    let conn = db.get_connection();
+    let conn = conn.lock();
+    let group_id: i32 = conn
+        .query_row(
+            "INSERT INTO activity_groups (name, description) VALUES (?, ?) RETURNING id",
+            ["Default Group", "Default group for testing"],
+            |row| row.get(0),
+        )
+        .expect("Failed to create default activity group");
+    drop(conn); // Release lock before creating repo
+
     let viz_repo = VisualizationRepository::new(db.clone());
     let assessment_repo = AssessmentRepository::new(db.clone());
     let mood_repo = MoodRepository::new(db.clone());
 
-    (viz_repo, assessment_repo, mood_repo, temp_dir)
+    (viz_repo, assessment_repo, mood_repo, temp_dir, group_id)
 }
 
 // T118: Integration test - get_assessment_chart_data query with time ranges
 #[test]
 fn test_get_assessment_chart_data_with_week_range() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create several PHQ-9 assessments over the past week
     for i in 0..5 {
@@ -69,7 +82,7 @@ fn test_get_assessment_chart_data_with_week_range() {
 
 #[test]
 fn test_get_assessment_chart_data_with_custom_range() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create assessments
     for i in 0..3 {
@@ -91,7 +104,7 @@ fn test_get_assessment_chart_data_with_custom_range() {
 
 #[test]
 fn test_get_assessment_chart_data_invalid_type() {
-    let (viz_repo, _, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, _, _temp_dir, _group_id) = setup_test_repo();
 
     let result = viz_repo.get_assessment_chart_data("INVALID", None, None);
     assert!(result.is_err());
@@ -107,7 +120,7 @@ fn test_get_assessment_chart_data_invalid_type() {
 
 #[test]
 fn test_get_assessment_chart_data_no_data() {
-    let (viz_repo, _, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Query with no assessments in database
     let result = viz_repo.get_assessment_chart_data("PHQ9", None, None);
@@ -124,7 +137,7 @@ fn test_get_assessment_chart_data_no_data() {
 
 #[test]
 fn test_assessment_chart_statistics_calculation() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create assessments with known scores: 5, 10, 15, 20
     for score in [5, 10, 15, 20] {
@@ -157,7 +170,7 @@ fn test_assessment_chart_statistics_calculation() {
 
 #[test]
 fn test_assessment_chart_trend_improving() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create assessments with decreasing scores (improving trend)
     // 20 -> 10 is 50% reduction (> 20% threshold)
@@ -183,7 +196,7 @@ fn test_assessment_chart_trend_improving() {
 
 #[test]
 fn test_assessment_chart_trend_worsening() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create assessments with increasing scores (worsening trend)
     // 5 -> 15 is 200% increase (> 20% threshold)
@@ -209,7 +222,7 @@ fn test_assessment_chart_trend_worsening() {
 
 #[test]
 fn test_assessment_chart_trend_stable() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create assessments with stable scores (< 20% change)
     // 10 -> 11 is 10% change (< 20% threshold)
@@ -235,7 +248,7 @@ fn test_assessment_chart_trend_stable() {
 
 #[test]
 fn test_assessment_chart_thresholds_included() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create one assessment
     let responses: Vec<i32> = vec![1; 9];
@@ -265,7 +278,7 @@ fn test_assessment_chart_thresholds_included() {
 // T119: Integration test - Chart data aggregation for year+ data
 #[test]
 fn test_chart_data_aggregation_large_dataset() {
-    let (viz_repo, assessment_repo, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, assessment_repo, _, _temp_dir, _group_id) = setup_test_repo();
 
     // Create 100 assessments (simulating ~3 months of data)
     for i in 0..100 {
@@ -301,7 +314,7 @@ fn test_chart_data_aggregation_large_dataset() {
 // T136: Integration test - get_mood_chart_data query
 #[test]
 fn test_get_mood_chart_data_basic() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create mood check-ins
     for rating in [3, 4, 5, 2, 4] {
@@ -326,7 +339,7 @@ fn test_get_mood_chart_data_basic() {
 
 #[test]
 fn test_get_mood_chart_data_with_time_range() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create mood check-ins
     for rating in [3, 4, 5, 2, 4] {
@@ -348,7 +361,7 @@ fn test_get_mood_chart_data_with_time_range() {
 
 #[test]
 fn test_get_mood_chart_data_no_data() {
-    let (viz_repo, _, _, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, _, _temp_dir, _group_id) = setup_test_repo();
 
     let result = viz_repo.get_mood_chart_data(None, None, false);
     assert!(result.is_err());
@@ -364,7 +377,7 @@ fn test_get_mood_chart_data_no_data() {
 
 #[test]
 fn test_mood_statistics_calculation() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create mood check-ins: 1, 2, 3, 3, 3, 4, 5
     // Mode should be 3 (appears 3 times)
@@ -390,19 +403,19 @@ fn test_mood_statistics_calculation() {
 // T137: Integration test - Activity correlation calculation
 #[test]
 fn test_activity_correlation_calculation() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activities
     let exercise = mood_repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create Exercise activity");
 
     let meditation = mood_repo
-        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create Meditation activity");
 
     let work = mood_repo
-        .create_activity("Work", Some("#FF9800"), Some("💼"))
+        .create_activity("Work", Some("#FF9800"), Some("💼"), group_id)
         .expect("Failed to create Work activity");
 
     // Create mood check-ins with activities
@@ -457,11 +470,11 @@ fn test_activity_correlation_calculation() {
 
 #[test]
 fn test_activity_correlation_minimum_sample_size() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity
     let reading = mood_repo
-        .create_activity("Reading", Some("#FF5733"), Some("📚"))
+        .create_activity("Reading", Some("#FF5733"), Some("📚"), group_id)
         .expect("Failed to create Reading activity");
 
     // Create only 1 mood check-in (below minimum of 2)
@@ -480,11 +493,11 @@ fn test_activity_correlation_minimum_sample_size() {
 
 #[test]
 fn test_activity_correlation_ignores_deleted_activities() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity
     let deleted_activity = mood_repo
-        .create_activity("Deleted", Some("#000000"), Some("❌"))
+        .create_activity("Deleted", Some("#000000"), Some("❌"), group_id)
         .expect("Failed to create activity");
 
     // Create mood check-ins
@@ -511,11 +524,11 @@ fn test_activity_correlation_ignores_deleted_activities() {
 
 #[test]
 fn test_mood_chart_without_activity_breakdown() {
-    let (viz_repo, _, mood_repo, _temp_dir) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activities
     let exercise = mood_repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     // Create mood check-ins with activities

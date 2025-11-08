@@ -33,6 +33,12 @@ pub fn run_migrations(db: &Database) -> Result<()> {
         info!("Applied migration 002: Add schedule index");
     }
 
+    if current_version < 3 {
+        apply_migration_003(db)?;
+        record_migration(db, 3)?;
+        info!("Applied migration 003: Activity groups and tracking");
+    }
+
     info!("All migrations applied successfully");
     Ok(())
 }
@@ -65,10 +71,19 @@ fn apply_migration_001(db: &Database) -> Result<()> {
     let schema_sql = include_str!("migrations/001_initial_schema.sql");
 
     let conn = db.get_connection();
-    let conn = conn.lock();
+    let mut conn = conn.lock();
 
-    conn.execute_batch(schema_sql)
-        .context("Failed to apply migration 001")?;
+    // Wrap migration in explicit transaction for atomicity
+    // If any DDL statement fails, entire migration rolls back
+    let tx = conn
+        .transaction()
+        .context("Failed to begin transaction for migration 001")?;
+
+    tx.execute_batch(schema_sql)
+        .context("Failed to execute migration 001 DDL statements")?;
+
+    tx.commit()
+        .context("Failed to commit migration 001 transaction")?;
 
     Ok(())
 }
@@ -78,10 +93,41 @@ fn apply_migration_002(db: &Database) -> Result<()> {
     let schema_sql = include_str!("migrations/002_add_schedule_index.sql");
 
     let conn = db.get_connection();
-    let conn = conn.lock();
+    let mut conn = conn.lock();
 
-    conn.execute_batch(schema_sql)
-        .context("Failed to apply migration 002")?;
+    // Wrap migration in explicit transaction for atomicity
+    // If any DDL statement fails, entire migration rolls back
+    let tx = conn
+        .transaction()
+        .context("Failed to begin transaction for migration 002")?;
+
+    tx.execute_batch(schema_sql)
+        .context("Failed to execute migration 002 DDL statements")?;
+
+    tx.commit()
+        .context("Failed to commit migration 002 transaction")?;
+
+    Ok(())
+}
+
+/// Migration 003: Activity groups and tracking
+fn apply_migration_003(db: &Database) -> Result<()> {
+    let schema_sql = include_str!("migrations/003_activity_groups.sql");
+
+    let conn = db.get_connection();
+    let mut conn = conn.lock();
+
+    // Wrap migration in explicit transaction for atomicity
+    // If any DDL statement fails, entire migration rolls back
+    let tx = conn
+        .transaction()
+        .context("Failed to begin transaction for migration 003")?;
+
+    tx.execute_batch(schema_sql)
+        .context("Failed to execute migration 003 DDL statements")?;
+
+    tx.commit()
+        .context("Failed to commit migration 003 transaction")?;
 
     Ok(())
 }

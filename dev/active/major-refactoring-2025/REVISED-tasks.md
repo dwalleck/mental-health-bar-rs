@@ -41,14 +41,14 @@ The following were in the original plan but are already 100% complete:
 
 #### Database Migration (6-8 hours)
 
-- [ ] 1.1 Create migration file `003_activity_groups.sql`
-- [ ] 1.2 Define `activity_groups` table with schema (id, name CHECK(length(name) <= 100), description, created_at, deleted_at)
-- [ ] 1.3 Modify `activities` table: Add `group_id INTEGER NOT NULL` FK column (mandatory relationship)
-- [ ] 1.4 Add FK constraint: `FOREIGN KEY (group_id) REFERENCES activity_groups(id) ON DELETE CASCADE`
+- [X] 1.1 Create migration file `003_activity_groups.sql`
+- [X] 1.2 Define `activity_groups` table with schema (id, name CHECK(length(name) <= 100), description, created_at, deleted_at)
+- [X] 1.3 Modify `activities` table: Add `group_id INTEGER NOT NULL` FK column (mandatory relationship)
+- [X] 1.4 Add FK constraint: `FOREIGN KEY (group_id) REFERENCES activity_groups(id) ON DELETE CASCADE`
   - **Behavior**: Deleting a group CASCADE deletes all its activities
   - **Mandatory**: Activities MUST belong to a group (NOT NULL constraint)
   - **UI Warning**: "Deleting this group will permanently delete all X activities in it. This cannot be undone."
-- [ ] 1.5 Create `activity_logs` table with CASCADE delete:
+- [X] 1.5 Create `activity_logs` table with CASCADE delete:
   ```sql
   CREATE TABLE activity_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,19 +60,19 @@ The following were in the original plan but are already 100% complete:
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
   );
   ```
-- [ ] 1.5a Create indexes: `idx_activity_logs_activity`, `idx_activity_logs_logged_at`, `idx_activity_logs_deleted`
-- [ ] 1.6 Create `activity_goals` table (id, activity_id?, group_id?, goal_type, target_value, period_days)
-- [ ] 1.7 Add CHECK constraints:
+- [X] 1.5a Create indexes: `idx_activity_logs_activity`, `idx_activity_logs_logged_at`, `idx_activity_logs_deleted`
+- [X] 1.6 Create `activity_goals` table (id, activity_id?, group_id?, goal_type, target_value, period_days)
+- [X] 1.7 Add CHECK constraints:
   - `goal_type IN ('days_per_period', 'percent_improvement')`
   - `NOT (activity_id IS NOT NULL AND group_id IS NOT NULL)` -- allows NULL for both
-- [ ] 1.8 Add partial indexes for soft deletes (`WHERE deleted_at IS NULL`)
-- [ ] 1.9 Test migration runs successfully
-- [ ] 1.10 Create rollback script (`DROP TABLE` in reverse order)
+- [X] 1.8 Add partial indexes for soft deletes (`WHERE deleted_at IS NULL`)
+- [X] 1.9 Test migration runs successfully
+- [X] 1.10 Create rollback script (`DROP TABLE` in reverse order)
 
 #### Repository: Activity Groups (8-10 hours)
 
-- [ ] 1.11 Create `features/activities/models.rs` - Add ActivityGroup struct
-- [ ] 1.12 Write test for `create_activity_group` (TDD: red)
+- [X] 1.11 Create `features/activities/models.rs` - Add ActivityGroup struct
+- [X] 1.12 Write test for `create_activity_group` (TDD: red)
 - [ ] 1.13 Implement `create_activity_group` method (TDD: green)
 - [ ] 1.14 Write test for `update_activity_group` (name/description)
 - [ ] 1.15 Implement `update_activity_group` method
@@ -81,7 +81,7 @@ The following were in the original plan but are already 100% complete:
 - [ ] 1.18 Write test for `get_activity_groups` (exclude deleted_at IS NOT NULL)
 - [ ] 1.19 Implement `get_activity_groups` method
 - [ ] 1.20 Write test for cascading deletes (delete group → verify activities are CASCADE deleted)
-
+@dev/active/major-refactoring-2025/major-refactoring-2025-
 #### Repository: Activity Logs (4-5 hours)
 
 - [ ] 1.21 Add ActivityLog struct to models.rs

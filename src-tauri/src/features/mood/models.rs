@@ -18,7 +18,7 @@ pub enum MoodError {
     #[error("Activity name cannot be empty")]
     EmptyActivityName,
 
-    #[error("Activity name too long: {0} characters. Maximum 100 characters allowed")]
+    #[error("Activity name too long: {0} characters. Maximum 50 characters allowed")]
     ActivityNameTooLong(usize),
 
     #[error("Activity name already exists: {0}")]
@@ -113,6 +113,7 @@ impl ToCommandError for MoodError {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Activity {
     pub id: i32,
+    pub group_id: i32,
     pub name: String,
     pub color: Option<String>,
     pub icon: Option<String>,
@@ -147,8 +148,9 @@ pub struct CreateActivityRequest {
     pub name: String,
     #[validate(custom(function = "validate_hex_color"))]
     pub color: Option<String>,
-    #[validate(length(max = 20))]
+    #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
+    pub group_id: i32,
 }
 
 /// Request to update an activity
@@ -158,7 +160,7 @@ pub struct UpdateActivityRequest {
     pub name: Option<String>,
     #[validate(custom(function = "validate_hex_color"))]
     pub color: Option<String>,
-    #[validate(length(max = 20))]
+    #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }
 
@@ -187,13 +189,13 @@ pub fn validate_mood_rating(rating: i32) -> Result<(), MoodError> {
     Ok(())
 }
 
-/// Validate activity name (1-100 characters, non-empty after trim)
+/// Validate activity name (1-50 characters, non-empty after trim)
 pub fn validate_activity_name(name: &str) -> Result<String, MoodError> {
     let trimmed = name.trim().to_string();
     if trimmed.is_empty() {
         return Err(MoodError::EmptyActivityName);
     }
-    if trimmed.len() > 100 {
+    if trimmed.len() > 50 {
         return Err(MoodError::ActivityNameTooLong(trimmed.len()));
     }
     Ok(trimmed)
@@ -251,10 +253,10 @@ fn validate_trimmed_name(name: &str) -> Result<(), validator::ValidationError> {
         error.message = Some(std::borrow::Cow::from("Activity name cannot be empty"));
         return Err(error);
     }
-    if trimmed.len() > 100 {
+    if trimmed.len() > 50 {
         let mut error = validator::ValidationError::new("name_too_long");
         error.message = Some(std::borrow::Cow::from(
-            "Activity name too long (max 100 characters)",
+            "Activity name too long (max 50 characters)",
         ));
         return Err(error);
     }
@@ -267,6 +269,24 @@ pub fn validate_icon(icon: &str) -> Result<(), MoodError> {
         return Err(MoodError::ActivityIconTooLong(icon.len()));
     }
     Ok(())
+}
+
+/// Custom validator function for optional icon (for use with validator crate)
+/// Prevents Some("") by requiring non-empty strings when icon is provided
+fn validate_optional_icon(icon: &str) -> Result<(), validator::ValidationError> {
+    if icon.is_empty() {
+        let mut error = validator::ValidationError::new("empty_icon");
+        error.message = Some(std::borrow::Cow::from(
+            "Icon cannot be an empty string. Use None instead.",
+        ));
+        return Err(error);
+    }
+
+    validate_icon(icon).map_err(|e| {
+        let mut error = validator::ValidationError::new("icon_validation");
+        error.message = Some(std::borrow::Cow::from(e.to_string()));
+        error
+    })
 }
 
 #[cfg(test)]
