@@ -23,9 +23,9 @@ CREATE UNIQUE INDEX idx_activity_groups_name_unique ON activity_groups(name) WHE
 CREATE TABLE activities_new (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     group_id INTEGER NOT NULL,
-    name TEXT NOT NULL CHECK(length(name) <= 50),
+    name TEXT NOT NULL CHECK(length(name) <= 100),
     color TEXT,
-    icon TEXT CHECK(length(icon) <= 50 AND (icon IS NULL OR length(icon) > 0)),
+    icon TEXT CHECK(length(icon) <= 20 AND (icon IS NULL OR length(icon) > 0)),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     deleted_at TEXT,  -- Soft delete timestamp
     FOREIGN KEY (group_id) REFERENCES activity_groups(id) ON DELETE CASCADE

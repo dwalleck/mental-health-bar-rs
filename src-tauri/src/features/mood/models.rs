@@ -113,6 +113,7 @@ impl ToCommandError for MoodError {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Activity {
     pub id: i32,
+    pub group_id: i32,
     pub name: String,
     pub color: Option<String>,
     pub icon: Option<String>,
@@ -149,6 +150,7 @@ pub struct CreateActivityRequest {
     pub color: Option<String>,
     #[validate(length(max = 20))]
     pub icon: Option<String>,
+    pub group_id: i32,
 }
 
 /// Request to update an activity

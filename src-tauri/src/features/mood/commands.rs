@@ -83,6 +83,7 @@ fn create_activity_impl(
         request.name.clone(),
         request.color.clone(),
         request.icon.clone(),
+        request.group_id,
     )
 }
 
@@ -227,6 +228,7 @@ mod tests {
             name: "".to_string(),
             color: None,
             icon: None,
+            group_id: 1,
         };
 
         let validation = request.validate();
@@ -239,6 +241,7 @@ mod tests {
             name: "   ".to_string(),
             color: None,
             icon: None,
+            group_id: 1,
         };
 
         let validation = request.validate();
@@ -251,6 +254,7 @@ mod tests {
             name: "a".repeat(101),
             color: None,
             icon: None,
+            group_id: 1,
         };
 
         let validation = request.validate();
@@ -263,6 +267,7 @@ mod tests {
             name: "Exercise".to_string(),
             color: Some("FF0000".to_string()),
             icon: None,
+            group_id: 1,
         };
 
         let validation = request.validate();
@@ -277,6 +282,7 @@ mod tests {
             name: "Exercise".to_string(),
             color: Some("#FF00".to_string()), // 4 chars (not 3 or 6 or 8)
             icon: None,
+            group_id: 1,
         };
 
         let validation = request.validate();
@@ -289,6 +295,7 @@ mod tests {
             name: "Exercise".to_string(),
             color: None,
             icon: Some("🎉".repeat(21)), // > 20 chars
+            group_id: 1,
         };
 
         let validation = request.validate();
@@ -301,6 +308,7 @@ mod tests {
             name: "Exercise".to_string(),
             color: Some("#4CAF50".to_string()),
             icon: Some("🏃".to_string()),
+            group_id: 1,
         };
 
         assert!(request.validate().is_ok());
@@ -430,7 +438,7 @@ mod tests {
         repo: &dyn MoodRepositoryTrait,
         request: CreateActivityRequest,
     ) -> Result<Activity, String> {
-        repo.create_activity(request.name, request.color, request.icon)
+        repo.create_activity(request.name, request.color, request.icon, request.group_id)
             .map_err(|e| format!("Failed to create activity: {}", e))
     }
 
@@ -440,14 +448,15 @@ mod tests {
 
         mock_repo
             .expect_create_activity()
-            .withf(|name, color, icon| {
+            .withf(|name, color, icon, _group_id| {
                 name == "Exercise"
                     && color.as_deref() == Some("#4CAF50")
                     && icon.as_deref() == Some("🏃")
             })
-            .returning(|name, color, icon| {
+            .returning(|name, color, icon, _group_id| {
                 Ok(Activity {
                     id: 1,
+                    group_id: 1,
                     name,
                     color,
                     icon,
@@ -460,6 +469,7 @@ mod tests {
             name: "Exercise".to_string(),
             color: Some("#4CAF50".to_string()),
             icon: Some("🏃".to_string()),
+            group_id: 1,
         };
 
         let result = create_activity_with_trait(&mock_repo, request);
@@ -476,10 +486,13 @@ mod tests {
 
         mock_repo
             .expect_create_activity()
-            .withf(|name, color, icon| name == "Meditation" && color.is_none() && icon.is_none())
-            .returning(|name, _, _| {
+            .withf(|name, color, icon, _group_id| {
+                name == "Meditation" && color.is_none() && icon.is_none()
+            })
+            .returning(|name, _, _, _group_id| {
                 Ok(Activity {
                     id: 2,
+                    group_id: 1,
                     name,
                     color: None,
                     icon: None,
@@ -492,6 +505,7 @@ mod tests {
             name: "Meditation".to_string(),
             color: None,
             icon: None,
+            group_id: 1,
         };
 
         let result = create_activity_with_trait(&mock_repo, request);
@@ -527,6 +541,7 @@ mod tests {
             .returning(|id, name, _, _| {
                 Ok(Activity {
                     id,
+                    group_id: 1,
                     name: name.unwrap(),
                     color: Some("#FF0000".to_string()),
                     icon: Some("⭐".to_string()),
@@ -559,6 +574,7 @@ mod tests {
             name: "  Exercise  ".to_string(),
             color: None,
             icon: None,
+            group_id: 1,
         };
 
         // Validation should pass (name will be trimmed by custom validator)
@@ -571,6 +587,7 @@ mod tests {
             name: "    ".to_string(),
             color: None,
             icon: None,
+            group_id: 1,
         };
 
         // Should fail - empty after trim
@@ -584,6 +601,7 @@ mod tests {
             name: "Test".to_string(),
             color: Some("#FF0000".to_string()),
             icon: None,
+            group_id: 1,
         };
         assert!(request1.validate().is_ok());
 
@@ -591,6 +609,7 @@ mod tests {
             name: "Test".to_string(),
             color: Some("#ff0000".to_string()),
             icon: None,
+            group_id: 1,
         };
         assert!(request2.validate().is_ok());
     }

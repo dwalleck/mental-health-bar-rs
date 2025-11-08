@@ -274,7 +274,7 @@ impl MoodRepository {
     ) -> Result<Vec<Activity>, MoodError> {
         // ✅ Use prepare_cached for performance (called in loops)
         let mut stmt = conn.prepare_cached(
-            "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR)
+            "SELECT a.id, a.group_id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR)
              FROM activities a
              JOIN mood_checkin_activities mca ON a.id = mca.activity_id
              WHERE mca.mood_checkin_id = ?",
@@ -283,11 +283,12 @@ impl MoodRepository {
         let activity_rows = stmt.query_map([mood_checkin_id], |row| {
             Ok(Activity {
                 id: row.get(0)?,
-                name: row.get(1)?,
-                color: row.get(2)?,
-                icon: row.get(3)?,
-                created_at: row.get(4)?,
-                deleted_at: row.get(5)?,
+                group_id: row.get(1)?,
+                name: row.get(2)?,
+                color: row.get(3)?,
+                icon: row.get(4)?,
+                created_at: row.get(5)?,
+                deleted_at: row.get(6)?,
             })
         })?;
 
@@ -386,13 +387,13 @@ impl MoodRepository {
             .build();
 
         let query = format!(
-            "SELECT a.id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR),
+            "SELECT a.id, a.group_id, a.name, a.color, a.icon, CAST(a.created_at AS VARCHAR), CAST(a.deleted_at AS VARCHAR),
                     AVG(mc.mood_rating) as avg_mood, COUNT(mc.id) as checkin_count
              FROM activities a
              JOIN mood_checkin_activities mca ON a.id = mca.activity_id
              JOIN mood_checkins mc ON mca.mood_checkin_id = mc.id
              WHERE 1=1{}
-             GROUP BY a.id, a.name, a.color, a.icon, a.created_at, a.deleted_at
+             GROUP BY a.id, a.group_id, a.name, a.color, a.icon, a.created_at, a.deleted_at
              HAVING COUNT(mc.id) >= ?
              ORDER BY avg_mood DESC",
             date_filter
@@ -409,14 +410,15 @@ impl MoodRepository {
             Ok((
                 Activity {
                     id: row.get(0)?,
-                    name: row.get(1)?,
-                    color: row.get(2)?,
-                    icon: row.get(3)?,
-                    created_at: row.get(4)?,
-                    deleted_at: row.get(5)?,
+                    group_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    icon: row.get(4)?,
+                    created_at: row.get(5)?,
+                    deleted_at: row.get(6)?,
                 },
-                row.get::<_, f64>(6)?, // avg_mood
-                row.get::<_, i32>(7)?, // checkin_count
+                row.get::<_, f64>(7)?, // avg_mood
+                row.get::<_, i32>(8)?, // checkin_count
             ))
         })?;
 
@@ -457,6 +459,7 @@ impl MoodRepository {
         name: &str,
         color: Option<&str>,
         icon: Option<&str>,
+        group_id: i32,
     ) -> Result<Activity, MoodError> {
         let trimmed_name = validate_activity_name(name)?;
 
@@ -476,8 +479,8 @@ impl MoodRepository {
         // Insert activity and get all fields using RETURNING
         // The partial unique index will enforce uniqueness atomically
         let result: ActivityInsertResult = conn.query_row(
-            "INSERT INTO activities (name, color, icon) VALUES (?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
-            rusqlite::params![trimmed_name, color, icon],
+            "INSERT INTO activities (name, color, icon, group_id) VALUES (?, ?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
+            rusqlite::params![trimmed_name, color, icon, group_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
         );
 
@@ -500,6 +503,7 @@ impl MoodRepository {
         // Build and return the created activity
         Ok(Activity {
             id,
+            group_id,
             name,
             color: color_value,
             icon: icon_value,
@@ -514,16 +518,17 @@ impl MoodRepository {
         let conn = conn.lock();
 
         conn.query_row(
-            "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE id = ?",
+            "SELECT id, group_id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE id = ?",
             [id],
             |row| {
                 Ok(Activity {
                     id: row.get(0)?,
-                    name: row.get(1)?,
-                    color: row.get(2)?,
-                    icon: row.get(3)?,
-                    created_at: row.get(4)?,
-                    deleted_at: row.get(5)?,
+                    group_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    icon: row.get(4)?,
+                    created_at: row.get(5)?,
+                    deleted_at: row.get(6)?,
                 })
             },
         )
@@ -619,16 +624,17 @@ impl MoodRepository {
 
         // Fetch and return the updated activity within the same lock scope
         conn.query_row(
-            "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE id = ?",
+            "SELECT id, group_id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE id = ?",
             [id],
             |row| {
                 Ok(Activity {
                     id: row.get(0)?,
-                    name: row.get(1)?,
-                    color: row.get(2)?,
-                    icon: row.get(3)?,
-                    created_at: row.get(4)?,
-                    deleted_at: row.get(5)?,
+                    group_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    icon: row.get(4)?,
+                    created_at: row.get(5)?,
+                    deleted_at: row.get(6)?,
                 })
             },
         )
@@ -693,9 +699,9 @@ impl MoodRepository {
         let conn = conn.lock();
 
         let query = if include_deleted {
-            "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities ORDER BY name"
+            "SELECT id, group_id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities ORDER BY name"
         } else {
-            "SELECT id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE deleted_at IS NULL ORDER BY name"
+            "SELECT id, group_id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR) FROM activities WHERE deleted_at IS NULL ORDER BY name"
         };
 
         let mut stmt = conn.prepare(query)?;
@@ -703,11 +709,12 @@ impl MoodRepository {
         let activity_rows = stmt.query_map([], |row| {
             Ok(Activity {
                 id: row.get(0)?,
-                name: row.get(1)?,
-                color: row.get(2)?,
-                icon: row.get(3)?,
-                created_at: row.get(4)?,
-                deleted_at: row.get(5)?,
+                group_id: row.get(1)?,
+                name: row.get(2)?,
+                color: row.get(3)?,
+                icon: row.get(4)?,
+                created_at: row.get(5)?,
+                deleted_at: row.get(6)?,
             })
         })?;
 
@@ -775,8 +782,9 @@ impl MoodRepositoryTrait for MoodRepository {
         name: String,
         color: Option<String>,
         icon: Option<String>,
+        group_id: i32,
     ) -> Result<Activity, MoodError> {
-        self.create_activity(&name, color.as_deref(), icon.as_deref())
+        self.create_activity(&name, color.as_deref(), icon.as_deref(), group_id)
     }
 
     fn update_activity(

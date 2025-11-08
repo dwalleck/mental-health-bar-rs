@@ -325,6 +325,7 @@ export const commands = {
  */
 export type Activity = {
 	id: number
+	group_id: number
 	name: string
 	color: string | null
 	icon: string | null
@@ -446,7 +447,12 @@ export type CommandError = {
 /**
  * Request to create an activity
  */
-export type CreateActivityRequest = { name: string; color: string | null; icon: string | null }
+export type CreateActivityRequest = {
+	name: string
+	color: string | null
+	icon: string | null
+	group_id: number
+}
 /**
  * Request to create a new schedule
  */

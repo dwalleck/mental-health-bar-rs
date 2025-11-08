@@ -8,23 +8,36 @@ use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
 use tempfile::TempDir;
 
-/// Setup test environment with temporary database
-fn setup_test_repo() -> (MoodRepository, TempDir) {
+/// Setup test environment with temporary database and default activity group
+fn setup_test_repo() -> (MoodRepository, TempDir, i32) {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let db_path = temp_dir.path().to_path_buf();
     let db = Arc::new(Database::new(db_path).expect("Failed to create database"));
+
+    // Create a default activity group for testing
+    let conn = db.get_connection();
+    let conn = conn.lock();
+    let group_id: i32 = conn
+        .query_row(
+            "INSERT INTO activity_groups (name, description) VALUES (?, ?) RETURNING id",
+            ["Default Group", "Default group for testing"],
+            |row| row.get(0),
+        )
+        .expect("Failed to create default activity group");
+    drop(conn); // Release lock before creating repo
+
     let repo = MoodRepository::new(db);
-    (repo, temp_dir)
+    (repo, temp_dir, group_id)
 }
 
 // T096: Integration test - create_activity command
 #[test]
 fn test_create_activity_success() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity with all fields
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     assert_eq!(activity.name, "Exercise");
@@ -35,11 +48,11 @@ fn test_create_activity_success() {
 
 #[test]
 fn test_create_activity_minimal() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity with only name
     let activity = repo
-        .create_activity("Meditation", None, None)
+        .create_activity("Meditation", None, None, group_id)
         .expect("Failed to create activity");
 
     assert_eq!(activity.name, "Meditation");
@@ -49,24 +62,24 @@ fn test_create_activity_minimal() {
 
 #[test]
 fn test_create_activity_duplicate_name() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create first activity
-    repo.create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+    repo.create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create first activity");
 
     // Try to create duplicate
-    let result = repo.create_activity("Exercise", Some("#FF0000"), Some("🚴"));
+    let result = repo.create_activity("Exercise", Some("#FF0000"), Some("🚴"), group_id);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_create_activity_name_trimming() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity with whitespace
     let activity = repo
-        .create_activity("  Reading  ", Some("#FF5733"), Some("📚"))
+        .create_activity("  Reading  ", Some("#FF5733"), Some("📚"), group_id)
         .expect("Failed to create activity");
 
     assert_eq!(activity.name, "Reading");
@@ -74,48 +87,48 @@ fn test_create_activity_name_trimming() {
 
 #[test]
 fn test_create_activity_empty_name() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to create activity with empty name
-    let result = repo.create_activity("", None, None);
+    let result = repo.create_activity("", None, None, group_id);
     assert!(result.is_err());
 
-    let result = repo.create_activity("   ", None, None);
+    let result = repo.create_activity("   ", None, None, group_id);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_create_activity_name_too_long() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to create activity with name > 100 chars
     let long_name = "a".repeat(101);
-    let result = repo.create_activity(&long_name, None, None);
+    let result = repo.create_activity(&long_name, None, None, group_id);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_create_activity_invalid_color() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to create activity with invalid color format
-    let result = repo.create_activity("Exercise", Some("red"), None);
+    let result = repo.create_activity("Exercise", Some("red"), None, group_id);
     assert!(result.is_err());
 
-    let result = repo.create_activity("Exercise", Some("#FF"), None);
+    let result = repo.create_activity("Exercise", Some("#FF"), None, group_id);
     assert!(result.is_err());
 
-    let result = repo.create_activity("Exercise", Some("FF5733"), None);
+    let result = repo.create_activity("Exercise", Some("FF5733"), None, group_id);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_update_activity_success() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     // Update all fields
@@ -130,11 +143,11 @@ fn test_update_activity_success() {
 
 #[test]
 fn test_update_activity_partial() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     // Update only name
@@ -149,7 +162,7 @@ fn test_update_activity_partial() {
 
 #[test]
 fn test_update_activity_not_found() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     let result = repo.update_activity(9999, Some("Test"), None, None);
     assert!(result.is_err());
@@ -157,13 +170,13 @@ fn test_update_activity_not_found() {
 
 #[test]
 fn test_update_activity_duplicate_name() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create two activities
     let activity1 = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity 1");
-    repo.create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+    repo.create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create activity 2");
 
     // Try to rename activity1 to existing name
@@ -174,11 +187,11 @@ fn test_update_activity_duplicate_name() {
 // T097: Integration test - Soft delete basic functionality
 #[test]
 fn test_soft_delete_basic() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity (without any mood check-ins referencing it)
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     // Soft delete the activity
@@ -203,14 +216,14 @@ fn test_soft_delete_basic() {
 // SQLite properly supports soft deletes with FK constraints (unlike DuckDB)
 #[test]
 fn test_deleted_activity_in_history() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create two activities
     let activity1 = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity 1");
     let activity2 = repo
-        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+        .create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create activity 2");
 
     // Create mood check-in with both activities
@@ -244,16 +257,16 @@ fn test_deleted_activity_in_history() {
 
 #[test]
 fn test_get_activities_filter_deleted() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create 3 activities
     let activity1 = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity 1");
-    repo.create_activity("Meditation", Some("#9C27B0"), Some("🧘"))
+    repo.create_activity("Meditation", Some("#9C27B0"), Some("🧘"), group_id)
         .expect("Failed to create activity 2");
     let activity3 = repo
-        .create_activity("Reading", Some("#FF5733"), Some("📚"))
+        .create_activity("Reading", Some("#FF5733"), Some("📚"), group_id)
         .expect("Failed to create activity 3");
 
     // Delete 2 activities
@@ -278,7 +291,7 @@ fn test_get_activities_filter_deleted() {
 
 #[test]
 fn test_delete_activity_not_found() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     let result = repo.delete_activity(9999);
     assert!(result.is_err());
@@ -286,11 +299,11 @@ fn test_delete_activity_not_found() {
 
 #[test]
 fn test_soft_delete_is_idempotent() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create activity
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
 
     // Delete twice
@@ -309,11 +322,11 @@ fn test_soft_delete_is_idempotent() {
 
 #[test]
 fn test_duplicate_name_even_after_soft_delete() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create and delete activity
     let activity = repo
-        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"))
+        .create_activity("Exercise", Some("#4CAF50"), Some("🏃"), group_id)
         .expect("Failed to create activity");
     repo.delete_activity(activity.id)
         .expect("Failed to delete activity");
@@ -321,7 +334,7 @@ fn test_duplicate_name_even_after_soft_delete() {
     // Create new activity with same name - should succeed now
     // The partial unique index only enforces uniqueness for non-deleted activities
     let new_activity = repo
-        .create_activity("Exercise", Some("#FF0000"), Some("🚴"))
+        .create_activity("Exercise", Some("#FF0000"), Some("🚴"), group_id)
         .expect("Should allow recreating activity with same name after soft delete");
 
     assert_eq!(new_activity.name, "Exercise");
@@ -341,13 +354,13 @@ fn test_duplicate_name_even_after_soft_delete() {
 // T150l: Test create_activity with icon exceeding 20 chars
 #[test]
 fn test_create_activity_icon_exceeds_max_length() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create icon with more than 20 characters
     // Using compound emoji to exceed limit
     let long_icon = "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"; // 11 emojis = 44 bytes
 
-    let result = repo.create_activity("Art", Some("#E91E63"), Some(long_icon));
+    let result = repo.create_activity("Art", Some("#E91E63"), Some(long_icon), group_id);
 
     // Should either error or truncate
     match result {
@@ -374,12 +387,12 @@ fn test_create_activity_icon_exceeds_max_length() {
 // T150l continued: Test icon at exactly 20 characters (boundary)
 #[test]
 fn test_create_activity_icon_at_exact_limit() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create icon with exactly 20 ASCII characters
     let icon_20_chars = "12345678901234567890"; // Exactly 20 chars
 
-    let result = repo.create_activity("Test", Some("#4CAF50"), Some(icon_20_chars));
+    let result = repo.create_activity("Test", Some("#4CAF50"), Some(icon_20_chars), group_id);
 
     // Should succeed at exactly the limit
     assert!(result.is_ok(), "20 characters should be allowed for icon");
@@ -389,7 +402,7 @@ fn test_create_activity_icon_at_exact_limit() {
 // T150m: Test create_activity with various color formats
 #[test]
 fn test_create_activity_color_format_validation() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Valid formats that should succeed
     let valid_colors = vec![
@@ -402,7 +415,7 @@ fn test_create_activity_color_format_validation() {
     ];
 
     for (i, color) in valid_colors.iter().enumerate() {
-        let result = repo.create_activity(&format!("Activity{}", i), Some(color), None);
+        let result = repo.create_activity(&format!("Activity{}", i), Some(color), None, group_id);
         assert!(
             result.is_ok(),
             "Valid color format '{}' should be accepted",
@@ -423,7 +436,7 @@ fn test_create_activity_color_format_validation() {
     ];
 
     for color in invalid_colors.iter() {
-        let result = repo.create_activity("Test", Some(color), None);
+        let result = repo.create_activity("Test", Some(color), None, group_id);
         assert!(
             result.is_err(),
             "Invalid color format '{}' should be rejected",
@@ -435,12 +448,12 @@ fn test_create_activity_color_format_validation() {
 // T150v: Test create_activity with name at exactly 100 characters
 #[test]
 fn test_create_activity_name_at_exact_limit() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Create name with exactly 100 characters
     let name_100_chars = "a".repeat(100);
 
-    let result = repo.create_activity(&name_100_chars, Some("#4CAF50"), Some("📝"));
+    let result = repo.create_activity(&name_100_chars, Some("#4CAF50"), Some("📝"), group_id);
 
     // Should succeed at exactly the limit
     assert!(result.is_ok(), "100 characters should be allowed");
@@ -450,23 +463,23 @@ fn test_create_activity_name_at_exact_limit() {
 // T150w: Test create_activity with name boundary conditions
 #[test]
 fn test_create_activity_name_boundary_conditions() {
-    let (repo, _temp_dir) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // 99 characters - should succeed
     let name_99_chars = "a".repeat(99);
-    let result = repo.create_activity(&name_99_chars, Some("#4CAF50"), None);
+    let result = repo.create_activity(&name_99_chars, Some("#4CAF50"), None, group_id);
     assert!(result.is_ok(), "99 characters should be valid");
     assert_eq!(result.unwrap().name.len(), 99);
 
     // 100 characters - should succeed (at boundary)
     let name_100_chars = "b".repeat(100);
-    let result = repo.create_activity(&name_100_chars, Some("#2196F3"), None);
+    let result = repo.create_activity(&name_100_chars, Some("#2196F3"), None, group_id);
     assert!(result.is_ok(), "100 characters should be valid");
     assert_eq!(result.unwrap().name.len(), 100);
 
     // 101 characters - should fail (over limit)
     let name_101_chars = "c".repeat(101);
-    let result = repo.create_activity(&name_101_chars, Some("#FF9800"), None);
+    let result = repo.create_activity(&name_101_chars, Some("#FF9800"), None, group_id);
     assert!(result.is_err(), "101 characters should be rejected");
 
     let error_msg = format!("{}", result.unwrap_err());

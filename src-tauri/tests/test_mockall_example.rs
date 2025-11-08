@@ -108,6 +108,7 @@ mod mockall_example {
                     activities: vec![
                         Activity {
                             id: 1,
+                            group_id: 1,
                             name: "Exercise".to_string(),
                             color: Some("#4CAF50".to_string()),
                             icon: Some("🏃".to_string()),
@@ -116,6 +117,7 @@ mod mockall_example {
                         },
                         Activity {
                             id: 2,
+                            group_id: 1,
                             name: "Meditation".to_string(),
                             color: Some("#2196F3".to_string()),
                             icon: Some("🧘".to_string()),
