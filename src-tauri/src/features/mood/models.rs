@@ -148,7 +148,7 @@ pub struct CreateActivityRequest {
     pub name: String,
     #[validate(custom(function = "validate_hex_color"))]
     pub color: Option<String>,
-    #[validate(length(max = 20))]
+    #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
     pub group_id: i32,
 }
@@ -160,7 +160,7 @@ pub struct UpdateActivityRequest {
     pub name: Option<String>,
     #[validate(custom(function = "validate_hex_color"))]
     pub color: Option<String>,
-    #[validate(length(max = 20))]
+    #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }
 
@@ -269,6 +269,24 @@ pub fn validate_icon(icon: &str) -> Result<(), MoodError> {
         return Err(MoodError::ActivityIconTooLong(icon.len()));
     }
     Ok(())
+}
+
+/// Custom validator function for optional icon (for use with validator crate)
+/// Prevents Some("") by requiring non-empty strings when icon is provided
+fn validate_optional_icon(icon: &str) -> Result<(), validator::ValidationError> {
+    if icon.is_empty() {
+        let mut error = validator::ValidationError::new("empty_icon");
+        error.message = Some(std::borrow::Cow::from(
+            "Icon cannot be an empty string. Use None instead.",
+        ));
+        return Err(error);
+    }
+
+    validate_icon(icon).map_err(|e| {
+        let mut error = validator::ValidationError::new("icon_validation");
+        error.message = Some(std::borrow::Cow::from(e.to_string()));
+        error
+    })
 }
 
 #[cfg(test)]

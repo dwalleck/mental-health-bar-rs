@@ -240,7 +240,7 @@ pub struct CreateActivityRequest {
     #[validate(length(min = 1, max = 50))]
     pub name: String,
     pub color: Option<String>,
-    #[validate(length(min = 1, max = 20))]
+    #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }
 
@@ -251,7 +251,7 @@ pub struct UpdateActivityRequest {
     #[validate(length(min = 1, max = 50))]
     pub name: Option<String>,
     pub color: Option<String>,
-    #[validate(length(min = 1, max = 20))]
+    #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }
 
@@ -313,4 +313,21 @@ fn validate_goal_target_exclusivity(
         }
         _ => Ok(()),
     }
+}
+
+/// Custom validator for optional icon field to prevent Some("") (empty string wrapped in Some)
+fn validate_optional_icon(icon: &str) -> Result<(), validator::ValidationError> {
+    if icon.is_empty() {
+        let mut error = validator::ValidationError::new("empty_icon");
+        error.message = Some(std::borrow::Cow::from(
+            "Icon cannot be an empty string. Use None instead.",
+        ));
+        return Err(error);
+    }
+    if icon.len() > 20 {
+        let mut error = validator::ValidationError::new("icon_too_long");
+        error.message = Some(std::borrow::Cow::from("Icon must be 20 characters or less"));
+        return Err(error);
+    }
+    Ok(())
 }
