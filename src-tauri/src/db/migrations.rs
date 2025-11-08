@@ -33,6 +33,12 @@ pub fn run_migrations(db: &Database) -> Result<()> {
         info!("Applied migration 002: Add schedule index");
     }
 
+    if current_version < 3 {
+        apply_migration_003(db)?;
+        record_migration(db, 3)?;
+        info!("Applied migration 003: Activity groups and tracking");
+    }
+
     info!("All migrations applied successfully");
     Ok(())
 }
@@ -82,6 +88,19 @@ fn apply_migration_002(db: &Database) -> Result<()> {
 
     conn.execute_batch(schema_sql)
         .context("Failed to apply migration 002")?;
+
+    Ok(())
+}
+
+/// Migration 003: Activity groups and tracking
+fn apply_migration_003(db: &Database) -> Result<()> {
+    let schema_sql = include_str!("migrations/003_activity_groups.sql");
+
+    let conn = db.get_connection();
+    let conn = conn.lock();
+
+    conn.execute_batch(schema_sql)
+        .context("Failed to apply migration 003")?;
 
     Ok(())
 }
