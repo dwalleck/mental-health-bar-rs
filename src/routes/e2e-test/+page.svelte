@@ -19,8 +19,10 @@
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 	import { getSeverityRanges, formatSeverity } from '$lib/utils/severity'
 
-	// Environment guard: Redirect to home in production
-	if (!dev) {
+	// Environment guard: Redirect to home if in production web browser (not Tauri app)
+	// Allow access in dev mode OR when running in Tauri context
+	const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
+	if (!dev && !isTauri) {
 		goto('/')
 	}
 
