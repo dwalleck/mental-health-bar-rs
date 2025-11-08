@@ -1,5 +1,36 @@
 -- Migration 003: Activity Groups and Tracking
 -- Adds support for organizing activities into groups, logging activity occurrences, and setting goals
+--
+-- CASCADE DELETE CHAIN DOCUMENTATION:
+-- This migration establishes the following referential integrity hierarchy:
+--
+--   activity_groups (root)
+--        |
+--        ├─> activities (ON DELETE CASCADE from groups)
+--        |        |
+--        |        ├─> activity_logs (ON DELETE CASCADE from activities)
+--        |        └─> mood_checkin_activities (FK to activities, from migration 001)
+--        |
+--        └─> activity_goals (ON DELETE CASCADE from groups, when group_id is set)
+--
+--   activities (can also be root for goals)
+--        └─> activity_goals (ON DELETE CASCADE from activities, when activity_id is set)
+--
+-- Cascade behavior:
+-- 1. Deleting an activity_group will CASCADE delete:
+--    - All activities in that group
+--    - All activity_logs for those activities
+--    - All activity_goals targeting that group
+--    - All mood_checkin_activities referencing those activities (from migration 001)
+--
+-- 2. Deleting an activity will CASCADE delete:
+--    - All activity_logs for that activity
+--    - All activity_goals targeting that activity
+--    - All mood_checkin_activities referencing that activity (from migration 001)
+--
+-- Note: This migration uses soft deletes (deleted_at timestamp) for user-facing data,
+-- but CASCADE DELETE is still important for referential integrity if hard deletes are used
+-- in administrative operations or data cleanup jobs.
 
 -- Activity Groups (2-level hierarchy: Group -> Activities)
 CREATE TABLE activity_groups (
