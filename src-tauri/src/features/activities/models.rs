@@ -266,13 +266,51 @@ pub struct LogActivityRequest {
 
 /// Request to set an activity goal
 #[derive(Debug, Serialize, Deserialize, specta::Type, Validate)]
+#[validate(schema(function = "validate_goal_target_exclusivity"))]
 pub struct SetActivityGoalRequest {
     pub activity_id: Option<i32>,
     pub group_id: Option<i32>,
-    #[validate(length(min = 1))]
+    #[validate(custom(function = "validate_goal_type"))]
     pub goal_type: String, // 'days_per_period' or 'percent_improvement'
     #[validate(range(min = 1))]
     pub target_value: i32,
     #[validate(range(min = 1))]
     pub period_days: i32,
+}
+
+/// Custom validator for goal_type field
+fn validate_goal_type(goal_type: &str) -> Result<(), validator::ValidationError> {
+    match goal_type {
+        "days_per_period" | "percent_improvement" => Ok(()),
+        _ => {
+            let mut error = validator::ValidationError::new("invalid_goal_type");
+            error.message = Some(std::borrow::Cow::from(
+                "Goal type must be 'days_per_period' or 'percent_improvement'",
+            ));
+            Err(error)
+        }
+    }
+}
+
+/// Custom schema validator to ensure activity_id and group_id are mutually exclusive
+fn validate_goal_target_exclusivity(
+    request: &SetActivityGoalRequest,
+) -> Result<(), validator::ValidationError> {
+    match (&request.activity_id, &request.group_id) {
+        (Some(_), Some(_)) => {
+            let mut error = validator::ValidationError::new("invalid_goal_target");
+            error.message = Some(std::borrow::Cow::from(
+                "Goal must target either an activity OR a group, not both",
+            ));
+            Err(error)
+        }
+        (None, None) => {
+            let mut error = validator::ValidationError::new("missing_goal_target");
+            error.message = Some(std::borrow::Cow::from(
+                "Goal must target either an activity or a group",
+            ));
+            Err(error)
+        }
+        _ => Ok(()),
+    }
 }

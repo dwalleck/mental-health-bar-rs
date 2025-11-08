@@ -2,6 +2,7 @@
 // TDD approach: Write tests first, then implement repository methods
 //
 // NOTE: These tests are disabled until ActivityRepository is implemented (Task 1.13)
+// TODO(Task 1.13): Remove #![cfg(feature = "never_enabled")] when ActivityRepository is ready
 #![cfg(feature = "never_enabled")]
 
 use std::sync::Arc;

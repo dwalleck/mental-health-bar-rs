@@ -12,7 +12,7 @@ CREATE TABLE activities_rollback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL CHECK(length(name) <= 50),
     color TEXT,
-    icon TEXT CHECK(length(icon) <= 20 AND (icon IS NULL OR length(icon) > 0)),
+    icon TEXT CHECK(icon IS NULL OR (length(icon) > 0 AND length(icon) <= 20)),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     deleted_at TEXT  -- Soft delete timestamp
 );

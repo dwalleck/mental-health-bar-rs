@@ -25,7 +25,7 @@ CREATE TABLE activities_new (
     group_id INTEGER NOT NULL,
     name TEXT NOT NULL CHECK(length(name) <= 50),
     color TEXT,
-    icon TEXT CHECK(length(icon) <= 20 AND (icon IS NULL OR length(icon) > 0)),
+    icon TEXT CHECK(icon IS NULL OR (length(icon) > 0 AND length(icon) <= 20)),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     deleted_at TEXT,  -- Soft delete timestamp
     FOREIGN KEY (group_id) REFERENCES activity_groups(id) ON DELETE CASCADE
@@ -50,6 +50,7 @@ ALTER TABLE activities_new RENAME TO activities;
 -- Step 5: Recreate indexes
 CREATE INDEX idx_activities_deleted_at ON activities(deleted_at);
 CREATE INDEX idx_activities_group_id ON activities(group_id);
+CREATE INDEX idx_activities_group_deleted ON activities(group_id, deleted_at);
 CREATE UNIQUE INDEX idx_activities_name_unique ON activities(name) WHERE deleted_at IS NULL;
 
 -- Activity Logs (track when activities are performed)
