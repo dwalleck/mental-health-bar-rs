@@ -101,8 +101,8 @@ fn test_create_activity_empty_name() {
 fn test_create_activity_name_too_long() {
     let (repo, _temp_dir, group_id) = setup_test_repo();
 
-    // Try to create activity with name > 100 chars
-    let long_name = "a".repeat(101);
+    // Try to create activity with name > 50 chars
+    let long_name = "a".repeat(51);
     let result = repo.create_activity(&long_name, None, None, group_id);
     assert!(result.is_err());
 }
@@ -445,19 +445,19 @@ fn test_create_activity_color_format_validation() {
     }
 }
 
-// T150v: Test create_activity with name at exactly 100 characters
+// T150v: Test create_activity with name at exactly 50 characters
 #[test]
 fn test_create_activity_name_at_exact_limit() {
     let (repo, _temp_dir, group_id) = setup_test_repo();
 
-    // Create name with exactly 100 characters
-    let name_100_chars = "a".repeat(100);
+    // Create name with exactly 50 characters
+    let name_50_chars = "a".repeat(50);
 
-    let result = repo.create_activity(&name_100_chars, Some("#4CAF50"), Some("📝"), group_id);
+    let result = repo.create_activity(&name_50_chars, Some("#4CAF50"), Some("📝"), group_id);
 
     // Should succeed at exactly the limit
-    assert!(result.is_ok(), "100 characters should be allowed");
-    assert_eq!(result.unwrap().name, name_100_chars);
+    assert!(result.is_ok(), "50 characters should be allowed");
+    assert_eq!(result.unwrap().name, name_50_chars);
 }
 
 // T150w: Test create_activity with name boundary conditions
@@ -465,26 +465,26 @@ fn test_create_activity_name_at_exact_limit() {
 fn test_create_activity_name_boundary_conditions() {
     let (repo, _temp_dir, group_id) = setup_test_repo();
 
-    // 99 characters - should succeed
-    let name_99_chars = "a".repeat(99);
-    let result = repo.create_activity(&name_99_chars, Some("#4CAF50"), None, group_id);
-    assert!(result.is_ok(), "99 characters should be valid");
-    assert_eq!(result.unwrap().name.len(), 99);
+    // 49 characters - should succeed
+    let name_49_chars = "a".repeat(49);
+    let result = repo.create_activity(&name_49_chars, Some("#4CAF50"), None, group_id);
+    assert!(result.is_ok(), "49 characters should be valid");
+    assert_eq!(result.unwrap().name.len(), 49);
 
-    // 100 characters - should succeed (at boundary)
-    let name_100_chars = "b".repeat(100);
-    let result = repo.create_activity(&name_100_chars, Some("#2196F3"), None, group_id);
-    assert!(result.is_ok(), "100 characters should be valid");
-    assert_eq!(result.unwrap().name.len(), 100);
+    // 50 characters - should succeed (at boundary)
+    let name_50_chars = "b".repeat(50);
+    let result = repo.create_activity(&name_50_chars, Some("#2196F3"), None, group_id);
+    assert!(result.is_ok(), "50 characters should be valid");
+    assert_eq!(result.unwrap().name.len(), 50);
 
-    // 101 characters - should fail (over limit)
-    let name_101_chars = "c".repeat(101);
-    let result = repo.create_activity(&name_101_chars, Some("#FF9800"), None, group_id);
-    assert!(result.is_err(), "101 characters should be rejected");
+    // 51 characters - should fail (over limit)
+    let name_51_chars = "c".repeat(51);
+    let result = repo.create_activity(&name_51_chars, Some("#FF9800"), None, group_id);
+    assert!(result.is_err(), "51 characters should be rejected");
 
     let error_msg = format!("{}", result.unwrap_err());
     assert!(
-        error_msg.contains("100") || error_msg.contains("length") || error_msg.contains("name"),
+        error_msg.contains("50") || error_msg.contains("length") || error_msg.contains("name"),
         "Error should indicate name length violation: {}",
         error_msg
     );

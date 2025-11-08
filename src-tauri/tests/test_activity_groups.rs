@@ -6,16 +6,20 @@
 
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
-use tauri_sveltekit_modern_lib::features::activities::repository::ActivityRepository;
+// TODO(Task 1.13): Uncomment when ActivityRepository is implemented
+// use tauri_sveltekit_modern_lib::features::activities::repository::ActivityRepository;
 use tempfile::TempDir;
 
 /// Setup test environment with temporary database
-fn setup_test_repo() -> (ActivityRepository, TempDir) {
+#[allow(dead_code)]
+fn setup_test_repo() -> ((), TempDir) {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let db_path = temp_dir.path().to_path_buf();
-    let db = Arc::new(Database::new(db_path).expect("Failed to create database"));
-    let repo = ActivityRepository::new(db);
-    (repo, temp_dir)
+    let _db = Arc::new(Database::new(db_path).expect("Failed to create database"));
+    // TODO(Task 1.13): Create ActivityRepository and return it
+    // let repo = ActivityRepository::new(db);
+    // (repo, temp_dir)
+    ((), temp_dir)
 }
 
 // Task 1.12: Test for create_activity_group (TDD: red phase)

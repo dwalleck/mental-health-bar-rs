@@ -18,7 +18,7 @@ pub enum MoodError {
     #[error("Activity name cannot be empty")]
     EmptyActivityName,
 
-    #[error("Activity name too long: {0} characters. Maximum 100 characters allowed")]
+    #[error("Activity name too long: {0} characters. Maximum 50 characters allowed")]
     ActivityNameTooLong(usize),
 
     #[error("Activity name already exists: {0}")]
@@ -189,13 +189,13 @@ pub fn validate_mood_rating(rating: i32) -> Result<(), MoodError> {
     Ok(())
 }
 
-/// Validate activity name (1-100 characters, non-empty after trim)
+/// Validate activity name (1-50 characters, non-empty after trim)
 pub fn validate_activity_name(name: &str) -> Result<String, MoodError> {
     let trimmed = name.trim().to_string();
     if trimmed.is_empty() {
         return Err(MoodError::EmptyActivityName);
     }
-    if trimmed.len() > 100 {
+    if trimmed.len() > 50 {
         return Err(MoodError::ActivityNameTooLong(trimmed.len()));
     }
     Ok(trimmed)
@@ -253,10 +253,10 @@ fn validate_trimmed_name(name: &str) -> Result<(), validator::ValidationError> {
         error.message = Some(std::borrow::Cow::from("Activity name cannot be empty"));
         return Err(error);
     }
-    if trimmed.len() > 100 {
+    if trimmed.len() > 50 {
         let mut error = validator::ValidationError::new("name_too_long");
         error.message = Some(std::borrow::Cow::from(
-            "Activity name too long (max 100 characters)",
+            "Activity name too long (max 50 characters)",
         ));
         return Err(error);
     }

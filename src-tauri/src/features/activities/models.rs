@@ -36,7 +36,7 @@ pub enum ActivityError {
     #[error("Activity name already exists: {0}")]
     DuplicateActivityName(String),
 
-    #[error("Activity icon too long: {0} characters. Maximum 50 characters allowed")]
+    #[error("Activity icon too long: {0} characters. Maximum 20 characters allowed")]
     ActivityIconTooLong(usize),
 
     #[error("Notes too long: {0} characters. Maximum 500 characters allowed")]
@@ -240,7 +240,7 @@ pub struct CreateActivityRequest {
     #[validate(length(min = 1, max = 50))]
     pub name: String,
     pub color: Option<String>,
-    #[validate(length(min = 1, max = 50))]
+    #[validate(length(min = 1, max = 20))]
     pub icon: Option<String>,
 }
 

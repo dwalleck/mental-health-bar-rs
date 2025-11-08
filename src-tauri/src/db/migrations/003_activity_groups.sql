@@ -23,7 +23,7 @@ CREATE UNIQUE INDEX idx_activity_groups_name_unique ON activity_groups(name) WHE
 CREATE TABLE activities_new (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     group_id INTEGER NOT NULL,
-    name TEXT NOT NULL CHECK(length(name) <= 100),
+    name TEXT NOT NULL CHECK(length(name) <= 50),
     color TEXT,
     icon TEXT CHECK(length(icon) <= 20 AND (icon IS NULL OR length(icon) > 0)),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -31,17 +31,23 @@ CREATE TABLE activities_new (
     FOREIGN KEY (group_id) REFERENCES activity_groups(id) ON DELETE CASCADE
 );
 
--- Step 2: Copy existing data (if any - though none exists in practice)
+-- Step 2: Create default activity group if existing activities need to be migrated
+-- Only create the group if there are existing activities to migrate
+INSERT INTO activity_groups (id, name, description)
+SELECT 1, 'Default Group', 'Auto-created during migration for existing activities'
+WHERE EXISTS (SELECT 1 FROM activities);
+
+-- Step 3: Copy existing data (if any - though none exists in practice)
 INSERT INTO activities_new (id, group_id, name, color, icon, created_at, deleted_at)
 SELECT id, 1 as group_id, name, color, icon, created_at, deleted_at
 FROM activities
 WHERE EXISTS (SELECT 1 FROM activities);  -- Only if data exists
 
--- Step 3: Drop old table and rename new one
+-- Step 4: Drop old table and rename new one
 DROP TABLE IF EXISTS activities;
 ALTER TABLE activities_new RENAME TO activities;
 
--- Step 4: Recreate indexes
+-- Step 5: Recreate indexes
 CREATE INDEX idx_activities_deleted_at ON activities(deleted_at);
 CREATE INDEX idx_activities_group_id ON activities(group_id);
 CREATE UNIQUE INDEX idx_activities_name_unique ON activities(name) WHERE deleted_at IS NULL;
