@@ -10,6 +10,8 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte'
+	import { goto } from '$app/navigation'
+	import { dev } from '$app/environment'
 	import { invoke } from '@tauri-apps/api/core'
 	import type { AssessmentResponse, AssessmentChartData } from '$lib/bindings'
 	import AssessmentChart from '$lib/components/charts/AssessmentChart.svelte'
@@ -17,9 +19,18 @@
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
 	import { getSeverityRanges, formatSeverity } from '$lib/utils/severity'
 
+	// Environment guard: Redirect to home in production
+	if (!dev) {
+		goto('/')
+	}
+
+	// Constants
+	const PHQ9_QUESTION_COUNT = 9
+	const PHQ9_MAX_SCORE = 27
+
 	// Helper function to get severity info for a score
 	function getSeverityInfo(score: number) {
-		const ranges = getSeverityRanges('PHQ9', 27)
+		const ranges = getSeverityRanges('PHQ9', PHQ9_MAX_SCORE)
 		const range = ranges.find((r) => score >= r.min && score <= r.max)
 
 		if (!range) {
@@ -48,7 +59,7 @@
 	let submitting = $state(false)
 
 	// PHQ-9 form state
-	let scores = $state<number[]>(Array(9).fill(0))
+	let scores = $state<number[]>(Array(PHQ9_QUESTION_COUNT).fill(0))
 
 	const phq9Questions = [
 		'Little interest or pleasure in doing things',
@@ -83,6 +94,7 @@
 			chartData = chart
 		} catch (e) {
 			error = e
+			// TODO: Replace console logging with production logging utility
 			console.error('Failed to load data:', e)
 		} finally {
 			loading = false
@@ -113,9 +125,10 @@
 			await loadData()
 
 			// Reset form
-			scores = Array(9).fill(0)
+			scores = Array(PHQ9_QUESTION_COUNT).fill(0)
 		} catch (e) {
 			error = e
+			// TODO: Replace console logging with production logging utility
 			console.error('Failed to submit assessment:', e)
 		} finally {
 			submitting = false
@@ -179,7 +192,7 @@
 
 					<div class="pt-4 border-t border-gray-200 dark:border-gray-700">
 						<p class="text-sm mb-4">
-							Total Score: <strong>{scores.reduce((sum, score) => sum + score, 0)}</strong> / 27
+							Total Score: <strong>{scores.reduce((sum, score) => sum + score, 0)}</strong> / {PHQ9_MAX_SCORE}
 						</p>
 						<button
 							type="submit"
@@ -235,7 +248,7 @@
 							>
 								<div class="flex justify-between items-center">
 									<div>
-										<p class="font-medium">Score: {assessment.total_score} / 27</p>
+										<p class="font-medium">Score: {assessment.total_score} / {PHQ9_MAX_SCORE}</p>
 										<p class="text-sm text-gray-500 dark:text-gray-400">
 											{new Date(assessment.submitted_at).toLocaleString()}
 										</p>

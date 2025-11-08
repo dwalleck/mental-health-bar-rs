@@ -27,7 +27,7 @@
 
 	// T213, T221: Fetch latest assessments for all types on mount using Svelte 5 $effect
 	$effect(() => {
-		let isMounted = true
+		const abortController = new AbortController()
 
 		async function fetchAssessments() {
 			try {
@@ -48,14 +48,15 @@
 							return { code, data: result, failed: false }
 						} catch (err) {
 							// T225: Handle individual assessment failures gracefully
+							// TODO: Replace console logging with production logging utility
 							console.warn(`Failed to fetch assessment ${code}: ${formatErrorForLogging(err)}`)
 							return { code, data: null, failed: true }
 						}
 					})
 				)
 
-				// Only update state if component is still mounted
-				if (!isMounted) return
+				// Only update state if not aborted
+				if (abortController.signal.aborted) return
 
 				// Populate the assessments map and track failures
 				const newAssessments = new SvelteMap<string, AssessmentResponse | null>()
@@ -69,13 +70,14 @@
 				assessments = newAssessments
 				failedAssessments = failed
 			} catch (err) {
+				// TODO: Replace console logging with production logging utility
 				console.error('Failed to fetch all assessments:', formatErrorForLogging(err))
-				// Only update error state if still mounted
-				if (isMounted) {
+				// Only update error state if not aborted
+				if (!abortController.signal.aborted) {
 					error = 'Failed to load assessment data. Please try again.'
 				}
 			} finally {
-				if (isMounted) {
+				if (!abortController.signal.aborted) {
 					loading = false
 				}
 			}
@@ -83,9 +85,9 @@
 
 		fetchAssessments()
 
-		// Cleanup function: mark component as unmounted to prevent state updates
+		// Cleanup function: abort any pending operations on unmount
 		return () => {
-			isMounted = false
+			abortController.abort()
 		}
 	})
 

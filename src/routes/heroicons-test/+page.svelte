@@ -9,6 +9,8 @@
 -->
 
 <script lang="ts">
+	import { goto } from '$app/navigation'
+	import { dev } from '$app/environment'
 	import {
 		Icon,
 		Home,
@@ -17,6 +19,11 @@
 		XCircle,
 		ExclamationTriangle,
 	} from 'svelte-hero-icons'
+
+	// Environment guard: Redirect to home in production
+	if (!dev) {
+		goto('/')
+	}
 </script>
 
 <div class="container mx-auto p-8">
