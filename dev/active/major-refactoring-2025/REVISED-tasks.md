@@ -71,7 +71,7 @@ The following were in the original plan but are already 100% complete:
 
 #### Repository: Activity Groups (8-10 hours)
 
-- [ ] 1.11 Create `features/activities/models.rs` - Add ActivityGroup struct
+- [X] 1.11 Create `features/activities/models.rs` - Add ActivityGroup struct
 - [ ] 1.12 Write test for `create_activity_group` (TDD: red)
 - [ ] 1.13 Implement `create_activity_group` method (TDD: green)
 - [ ] 1.14 Write test for `update_activity_group` (name/description)
