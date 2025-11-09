@@ -172,7 +172,7 @@ impl VisualizationRepository {
 
         let query = format!(
             "SELECT
-                a.id, a.name, a.color, a.icon,
+                a.id, a.group_id, a.name, a.color, a.icon,
                 AVG(mc.mood_rating) as avg_mood,
                 COUNT(mc.id) as checkin_count
              FROM activities a
@@ -180,7 +180,7 @@ impl VisualizationRepository {
              JOIN mood_checkins mc ON mca.mood_checkin_id = mc.id
              WHERE a.deleted_at IS NULL
              {}
-             GROUP BY a.id, a.name, a.color, a.icon
+             GROUP BY a.id, a.group_id, a.name, a.color, a.icon
              HAVING checkin_count >= 2
              ORDER BY avg_mood DESC",
             date_filter
@@ -194,16 +194,17 @@ impl VisualizationRepository {
             .query_map(&query_params[..], |row| {
                 let activity = Activity {
                     id: row.get(0)?,
-                    name: row.get(1)?,
-                    color: row.get(2)?,
-                    icon: row.get(3)?,
+                    group_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    icon: row.get(4)?,
                     created_at: String::new(), // Not needed for visualization
                     deleted_at: None,
                 };
 
                 Ok(ActivityMoodData {
                     activity,
-                    average_mood: row.get(4)?,
+                    average_mood: row.get(5)?,
                     data_points: vec![], // Populated separately if needed
                 })
             })?

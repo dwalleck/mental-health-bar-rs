@@ -97,6 +97,7 @@ describe('Mood Store', () => {
 			const acts: Activity[] = [
 				{
 					id: 1,
+					group_id: 1,
 					name: 'Exercise',
 					color: '#22C55E',
 					icon: '🏃',

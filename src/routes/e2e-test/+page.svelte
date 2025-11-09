@@ -252,7 +252,7 @@
 									<div>
 										<p class="font-medium">Score: {assessment.total_score} / {PHQ9_MAX_SCORE}</p>
 										<p class="text-sm text-gray-500 dark:text-gray-400">
-											{new Date(assessment.submitted_at).toLocaleString()}
+											{new Date(assessment.completed_at).toLocaleString()}
 										</p>
 									</div>
 									<div class="px-3 py-1 rounded text-sm font-medium {severityInfo.colorClass}">

@@ -33,6 +33,7 @@ pub trait MoodRepositoryTrait {
         name: String,
         color: Option<String>,
         icon: Option<String>,
+        group_id: i32,
     ) -> Result<Activity, MoodError>;
 
     /// Updates an existing activity.

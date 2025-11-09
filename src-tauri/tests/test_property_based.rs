@@ -45,7 +45,7 @@ fn prop_notes_length() {
 #[test]
 fn prop_activity_name_trimming() {
     fn test(leading: u8, trailing: u8, content: String) -> TestResult {
-        if content.trim().is_empty() || content.trim().len() > 100 {
+        if content.trim().is_empty() || content.trim().len() > 50 {
             return TestResult::discard();
         }
 

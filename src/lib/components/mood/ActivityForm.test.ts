@@ -6,6 +6,7 @@ import type { Activity } from '$lib/bindings'
 describe('ActivityForm', () => {
 	const mockActivity: Activity = {
 		id: 1,
+		group_id: 1,
 		name: 'Exercise',
 		color: '#22C55E',
 		icon: '🏃',

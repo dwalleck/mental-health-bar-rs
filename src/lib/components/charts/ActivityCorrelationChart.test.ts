@@ -54,6 +54,7 @@ describe('ActivityCorrelationChart', () => {
 		{
 			activity: {
 				id: 1,
+				group_id: 1,
 				name: 'Exercise',
 				color: '#4CAF50',
 				icon: '🏃',
@@ -69,6 +70,7 @@ describe('ActivityCorrelationChart', () => {
 		{
 			activity: {
 				id: 2,
+				group_id: 1,
 				name: 'Reading',
 				color: '#2196F3',
 				icon: '📚',
@@ -81,6 +83,7 @@ describe('ActivityCorrelationChart', () => {
 		{
 			activity: {
 				id: 3,
+				group_id: 1,
 				name: 'Work',
 				color: '#FF9800',
 				icon: '💼',
@@ -179,6 +182,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 4,
+						group_id: 1,
 						name: 'Meditation',
 						color: '#9C27B0',
 						icon: '🧘',
@@ -191,6 +195,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 5,
+						group_id: 1,
 						name: 'Socializing',
 						color: '#E91E63',
 						icon: '👥',
@@ -218,6 +223,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'Low Mood',
 						color: '#EF4444',
 						icon: '😞',
@@ -230,6 +236,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 2,
+						group_id: 1,
 						name: 'High Mood',
 						color: '#22C55E',
 						icon: '😊',
@@ -242,6 +249,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 3,
+						group_id: 1,
 						name: 'Medium Mood',
 						color: '#F59E0B',
 						icon: '😐',
@@ -265,6 +273,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'Activity A',
 						color: '#F59E0B',
 						icon: 'A',
@@ -277,6 +286,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 2,
+						group_id: 1,
 						name: 'Activity B',
 						color: '#F59E0B',
 						icon: 'B',
@@ -289,6 +299,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 3,
+						group_id: 1,
 						name: 'Activity C',
 						color: '#F59E0B',
 						icon: 'C',
@@ -407,6 +418,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'Very Bad Activity',
 						color: '#EF4444',
 						icon: '😰',
@@ -419,6 +431,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 2,
+						group_id: 1,
 						name: 'Very Good Activity',
 						color: '#22C55E',
 						icon: '😄',
@@ -442,6 +455,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'Activity 1',
 						color: '#F59E0B',
 						icon: '1️⃣',
@@ -454,6 +468,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 2,
+						group_id: 1,
 						name: 'Activity 2',
 						color: '#F97316',
 						icon: '2️⃣',
@@ -477,6 +492,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'Activity',
 						color: '#F59E0B',
 						icon: '📌',
@@ -500,6 +516,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'This is a very long activity name that might cause layout issues',
 						color: '#F59E0B',
 						icon: '📝',
@@ -522,6 +539,7 @@ describe('ActivityCorrelationChart', () => {
 			const manyActivities = Array.from({ length: 50 }, (_, i) => ({
 				activity: {
 					id: i + 1,
+					group_id: 1,
 					name: `Activity ${i + 1}`,
 					color: '#F59E0B',
 					icon: '📊',
@@ -546,6 +564,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 1,
+						group_id: 1,
 						name: 'Very Bad (1)',
 						color: '#EF4444',
 						icon: '😰',
@@ -558,6 +577,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 2,
+						group_id: 1,
 						name: 'Bad (2)',
 						color: '#F97316',
 						icon: '😟',
@@ -570,6 +590,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 3,
+						group_id: 1,
 						name: 'Neutral (3)',
 						color: '#F59E0B',
 						icon: '😐',
@@ -582,6 +603,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 4,
+						group_id: 1,
 						name: 'Good (4)',
 						color: '#84CC16',
 						icon: '🙂',
@@ -594,6 +616,7 @@ describe('ActivityCorrelationChart', () => {
 				{
 					activity: {
 						id: 5,
+						group_id: 1,
 						name: 'Very Good (5)',
 						color: '#22C55E',
 						icon: '😄',
