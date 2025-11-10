@@ -259,6 +259,67 @@ pub struct ActivityGoal {
     pub deleted_at: Option<String>,
 }
 
+/// Trend classification for activity analysis
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, PartialEq)]
+pub enum Trend {
+    /// Activity frequency improving (>10% increase)
+    Improving,
+    /// Activity frequency declining (>10% decrease)
+    Declining,
+    /// Activity frequency stable (within ±10%)
+    Stable,
+}
+
+/// Goal progress report showing current vs target values
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct GoalProgress {
+    pub goal_id: i32,
+    /// Current value achieved (days or percentage depending on goal_type)
+    pub current_value: i32,
+    /// Target value from goal definition
+    pub target_value: i32,
+    /// Progress percentage: (current / target) * 100
+    pub percentage: f64,
+    /// Whether goal has been achieved (percentage >= 100)
+    pub is_achieved: bool,
+    /// Start of measurement period (ISO 8601)
+    pub period_start: String,
+    /// End of measurement period (ISO 8601)
+    pub period_end: String,
+}
+
+/// Activity frequency report showing days per week
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct ActivityFrequency {
+    pub activity_id: i32,
+    /// Number of unique days with activity logs
+    pub unique_days: i32,
+    /// Total number of activity logs (may be multiple per day)
+    pub total_logs: i32,
+    /// Average days per week: (unique_days / num_weeks)
+    pub days_per_week: f64,
+    /// Start of analysis period (ISO 8601)
+    pub period_start: String,
+    /// End of analysis period (ISO 8601)
+    pub period_end: String,
+}
+
+/// Activity trend report comparing current vs previous period
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct ActivityTrend {
+    pub activity_id: i32,
+    /// Unique days in current period
+    pub current_period_days: i32,
+    /// Unique days in previous period (same duration)
+    pub previous_period_days: i32,
+    /// Difference: current - previous
+    pub change_days: i32,
+    /// Percentage change: ((current - previous) / previous) * 100
+    pub change_percentage: f64,
+    /// Trend classification based on change_percentage
+    pub trend: Trend,
+}
+
 /// Request to create an activity group
 #[derive(Debug, Serialize, Deserialize, specta::Type, Validate)]
 pub struct CreateActivityGroupRequest {
