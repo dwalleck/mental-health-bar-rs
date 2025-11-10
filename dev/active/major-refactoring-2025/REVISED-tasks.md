@@ -84,19 +84,19 @@ The following were in the original plan but are already 100% complete:
 @dev/active/major-refactoring-2025/major-refactoring-2025-
 #### Repository: Activity Logs (4-5 hours)
 
-- [ ] 1.21 Add ActivityLog struct to models.rs
-- [ ] 1.22 Write test for `log_activity` (insert into activity_logs)
-- [ ] 1.23 Implement `log_activity` method
-- [ ] 1.24 Write test for `get_activity_logs` with date filtering
-- [ ] 1.25 Implement `get_activity_logs` method (order by logged_at DESC)
+- [X] 1.21 Add ActivityLog struct to models.rs
+- [X] 1.22 Write test for `log_activity` (insert into activity_logs)
+- [X] 1.23 Implement `log_activity` method
+- [X] 1.24 Write test for `get_activity_logs` with date filtering
+- [X] 1.25 Implement `get_activity_logs` method (order by logged_at DESC)
 
 #### Repository: Update Existing Activity Methods (4-5 hours)
 
-- [ ] 1.26 Write test for `create_activity` with required group_id (NOT NULL)
-- [ ] 1.27 Update `create_activity` to require group_id parameter (validate NOT NULL)
-- [ ] 1.27a Update activity name validation to 50 chars max, add icon validation (50 chars, allow any non-empty string)
-- [ ] 1.28 Write test for `get_activities_by_group` (filter by group_id)
-- [ ] 1.29 Implement `get_activities_by_group` method
+- [X] 1.26 Write test for `create_activity` with required group_id (NOT NULL)
+- [X] 1.27 Update `create_activity` to require group_id parameter (validate NOT NULL)
+- [X] 1.27a Update activity name validation to 50 chars max, add icon validation (20 chars max)
+- [X] 1.28 Write test for `get_activities_by_group` (filter by group_id)
+- [X] 1.29 Implement `get_activities_by_group` method
 
 **Week 1 Total**: ~24 tasks, ~22-25 hours
 
