@@ -294,6 +294,267 @@ impl ActivityRepository {
             e => ActivityError::Database(e),
         })
     }
+
+    /// Logs an activity occurrence.
+    ///
+    /// # Arguments
+    /// * `activity_id` - ID of the activity being logged
+    /// * `logged_at` - When the activity occurred (ISO 8601 timestamp)
+    /// * `notes` - Optional notes (max 500 characters)
+    ///
+    /// # Returns
+    /// * `Ok(ActivityLog)` - The created activity log
+    /// * `Err(ActivityError)` - If validation fails or database error
+    ///
+    /// # Errors
+    /// * `ActivityNotFound` - If activity with given ID doesn't exist
+    /// * `NotesLengthExceeded` - If notes exceed 500 characters
+    /// * `Database` - On database errors
+    pub fn log_activity(
+        &self,
+        activity_id: i32,
+        logged_at: &str,
+        notes: Option<&str>,
+    ) -> Result<ActivityLog, ActivityError> {
+        // Trim notes and convert empty string to None
+        let notes = notes.map(|n| n.trim()).filter(|n| !n.is_empty());
+
+        // Validate notes length (use char count for UTF-8 correctness)
+        if let Some(n) = notes {
+            let notes_char_count = n.chars().count();
+            if notes_char_count > 500 {
+                return Err(ActivityError::NotesLengthExceeded(notes_char_count));
+            }
+        }
+
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        // Verify activity exists and is not deleted
+        let exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM activities WHERE id = ? AND deleted_at IS NULL",
+                rusqlite::params![activity_id],
+                |_| Ok(true),
+            )
+            .optional()?
+            .unwrap_or(false);
+
+        if !exists {
+            return Err(ActivityError::ActivityNotFound(activity_id));
+        }
+
+        // Insert activity log using RETURNING
+        let (id, created_at): (i32, String) = conn.query_row(
+            "INSERT INTO activity_logs (activity_id, logged_at, notes) VALUES (?, ?, ?)
+             RETURNING id, CAST(created_at AS VARCHAR)",
+            rusqlite::params![activity_id, logged_at, notes],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        info!(
+            log_id = id,
+            activity_id = activity_id,
+            has_notes = notes.is_some(),
+            "Logged activity"
+        );
+
+        Ok(ActivityLog {
+            id,
+            activity_id,
+            logged_at: logged_at.to_string(),
+            created_at,
+            notes: notes.map(|s| s.to_string()),
+            deleted_at: None,
+        })
+    }
+
+    /// Gets activity logs with optional date filtering.
+    ///
+    /// # Arguments
+    /// * `activity_id` - Optional activity ID to filter by
+    /// * `start_date` - Optional start date for filtering (ISO 8601)
+    /// * `end_date` - Optional end date for filtering (ISO 8601)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<ActivityLog>)` - List of activity logs, ordered by logged_at DESC
+    /// * `Err(ActivityError)` - On database error
+    pub fn get_activity_logs(
+        &self,
+        activity_id: Option<i32>,
+        start_date: Option<&str>,
+        end_date: Option<&str>,
+    ) -> Result<Vec<ActivityLog>, ActivityError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        // Build query dynamically based on filters
+        let mut query = String::from(
+            "SELECT id, activity_id, CAST(logged_at AS VARCHAR), CAST(created_at AS VARCHAR), notes, CAST(deleted_at AS VARCHAR)
+             FROM activity_logs
+             WHERE deleted_at IS NULL"
+        );
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if let Some(aid) = activity_id {
+            query.push_str(" AND activity_id = ?");
+            params.push(Box::new(aid));
+        }
+        if let Some(start) = start_date {
+            query.push_str(" AND DATE(logged_at) >= DATE(?)");
+            params.push(Box::new(start.to_string()));
+        }
+        if let Some(end) = end_date {
+            query.push_str(" AND DATE(logged_at) <= DATE(?)");
+            params.push(Box::new(end.to_string()));
+        }
+
+        query.push_str(" ORDER BY logged_at DESC");
+
+        let mut stmt = conn.prepare(&query)?;
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+        let logs = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                Ok(ActivityLog {
+                    id: row.get(0)?,
+                    activity_id: row.get(1)?,
+                    logged_at: row.get(2)?,
+                    created_at: row.get(3)?,
+                    notes: row.get(4)?,
+                    deleted_at: row.get(5)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(logs)
+    }
+
+    /// Creates a new activity with required group assignment.
+    ///
+    /// # Arguments
+    /// * `group_id` - Activity group ID (required, NOT NULL)
+    /// * `name` - Activity name (1-50 characters)
+    /// * `color` - Optional color hex code
+    /// * `icon` - Optional icon name (1-20 characters)
+    ///
+    /// # Returns
+    /// * `Ok(Activity)` - The created activity
+    /// * `Err(ActivityError)` - If validation fails or database error
+    ///
+    /// # Errors
+    /// * `EmptyActivityName` - If name is empty
+    /// * `ActivityNameTooLong` - If name exceeds 50 characters
+    /// * `ActivityIconTooLong` - If icon exceeds 20 characters
+    /// * `GroupNotFound` - If group_id doesn't exist
+    /// * `Database` - On database errors
+    pub fn create_activity(
+        &self,
+        group_id: i32,
+        name: &str,
+        color: Option<&str>,
+        icon: Option<&str>,
+    ) -> Result<Activity, ActivityError> {
+        // Trim input before validation
+        let name = name.trim();
+        let icon = icon.map(|i| i.trim()).filter(|i| !i.is_empty());
+
+        // Validate name (use char count for UTF-8 correctness)
+        if name.is_empty() {
+            return Err(ActivityError::EmptyActivityName);
+        }
+        let name_char_count = name.chars().count();
+        if name_char_count > 50 {
+            return Err(ActivityError::ActivityNameTooLong(name_char_count));
+        }
+
+        // Validate icon if provided
+        if let Some(ic) = icon {
+            let icon_char_count = ic.chars().count();
+            if icon_char_count > 20 {
+                return Err(ActivityError::ActivityIconTooLong(icon_char_count));
+            }
+        }
+
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        // Verify group exists and is not deleted
+        let group_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM activity_groups WHERE id = ? AND deleted_at IS NULL",
+                rusqlite::params![group_id],
+                |_| Ok(true),
+            )
+            .optional()?
+            .unwrap_or(false);
+
+        if !group_exists {
+            return Err(ActivityError::GroupNotFound(group_id));
+        }
+
+        // Insert activity using RETURNING
+        let (id, created_at): (i32, String) = conn.query_row(
+            "INSERT INTO activities (group_id, name, color, icon) VALUES (?, ?, ?, ?)
+             RETURNING id, CAST(created_at AS VARCHAR)",
+            rusqlite::params![group_id, name, color, icon],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        info!(
+            activity_id = id,
+            activity_name = name,
+            group_id = group_id,
+            has_icon = icon.is_some(),
+            "Created activity"
+        );
+
+        Ok(Activity {
+            id,
+            group_id,
+            name: name.to_string(),
+            color: color.map(|s| s.to_string()),
+            icon: icon.map(|s| s.to_string()),
+            created_at,
+            deleted_at: None,
+        })
+    }
+
+    /// Gets all activities for a specific group.
+    ///
+    /// # Arguments
+    /// * `group_id` - Activity group ID to filter by
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Activity>)` - List of activities in the group, ordered by name
+    /// * `Err(ActivityError)` - On database error
+    pub fn get_activities_by_group(&self, group_id: i32) -> Result<Vec<Activity>, ActivityError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        let mut stmt = conn.prepare(
+            "SELECT id, group_id, name, color, icon, CAST(created_at AS VARCHAR), CAST(deleted_at AS VARCHAR)
+             FROM activities
+             WHERE group_id = ? AND deleted_at IS NULL
+             ORDER BY name ASC"
+        )?;
+
+        let activities = stmt
+            .query_map([group_id], |row| {
+                Ok(Activity {
+                    id: row.get(0)?,
+                    group_id: row.get(1)?,
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                    icon: row.get(4)?,
+                    created_at: row.get(5)?,
+                    deleted_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(activities)
+    }
 }
 
 #[cfg(test)]
@@ -584,5 +845,387 @@ mod tests {
             result,
             Err(ActivityError::DescriptionTooLong(501))
         ));
+    }
+
+    // Activity and ActivityLog Tests
+
+    #[test]
+    fn test_create_activity_with_group_id() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let activity = repo
+            .create_activity(group.id, "Running", Some("#FF0000"), Some("fire"))
+            .expect("Failed to create activity");
+
+        assert_eq!(activity.name, "Running");
+        assert_eq!(activity.group_id, group.id);
+        assert_eq!(activity.color, Some("#FF0000".to_string()));
+        assert_eq!(activity.icon, Some("fire".to_string()));
+        assert!(activity.id > 0);
+    }
+
+    #[test]
+    fn test_create_activity_empty_name() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let result = repo.create_activity(group.id, "", None, None);
+
+        assert!(matches!(result, Err(ActivityError::EmptyActivityName)));
+    }
+
+    #[test]
+    fn test_create_activity_name_too_long() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let long_name = "a".repeat(51);
+        let result = repo.create_activity(group.id, &long_name, None, None);
+
+        assert!(matches!(
+            result,
+            Err(ActivityError::ActivityNameTooLong(51))
+        ));
+    }
+
+    #[test]
+    fn test_create_activity_icon_too_long() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let long_icon = "a".repeat(21);
+        let result = repo.create_activity(group.id, "Running", None, Some(&long_icon));
+
+        assert!(matches!(
+            result,
+            Err(ActivityError::ActivityIconTooLong(21))
+        ));
+    }
+
+    #[test]
+    fn test_create_activity_group_not_found() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let result = repo.create_activity(999, "Running", None, None);
+
+        assert!(matches!(result, Err(ActivityError::GroupNotFound(999))));
+    }
+
+    #[test]
+    fn test_get_activities_by_group() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group1 = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+        let group2 = repo
+            .create_activity_group("Social", None)
+            .expect("Failed to create group");
+
+        repo.create_activity(group1.id, "Running", None, None)
+            .expect("Failed to create activity");
+        repo.create_activity(group1.id, "Swimming", None, None)
+            .expect("Failed to create activity");
+        repo.create_activity(group2.id, "Party", None, None)
+            .expect("Failed to create activity");
+
+        let group1_activities = repo
+            .get_activities_by_group(group1.id)
+            .expect("Failed to get activities");
+
+        assert_eq!(group1_activities.len(), 2);
+        assert_eq!(group1_activities[0].name, "Running");
+        assert_eq!(group1_activities[1].name, "Swimming");
+    }
+
+    #[test]
+    fn test_log_activity() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        let logged_at = "2025-01-15T10:00:00Z";
+        let log = repo
+            .log_activity(activity.id, logged_at, Some("Felt great!"))
+            .expect("Failed to log activity");
+
+        assert_eq!(log.activity_id, activity.id);
+        assert_eq!(log.logged_at, logged_at);
+        assert_eq!(log.notes, Some("Felt great!".to_string()));
+        assert!(log.id > 0);
+    }
+
+    #[test]
+    fn test_log_activity_notes_too_long() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        let long_notes = "a".repeat(501);
+        let result = repo.log_activity(activity.id, "2025-01-15T10:00:00Z", Some(&long_notes));
+
+        assert!(matches!(
+            result,
+            Err(ActivityError::NotesLengthExceeded(501))
+        ));
+    }
+
+    #[test]
+    fn test_log_activity_not_found() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let result = repo.log_activity(999, "2025-01-15T10:00:00Z", None);
+
+        assert!(matches!(result, Err(ActivityError::ActivityNotFound(999))));
+    }
+
+    #[test]
+    fn test_get_activity_logs_no_filter() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        repo.log_activity(activity.id, "2025-01-15T10:00:00Z", Some("Morning run"))
+            .expect("Failed to log");
+        repo.log_activity(activity.id, "2025-01-16T10:00:00Z", Some("Evening run"))
+            .expect("Failed to log");
+
+        let logs = repo
+            .get_activity_logs(None, None, None)
+            .expect("Failed to get logs");
+
+        assert_eq!(logs.len(), 2);
+        // Should be ordered by logged_at DESC
+        assert_eq!(logs[0].logged_at, "2025-01-16T10:00:00Z");
+        assert_eq!(logs[1].logged_at, "2025-01-15T10:00:00Z");
+    }
+
+    #[test]
+    fn test_get_activity_logs_with_activity_filter() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+        let activity1 = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+        let activity2 = repo
+            .create_activity(group.id, "Swimming", None, None)
+            .expect("Failed to create activity");
+
+        repo.log_activity(activity1.id, "2025-01-15T10:00:00Z", None)
+            .expect("Failed to log");
+        repo.log_activity(activity2.id, "2025-01-15T11:00:00Z", None)
+            .expect("Failed to log");
+
+        let logs = repo
+            .get_activity_logs(Some(activity1.id), None, None)
+            .expect("Failed to get logs");
+
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].activity_id, activity1.id);
+    }
+
+    #[test]
+    fn test_get_activity_logs_with_date_filter() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        repo.log_activity(activity.id, "2025-01-15T10:00:00Z", None)
+            .expect("Failed to log");
+        repo.log_activity(activity.id, "2025-01-17T10:00:00Z", None)
+            .expect("Failed to log");
+        repo.log_activity(activity.id, "2025-01-20T10:00:00Z", None)
+            .expect("Failed to log");
+
+        let logs = repo
+            .get_activity_logs(None, Some("2025-01-16"), Some("2025-01-19"))
+            .expect("Failed to get logs");
+
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].logged_at, "2025-01-17T10:00:00Z");
+    }
+
+    #[test]
+    fn test_activity_utf8_characters() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let name_with_emoji = "Running 🏃";
+        let icon_with_emoji = "🏃";
+
+        let activity = repo
+            .create_activity(group.id, name_with_emoji, None, Some(icon_with_emoji))
+            .expect("Failed to create activity with UTF-8");
+
+        assert_eq!(activity.name, name_with_emoji);
+        assert_eq!(activity.icon, Some(icon_with_emoji.to_string()));
+    }
+
+    #[test]
+    fn test_activity_name_utf8_length_validation() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // 50 emoji characters (4 bytes each) should be accepted
+        let emoji_name = "😀".repeat(50);
+        let result = repo.create_activity(group.id, &emoji_name, None, None);
+        assert!(result.is_ok(), "Should accept 50 emoji characters");
+
+        // 51 emoji characters should fail
+        let emoji_name_too_long = "😀".repeat(51);
+        let result = repo.create_activity(group.id, &emoji_name_too_long, None, None);
+        assert!(
+            matches!(result, Err(ActivityError::ActivityNameTooLong(51))),
+            "Should reject 51 emoji characters"
+        );
+    }
+
+    #[test]
+    fn test_create_activity_trims_whitespace() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // Test name trimming
+        let activity = repo
+            .create_activity(group.id, "  Running  ", None, None)
+            .expect("Failed to create activity");
+        assert_eq!(activity.name, "Running", "Name should be trimmed");
+
+        // Test icon trimming
+        let activity = repo
+            .create_activity(group.id, "Cycling", None, Some("  🚴  "))
+            .expect("Failed to create activity");
+        assert_eq!(
+            activity.icon,
+            Some("🚴".to_string()),
+            "Icon should be trimmed"
+        );
+    }
+
+    #[test]
+    fn test_create_activity_whitespace_only_name_fails() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // Whitespace-only name should fail after trimming
+        let result = repo.create_activity(group.id, "     ", None, None);
+        assert!(
+            matches!(result, Err(ActivityError::EmptyActivityName)),
+            "Whitespace-only name should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_create_activity_whitespace_only_icon_becomes_none() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // Whitespace-only icon should become None after trimming
+        let activity = repo
+            .create_activity(group.id, "Running", None, Some("     "))
+            .expect("Failed to create activity");
+        assert_eq!(
+            activity.icon, None,
+            "Whitespace-only icon should become None"
+        );
+    }
+
+    #[test]
+    fn test_log_activity_trims_notes() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        // Test notes trimming
+        let log = repo
+            .log_activity(
+                activity.id,
+                "2025-01-15T10:00:00Z",
+                Some("  Great workout!  "),
+            )
+            .expect("Failed to log activity");
+
+        assert_eq!(
+            log.notes,
+            Some("Great workout!".to_string()),
+            "Notes should be trimmed"
+        );
+    }
+
+    #[test]
+    fn test_log_activity_whitespace_only_notes_becomes_none() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        // Whitespace-only notes should become None after trimming
+        let log = repo
+            .log_activity(activity.id, "2025-01-15T10:00:00Z", Some("     "))
+            .expect("Failed to log activity");
+
+        assert_eq!(log.notes, None, "Whitespace-only notes should become None");
     }
 }
