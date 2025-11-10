@@ -73,14 +73,14 @@ The following were in the original plan but are already 100% complete:
 
 - [X] 1.11 Create `features/activities/models.rs` - Add ActivityGroup struct
 - [X] 1.12 Write test for `create_activity_group` (TDD: red)
-- [ ] 1.13 Implement `create_activity_group` method (TDD: green)
-- [ ] 1.14 Write test for `update_activity_group` (name/description)
-- [ ] 1.15 Implement `update_activity_group` method
-- [ ] 1.16 Write test for `delete_activity_group` (soft delete: set deleted_at)
-- [ ] 1.17 Implement `delete_activity_group` method
-- [ ] 1.18 Write test for `get_activity_groups` (exclude deleted_at IS NOT NULL)
-- [ ] 1.19 Implement `get_activity_groups` method
-- [ ] 1.20 Write test for cascading deletes (delete group → verify activities are CASCADE deleted)
+- [X] 1.13 Implement `create_activity_group` method (TDD: green)
+- [X] 1.14 Write test for `update_activity_group` (name/description)
+- [X] 1.15 Implement `update_activity_group` method
+- [X] 1.16 Write test for `delete_activity_group` (soft delete: set deleted_at)
+- [X] 1.17 Implement `delete_activity_group` method
+- [X] 1.18 Write test for `get_activity_groups` (exclude deleted_at IS NOT NULL)
+- [X] 1.19 Implement `get_activity_groups` method
+- [X] 1.20 Write test for cascading deletes (delete group → verify activities are CASCADE deleted)
 @dev/active/major-refactoring-2025/major-refactoring-2025-
 #### Repository: Activity Logs (4-5 hours)
 
