@@ -100,6 +100,34 @@ pub fn create_activity_group(
 4. Validate optional fields
 5. Business logic validation (duplicates, foreign keys)
 
+**Utility Function for Optional Text Sanitization:**
+
+For `Option<String>` fields, use the `sanitize_optional_text` utility function:
+
+```rust
+use crate::utils::sanitize_optional_text;
+
+pub fn save_assessment(
+    &self,
+    notes: Option<String>,
+) -> Result<i32, Error> {
+    // Sanitize notes (trim and convert empty string to None)
+    let notes = sanitize_optional_text(notes);
+
+    // Continue with database operations...
+}
+```
+
+**When to use:**
+- ✅ Use `sanitize_optional_text()` for `Option<String>` parameters
+- ✅ Use inline pattern for `Option<&str>`: `notes.map(|n| n.trim()).filter(|n| !n.is_empty())`
+
+**Benefits:**
+- Reduces code duplication across repositories
+- Consistent sanitization behavior
+- Centralized location for updates/improvements
+- Prevents empty string values in database (converts to NULL)
+
 ### 4. parking_lot Mutex Usage
 
 **Key Difference from std::sync::Mutex:**
@@ -341,21 +369,218 @@ When implementing a new repository:
 - [ ] Run `cargo clippy` and fix all warnings
 - [ ] Run `cargo fmt` for consistent formatting
 
+## 11. Advanced Patterns
+
+### Batch Validation (Avoid N+1 Queries)
+
+**Problem:** Validating multiple IDs in a loop causes N database queries.
+
+**Example from Mood repository:**
+```rust
+// ❌ BAD: N+1 queries
+for activity_id in activity_ids {
+    validate_activity_exists(activity_id)?;  // Query per ID
+}
+
+// ✅ GOOD: Single query with IN clause
+let placeholders = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+let query = format!(
+    "SELECT id FROM activities WHERE id IN ({}) AND deleted_at IS NULL",
+    placeholders
+);
+
+let mut stmt = conn.prepare(&query)?;
+let params: Vec<&dyn rusqlite::ToSql> = activity_ids
+    .iter()
+    .map(|id| id as &dyn rusqlite::ToSql)
+    .collect();
+
+let found_ids: HashSet<i32> = stmt
+    .query_map(params.as_slice(), |row| row.get(0))?
+    .collect::<Result<_, _>>()?;
+
+// Check all IDs were found
+let missing: Vec<i32> = activity_ids
+    .iter()
+    .filter(|id| !found_ids.contains(id))
+    .copied()
+    .collect();
+
+if !missing.is_empty() {
+    return Err(Error::InvalidActivityIds(missing));
+}
+```
+
+**Benefits:**
+- Single database round-trip instead of N
+- Dramatically faster for large batches (10+ IDs)
+- Reduces lock contention on database
+
+### Defensive Deletion Pattern
+
+**Problem:** Deleting parent records can orphan children or violate business rules.
+
+**Example from Assessments repository:**
+```rust
+// Check for children before deleting parent
+pub fn delete_assessment_type_with_conn(
+    &self,
+    conn: &Connection,
+    id: i32,
+) -> Result<(), AssessmentError> {
+    // Count child records atomically within same lock
+    let response_count = self.count_assessment_responses_with_conn(conn, id)?;
+    let schedule_count = self.count_assessment_schedules_with_conn(conn, id)?;
+
+    // Block deletion if children exist
+    if response_count > 0 || schedule_count > 0 {
+        return Err(AssessmentError::HasChildren(format!(
+            "{} assessment response(s) and {} schedule(s) exist. \
+             Delete or export data first.",
+            response_count, schedule_count
+        )));
+    }
+
+    // Safe to delete - no children
+    conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
+    Ok(())
+}
+```
+
+**Benefits:**
+- Prevents orphaned data
+- Provides clear error messages to users
+- Ensures data integrity beyond database constraints
+- Allows defensive business logic (e.g., "export first")
+
+### Statement Caching in Loops
+
+**Problem:** Re-preparing statements in loops is inefficient.
+
+**Example from Mood and Scheduling repositories:**
+```rust
+// ❌ BAD: Re-prepares statement N times
+for item in items {
+    conn.execute("INSERT INTO table VALUES (?)", [item])?;  // Prepare every time
+}
+
+// ✅ GOOD: Prepare once, execute many times
+let mut stmt = conn.prepare_cached("INSERT INTO table VALUES (?)")?;
+for item in items {
+    stmt.execute([item])?;  // Uses cached prepared statement
+}
+```
+
+**Benefits:**
+- Avoids repeated SQL parsing and optimization
+- 2-5x faster for batch operations
+- Automatic caching by rusqlite (`prepare_cached`)
+- Especially important inside transactions
+
+### Dynamic Query Building with Constants
+
+**Problem:** Building SQL dynamically risks injection; string interpolation is dangerous.
+
+**Example from Scheduling repository:**
+```rust
+// Define safe constant clauses
+const ENABLED_CLAUSE: &str = "enabled = 1";
+const FREQUENCY_DAILY: &str = "frequency = 'daily'";
+const TIME_CLAUSE: &str = "time_of_day = ?";
+
+pub fn get_schedules_filtered(
+    &self,
+    only_enabled: bool,
+    daily_only: bool,
+    time_filter: Option<&str>,
+) -> Result<Vec<Schedule>, Error> {
+    let mut clauses = vec![];
+    let mut params: Vec<&dyn rusqlite::ToSql> = vec![];
+
+    // Add clauses based on filters
+    if only_enabled {
+        clauses.push(ENABLED_CLAUSE);  // No params needed
+    }
+    if daily_only {
+        clauses.push(FREQUENCY_DAILY);  // Safe constant
+    }
+    if let Some(time) = time_filter {
+        clauses.push(TIME_CLAUSE);
+        params.push(time);  // Parameterized
+    }
+
+    // Build WHERE clause from safe constants
+    let where_clause = if !clauses.is_empty() {
+        format!("WHERE {}", clauses.join(" AND "))
+    } else {
+        String::new()
+    };
+
+    let query = format!("SELECT * FROM schedules {}", where_clause);
+    // Execute with params...
+}
+```
+
+**Benefits:**
+- Prevents SQL injection (clauses are constants)
+- Safer than string interpolation
+- Easier to audit (all SQL clauses visible as constants)
+- Maintains flexibility for dynamic queries
+
+### Character vs Grapheme Counting
+
+**Current Limitation:**
+We use `.chars().count()` which counts Unicode scalar values, not grapheme clusters.
+
+**Impact:**
+```rust
+"👨‍👩‍👧‍👦".chars().count()  // Returns 7 (Unicode scalars)
+// But user perceives this as 1 character (family emoji)
+```
+
+**Future Consideration:**
+For apps with heavy emoji usage, consider `unicode-segmentation` crate:
+```rust
+use unicode_segmentation::UnicodeSegmentation;
+text.graphemes(true).count()  // Returns 1 for "👨‍👩‍👧‍👦"
+```
+
+**Trade-off:**
+- **Current (`.chars().count()`)**: Good for 95% of cases, no extra dependency
+- **Future (`graphemes`)**: Handles all emoji correctly, adds ~400KB dependency
+
+**Recommendation:**
+Use `.chars().count()` unless users report emoji validation issues. It's vastly better than `.len()` (byte counting) which was the original bug.
+
 ## Repository Comparison Summary
 
-| Practice | Activities | Mood | Recommendation |
-|----------|-----------|------|----------------|
-| UTF-8 validation | ✅ `chars().count()` | ❌ `len()` (bug!) | Fix Mood |
-| Structured logging | ✅ Field-based | ❌ String interp | Update Mood |
-| Input trimming | ❌ Not implemented | ✅ Trims input | Add to Activities |
-| parking_lot usage | ✅ Correct (no unwrap) | ✅ Correct | Keep |
-| RETURNING clause | ✅ Used | ✅ Used | Keep |
-| Soft deletes | ✅ Implemented | ✅ Implemented | Keep |
-| Foreign key checks | ✅ With good errors | ✅ With good errors | Keep |
+**After standardization (this PR):**
+
+| Repository | UTF-8 | Trimming | Logging | Transactions | Advanced Patterns | Grade |
+|------------|-------|----------|---------|--------------|-------------------|-------|
+| **Activities** | ✅ | ✅ | ✅ | Partial | RETURNING | A |
+| **Mood** | ✅ | ✅ | ✅ | ✅ | Batch validation, Statement caching | A+ |
+| **Assessments** | N/A | ✅ | ✅ | ✅ | Defensive deletion, RETURNING | A |
+| **Scheduling** | N/A | N/A | ✅ | ✅ | Dynamic queries, Statement caching | A |
+| **Visualization** | N/A | N/A | N/A | N/A | Read-only queries | N/A |
+
+**Legend:**
+- UTF-8: Uses `.chars().count()` for text validation (vs `.len()` which counts bytes)
+- Trimming: Trims whitespace from user input
+- Logging: Structured logging with context fields
+- Transactions: Uses RAII transactions for multi-step operations
+- N/A: Not applicable (no user text input or read-only operations)
+
+**Key Improvements Made:**
+- ✅ Fixed critical UTF-8 bug in Mood repository (`.len()` → `.chars().count()`)
+- ✅ Added structured logging to Assessments and Scheduling
+- ✅ Added input trimming to Activities and Assessments
+- ✅ Documented advanced patterns from all repositories
 
 ## Next Steps
 
-1. **Create PR to fix Mood repository UTF-8 bug** - High priority, affects international users
-2. **Add input trimming to Activities repository** - Low priority, consistency improvement
-3. **Audit other repositories for `.len()` usage** - Search codebase for validation bugs
-4. **Update CLAUDE.md** - Add UTF-8 validation requirement to guidelines
+All repositories now follow consistent best practices! Future work:
+
+1. **Monitor for emoji issues** - If users report problems with complex emoji (👨‍👩‍👧‍👦), consider `unicode-segmentation`
+2. **Add RAII transactions to Activities** - If multi-step operations are added in future
+3. **Update CLAUDE.md** - Reference this document for new repository implementations

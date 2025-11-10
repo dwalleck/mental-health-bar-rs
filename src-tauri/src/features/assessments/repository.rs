@@ -1,9 +1,10 @@
 // Assessment repository - database access layer
 use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
+use crate::utils::sanitize_optional_text;
 use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, info};
 
 /// Minimum limit for query results
 const MIN_QUERY_LIMIT: i32 = 1;
@@ -26,6 +27,9 @@ impl AssessmentRepository {
         severity_level: &str,
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
+        // Sanitize notes (trim and convert empty string to None)
+        let notes = sanitize_optional_text(notes);
+
         let conn = self.db.get_connection();
         let mut conn = conn.lock();
 
@@ -54,6 +58,15 @@ impl AssessmentRepository {
 
         // Commit transaction - automatic rollback via Drop on error/panic
         tx.commit().map_err(AssessmentError::Database)?;
+
+        info!(
+            assessment_id = id,
+            assessment_type_id = assessment_type_id,
+            total_score = total_score,
+            severity_level = severity_level,
+            has_notes = notes.is_some(),
+            "Saved assessment"
+        );
 
         Ok(id)
     }
@@ -311,6 +324,8 @@ impl AssessmentRepository {
 
         conn.execute("DELETE FROM assessment_responses WHERE id = ?", [id])?;
 
+        info!(assessment_id = id, "Deleted assessment");
+
         Ok(())
     }
 
@@ -395,6 +410,13 @@ impl AssessmentRepository {
 
         // Safe to delete - no children
         conn.execute("DELETE FROM assessment_types WHERE id = ?", [id])?;
+
+        info!(
+            assessment_type_id = id,
+            had_responses = response_count > 0,
+            had_schedules = schedule_count > 0,
+            "Deleted assessment type"
+        );
 
         Ok(())
     }

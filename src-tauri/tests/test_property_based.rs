@@ -45,7 +45,8 @@ fn prop_notes_length() {
 #[test]
 fn prop_activity_name_trimming() {
     fn test(leading: u8, trailing: u8, content: String) -> TestResult {
-        if content.trim().is_empty() || content.trim().len() > 50 {
+        // Use chars().count() to check character count, not byte count
+        if content.trim().is_empty() || content.trim().chars().count() > 50 {
             return TestResult::discard();
         }
 
@@ -91,7 +92,8 @@ fn prop_icon_length() {
         let icon = "🎉".repeat(length as usize);
         let result = validate_icon(&icon);
 
-        TestResult::from_bool(if icon.len() <= 20 {
+        // Use chars().count() to check character count, not byte count
+        TestResult::from_bool(if icon.chars().count() <= 20 {
             result.is_ok()
         } else {
             result.is_err()

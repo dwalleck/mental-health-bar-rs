@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use rusqlite::params;
+use tracing::info;
 
 use crate::db::Database;
 
@@ -85,6 +86,14 @@ impl SchedulingRepository {
         // Commit transaction (auto-rollback on drop if not committed or on panic)
         tx.commit().map_err(SchedulingError::Database)?;
 
+        info!(
+            schedule_id = schedule.id,
+            assessment_type_id = schedule.assessment_type_id,
+            assessment_type_code = %schedule.assessment_type_code,
+            frequency = %schedule.frequency.as_str(),
+            "Created assessment schedule"
+        );
+
         Ok(schedule)
     }
 
@@ -157,6 +166,12 @@ impl SchedulingRepository {
             return Err(SchedulingError::NotFound(id));
         }
 
+        info!(
+            schedule_id = id,
+            fields_updated = clauses.len() - 1, // -1 for updated_at
+            "Updated assessment schedule"
+        );
+
         self.get_schedule_with_conn(&conn, id)
     }
 
@@ -171,6 +186,8 @@ impl SchedulingRepository {
         if rows_affected == 0 {
             return Err(SchedulingError::NotFound(id));
         }
+
+        info!(schedule_id = id, "Deleted assessment schedule");
 
         Ok(())
     }
@@ -214,6 +231,8 @@ impl SchedulingRepository {
             return Err(SchedulingError::NotFound(id));
         }
 
+        info!(schedule_id = id, "Marked schedule as triggered");
+
         Ok(())
     }
 
@@ -247,6 +266,11 @@ impl SchedulingRepository {
 
         // Commit transaction (auto-rollback on drop if not committed)
         tx.commit().map_err(SchedulingError::Database)?;
+
+        info!(
+            count = schedule_ids.len(),
+            "Marked multiple schedules as triggered"
+        );
 
         Ok(())
     }

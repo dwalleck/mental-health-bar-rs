@@ -368,7 +368,8 @@ fn validate_optional_icon(icon: &str) -> Result<(), validator::ValidationError> 
         ));
         return Err(error);
     }
-    if icon.len() > 20 {
+    let char_count = icon.chars().count();
+    if char_count > 20 {
         let mut error = validator::ValidationError::new("icon_too_long");
         error.message = Some(std::borrow::Cow::from("Icon must be 20 characters or less"));
         return Err(error);

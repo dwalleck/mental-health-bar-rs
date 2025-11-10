@@ -606,3 +606,85 @@ fn test_get_mood_statistics_empty_date_range() {
         }
     }
 }
+
+// ============================================================================
+// UTF-8 VALIDATION TESTS
+// ============================================================================
+
+#[test]
+fn test_create_activity_utf8_characters() {
+    let (repo, _temp_dir, group_id) = setup_test_repo();
+
+    // Test emoji and international characters in activity name
+    let name_with_emoji = "Running 🏃";
+    let icon_with_emoji = "🏃";
+
+    let activity = repo
+        .create_activity(
+            name_with_emoji,
+            Some("#4CAF50"),
+            Some(icon_with_emoji),
+            group_id,
+        )
+        .expect("Failed to create activity with UTF-8");
+
+    assert_eq!(activity.name, name_with_emoji);
+    assert_eq!(activity.icon, Some(icon_with_emoji.to_string()));
+
+    // Test Japanese characters
+    let japanese_name = "瞑想";
+    let activity = repo
+        .create_activity(japanese_name, Some("#9C27B0"), Some("🧘"), group_id)
+        .expect("Failed to create activity with Japanese characters");
+
+    assert_eq!(activity.name, japanese_name);
+}
+
+#[test]
+fn test_create_activity_utf8_length_validation() {
+    let (repo, _temp_dir, group_id) = setup_test_repo();
+
+    // 50 emoji characters (4 bytes each = 200 bytes total) should be accepted
+    let emoji_name = "😀".repeat(50);
+    let result = repo.create_activity(&emoji_name, None, None, group_id);
+    assert!(result.is_ok(), "Should accept 50 emoji characters");
+
+    // 51 emoji characters should fail
+    let emoji_name_too_long = "😀".repeat(51);
+    let result = repo.create_activity(&emoji_name_too_long, None, None, group_id);
+    assert!(result.is_err(), "Should reject 51 emoji characters");
+    let error_msg = format!("{}", result.unwrap_err());
+    assert!(
+        error_msg.contains("51") || error_msg.contains("too long"),
+        "Error should mention character count: {}",
+        error_msg
+    );
+}
+
+#[test]
+fn test_mood_checkin_utf8_notes() {
+    let (repo, _temp_dir, group_id) = setup_test_repo();
+
+    // Test notes with emoji (should count characters, not bytes)
+    let emoji_notes = "Great day! 😀🎉🌟";
+    let result = repo.create_mood_checkin(5, vec![], Some(emoji_notes));
+    assert!(result.is_ok(), "Should accept notes with emoji");
+    let mood = result.unwrap();
+    assert_eq!(mood.notes.as_ref().unwrap(), emoji_notes);
+
+    // Test notes at character limit (5000 emoji = 20000 bytes)
+    let long_emoji_notes = "😀".repeat(5000);
+    let result = repo.create_mood_checkin(4, vec![], Some(&long_emoji_notes));
+    assert!(result.is_ok(), "Should accept 5000 emoji characters");
+
+    // Test notes exceeding character limit (5001 emoji)
+    let too_long_notes = "😀".repeat(5001);
+    let result = repo.create_mood_checkin(4, vec![], Some(&too_long_notes));
+    assert!(result.is_err(), "Should reject 5001 emoji characters");
+    let error_msg = format!("{}", result.unwrap_err());
+    assert!(
+        error_msg.contains("5001") || error_msg.contains("exceed"),
+        "Error should mention character count: {}",
+        error_msg
+    );
+}

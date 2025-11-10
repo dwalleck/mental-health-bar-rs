@@ -358,17 +358,17 @@ fn test_create_activity_icon_exceeds_max_length() {
 
     // Create icon with more than 20 characters
     // Using compound emoji to exceed limit
-    let long_icon = "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"; // 11 emojis = 44 bytes
+    let long_icon = "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"; // 21 emojis = 21 characters (84 bytes)
 
     let result = repo.create_activity("Art", Some("#E91E63"), Some(long_icon), group_id);
 
     // Should either error or truncate
     match result {
         Ok(activity) => {
-            // If implementation truncates, verify it's within limit
+            // If implementation truncates, verify it's within limit (using chars, not bytes)
             assert!(
-                activity.icon.as_ref().unwrap().len() <= 20,
-                "Icon should be truncated to 20 chars"
+                activity.icon.as_ref().unwrap().chars().count() <= 20,
+                "Icon should be truncated to 20 characters"
             );
         }
         Err(e) => {
