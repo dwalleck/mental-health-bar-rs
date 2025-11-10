@@ -1,7 +1,7 @@
 # Revised Development Plan 2025 - Task Checklist
 
 **Created**: 2025-11-07
-**Updated**: 2025-11-07
+**Updated**: 2025-11-10
 **Total Releases**: 5 (v0.1, v0.2, v0.3, v0.4, v1.0)
 **Estimated Duration**: 10 weeks
 **Approach**: Ship value every 1-2 weeks, tests integrated with features
@@ -111,43 +111,43 @@ The following were in the original plan but are already 100% complete:
 
 #### Repository: Activity Goals (10-12 hours)
 
-- [ ] 2.1 Add ActivityGoal struct to models.rs (id, activity_id?, group_id?, goal_type, target_value, period_days, created_at, deleted_at)
-- [ ] 2.2 Write test for `set_activity_goal` (activity-level goal)
-- [ ] 2.3 Write test for `set_activity_goal` (group-level goal)
-- [ ] 2.4 Implement `set_activity_goal` method with CHECK constraint validation
-- [ ] 2.5 Write test for `get_activity_goals` (filter by activity_id OR group_id)
-- [ ] 2.6 Implement `get_activity_goals` method
-- [ ] 2.7 Write test for `update_activity_goal` (change target_value or period_days)
-- [ ] 2.8 Implement `update_activity_goal` method
-- [ ] 2.9 Write test for `delete_activity_goal` (soft delete)
-- [ ] 2.10 Implement `delete_activity_goal` method
+- [X] 2.1 Add ActivityGoal struct to models.rs (id, activity_id?, group_id?, goal_type, target_value, period_days, created_at, deleted_at)
+- [X] 2.2 Write test for `set_activity_goal` (activity-level goal)
+- [X] 2.3 Write test for `set_activity_goal` (group-level goal)
+- [X] 2.4 Implement `set_activity_goal` method with CHECK constraint validation
+- [X] 2.5 Write test for `get_activity_goals` (filter by activity_id OR group_id)
+- [X] 2.6 Implement `get_activity_goals` method
+- [X] 2.7 Write test for `update_activity_goal` (change target_value or period_days)
+- [X] 2.8 Implement `update_activity_goal` method
+- [X] 2.9 Write test for `delete_activity_goal` (soft delete)
+- [X] 2.10 Implement `delete_activity_goal` method
 
 #### Repository: Reporting Queries (8-10 hours)
 
-- [ ] 2.11 Add GoalProgress struct (current_value, target_value, percentage, is_achieved)
-- [ ] 2.12 Write test for `get_activity_frequency` (count logs in date range → days/week)
-- [ ] 2.13 Implement `get_activity_frequency` (SQL: COUNT DISTINCT DATE(logged_at) / 7)
-- [ ] 2.14 Write test for `get_activity_trend` (compare current period vs previous period → % change)
-- [ ] 2.15 Implement `get_activity_trend` (SQL: period comparison with CASE statements)
-- [ ] 2.16 Write test for `check_goal_progress` (actual vs target, calculate percentage)
-- [ ] 2.17 Implement `check_goal_progress` method
-- [ ] 2.17a Implement goal achievement notification (when progress.is_achieved, send notification using tauri-plugin-notification)
+- [X] 2.11 Add GoalProgress struct (current_value, target_value, percentage, is_achieved)
+- [X] 2.12 Write test for `get_activity_frequency` (count logs in date range → days/week)
+- [X] 2.13 Implement `get_activity_frequency` (SQL: COUNT DISTINCT DATE(logged_at) / 7)
+- [X] 2.14 Write test for `get_activity_trend` (compare current period vs previous period → % change)
+- [X] 2.15 Implement `get_activity_trend` (SQL: period comparison with CASE statements)
+- [X] 2.16 Write test for `check_goal_progress` (actual vs target, calculate percentage)
+- [X] 2.17 Implement `check_goal_progress` method
+- [X] 2.17a Implement goal achievement notification (when progress.is_achieved, send notification using tauri-plugin-notification)
 
 #### Tauri Commands (6-8 hours)
 
-- [ ] 2.18 Create `features/activities/commands.rs` (if not exists)
-- [ ] 2.19 Implement `create_activity_group` command (returns Result<ActivityGroup, CommandError>)
-- [ ] 2.20 Implement `update_activity_group` command
-- [ ] 2.21 Implement `delete_activity_group` command
-- [ ] 2.22 Implement `get_activity_groups` query
-- [ ] 2.23 Update `create_activity` command to accept optional group_id
-- [ ] 2.24 Implement `log_activity` command (creates ActivityLog)
-- [ ] 2.25 Implement `get_activity_logs` query
-- [ ] 2.26 Implement `set_activity_goal` command
-- [ ] 2.27 Implement `get_activity_goals` query
-- [ ] 2.28 Implement `get_activity_frequency` query
-- [ ] 2.29 Implement `get_activity_trend` query
-- [ ] 2.30 Implement `check_goal_progress` query
+- [X] 2.18 Create `features/activities/commands.rs` (if not exists)
+- [X] 2.19 Implement `create_activity_group` command (returns Result<ActivityGroup, CommandError>)
+- [X] 2.20 Implement `update_activity_group` command
+- [X] 2.21 Implement `delete_activity_group` command
+- [X] 2.22 Implement `get_activity_groups` query
+- [X] 2.23 Update `create_activity` command to accept optional group_id
+- [X] 2.24 Implement `log_activity` command (creates ActivityLog)
+- [X] 2.25 Implement `get_activity_logs` query
+- [X] 2.26 Implement `set_activity_goal` command
+- [X] 2.27 Implement `get_activity_goals` query
+- [X] 2.28 Implement `get_activity_frequency` query
+- [X] 2.29 Implement `get_activity_trend` query
+- [X] 2.30 Implement `check_goal_progress` query
 - [ ] 2.31 Generate TypeScript bindings with `cargo test` (tauri-specta)
 - [ ] 2.32 Write command tests for error handling (invalid IDs, missing FKs)
 
@@ -693,7 +693,11 @@ The following were in the original plan but are already 100% complete:
 
 ### Release Completion Status
 
-- [ ] **v0.1**: Activity Groups Shipped (29/107 tasks - Week 1 Complete!) - End of Week 4
+- [ ] **v0.1**: Activity Groups Shipped (59/107 tasks - Weeks 1-2 Complete! Week 3 Pending) - End of Week 4
+  - Week 1: ✅ 29/29 tasks complete
+  - Week 2: 🟡 30/32 tasks complete (bindings generation and command tests pending)
+  - Week 3: ⏳ 0/24 tasks (Frontend UI Components)
+  - Week 4: ⏳ 0/22 tasks (Reporting Dashboard)
 - [ ] **v0.2**: Check-In v2.0 Shipped (0/28 tasks) - End of Week 5
 - [ ] **v0.3**: Spec Gaps Shipped (0/27 tasks) - End of Week 6
 - [ ] **v0.4**: Catalyst UI Shipped (0/26 tasks) - End of Week 8
