@@ -5,6 +5,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::info;
 
+#[cfg(unix)]
+use tracing::warn;
+
 pub mod migrations;
 pub mod query_builder;
 
