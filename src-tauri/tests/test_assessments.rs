@@ -433,3 +433,60 @@ fn test_sql_injection_protection() {
         "Database should remain intact after SQL injection attempt"
     );
 }
+
+// ============================================================================
+// INPUT TRIMMING TESTS
+// ============================================================================
+
+#[test]
+fn test_save_assessment_trims_notes() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Test notes with surrounding whitespace
+    let assessment_id = repo
+        .save_assessment(
+            1, // PHQ9
+            &[2, 2, 2, 2, 2, 2, 2, 2, 2],
+            18,
+            "moderate",
+            Some("  Feeling much better today!  ".to_string()),
+        )
+        .expect("Failed to save assessment with trimmed notes");
+
+    // Retrieve and verify notes are trimmed
+    let assessment = repo
+        .get_assessment_response(assessment_id)
+        .expect("Failed to get assessment");
+
+    assert_eq!(
+        assessment.notes,
+        Some("Feeling much better today!".to_string()),
+        "Notes should be trimmed"
+    );
+}
+
+#[test]
+fn test_save_assessment_whitespace_only_notes_becomes_none() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Test notes with only whitespace
+    let assessment_id = repo
+        .save_assessment(
+            1, // PHQ9
+            &[1, 1, 1, 1, 1, 1, 1, 1, 1],
+            9,
+            "mild",
+            Some("     ".to_string()),
+        )
+        .expect("Failed to save assessment");
+
+    // Retrieve and verify whitespace-only notes become None
+    let assessment = repo
+        .get_assessment_response(assessment_id)
+        .expect("Failed to get assessment");
+
+    assert_eq!(
+        assessment.notes, None,
+        "Whitespace-only notes should become None"
+    );
+}

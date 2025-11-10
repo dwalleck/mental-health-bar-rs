@@ -195,19 +195,18 @@ pub fn validate_activity_name(name: &str) -> Result<String, MoodError> {
     if trimmed.is_empty() {
         return Err(MoodError::EmptyActivityName);
     }
-    if trimmed.len() > 50 {
-        return Err(MoodError::ActivityNameTooLong(trimmed.len()));
+    let char_count = trimmed.chars().count();
+    if char_count > 50 {
+        return Err(MoodError::ActivityNameTooLong(char_count));
     }
     Ok(trimmed)
 }
 
 /// Validate notes length (uses centralized MAX_NOTES_LENGTH constant)
 pub fn validate_notes(notes: &str) -> Result<(), MoodError> {
-    if notes.len() > MAX_NOTES_LENGTH {
-        return Err(MoodError::NotesLengthExceeded(
-            notes.len(),
-            MAX_NOTES_LENGTH,
-        ));
+    let char_count = notes.chars().count();
+    if char_count > MAX_NOTES_LENGTH {
+        return Err(MoodError::NotesLengthExceeded(char_count, MAX_NOTES_LENGTH));
     }
     Ok(())
 }
@@ -253,7 +252,8 @@ fn validate_trimmed_name(name: &str) -> Result<(), validator::ValidationError> {
         error.message = Some(std::borrow::Cow::from("Activity name cannot be empty"));
         return Err(error);
     }
-    if trimmed.len() > 50 {
+    let char_count = trimmed.chars().count();
+    if char_count > 50 {
         let mut error = validator::ValidationError::new("name_too_long");
         error.message = Some(std::borrow::Cow::from(
             "Activity name too long (max 50 characters)",
@@ -265,8 +265,9 @@ fn validate_trimmed_name(name: &str) -> Result<(), validator::ValidationError> {
 
 /// Validate activity icon (max 20 characters to accommodate compound emoji sequences)
 pub fn validate_icon(icon: &str) -> Result<(), MoodError> {
-    if icon.len() > 20 {
-        return Err(MoodError::ActivityIconTooLong(icon.len()));
+    let char_count = icon.chars().count();
+    if char_count > 20 {
+        return Err(MoodError::ActivityIconTooLong(char_count));
     }
     Ok(())
 }
