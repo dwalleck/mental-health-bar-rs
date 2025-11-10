@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
+	import { invoke } from '@tauri-apps/api/core'
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError } from '$lib/utils/errors'
 	import type { ActivityGroup } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
+	import Modal from '$lib/components/ui/Modal.svelte'
 	import ActivityGroupList from '$lib/components/activity-groups/ActivityGroupList.svelte'
 	import ActivityGroupForm from '$lib/components/activity-groups/ActivityGroupForm.svelte'
 
@@ -13,7 +15,10 @@
 	let isLoading = $state(true)
 	let showAddModal = $state(false)
 	let showEditModal = $state(false)
+	let showDeleteModal = $state(false)
 	let selectedGroup = $state<ActivityGroup | undefined>(undefined)
+	let groupToDelete = $state<ActivityGroup | undefined>(undefined)
+	let isDeleting = $state(false)
 
 	// Load activity groups on mount
 	$effect(() => {
@@ -47,8 +52,34 @@
 	}
 
 	function handleDelete(group: ActivityGroup) {
-		console.log('Delete group:', group)
-		// TODO: Show confirmation dialog (Task 3.7)
+		groupToDelete = group
+		showDeleteModal = true
+	}
+
+	// Confirm and execute delete
+	async function confirmDelete() {
+		if (!groupToDelete) return
+
+		try {
+			isDeleting = true
+
+			const result = await invoke<{ data?: null; error?: string }>('delete_activity_group', {
+				groupId: groupToDelete.id,
+			})
+
+			if (result.error) {
+				throw new Error(result.error)
+			}
+
+			// Remove deleted group from list
+			activityGroups = activityGroups.filter((g) => g.id !== groupToDelete.id)
+			showDeleteModal = false
+			groupToDelete = undefined
+		} catch (error) {
+			displayError(error)
+		} finally {
+			isDeleting = false
+		}
 	}
 </script>
 
@@ -106,3 +137,47 @@
 
 <!-- Edit Group Modal -->
 <ActivityGroupForm bind:open={showEditModal} group={selectedGroup} onSuccess={handleGroupUpdated} />
+
+<!-- Delete Confirmation Modal -->
+<Modal
+	bind:open={showDeleteModal}
+	title="Delete Activity Group"
+	description="Are you sure you want to delete '{groupToDelete?.name}'? This action cannot be undone."
+	size="md"
+	actions={[
+		{
+			label: 'Cancel',
+			variant: 'secondary',
+			onClick: () => {
+				showDeleteModal = false
+				groupToDelete = undefined
+			},
+			disabled: isDeleting,
+		},
+		{
+			label: 'Delete',
+			variant: 'danger',
+			onClick: confirmDelete,
+			disabled: isDeleting,
+			loading: isDeleting,
+		},
+	]}
+>
+	{#snippet icon()}
+		<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+			/>
+		</svg>
+	{/snippet}
+
+	<div class="mt-2">
+		<p class="text-sm text-gray-600">
+			<strong>Warning:</strong> All activities associated with this group will also be deleted due to
+			CASCADE delete constraints.
+		</p>
+	</div>
+</Modal>
