@@ -1,0 +1,9 @@
+# Cargo configuration for mental-health-bar-rs
+
+[alias]
+# Run integration tests only (skips lib tests that have Windows GUI dependency issues)
+# This is the recommended way to run tests on Windows
+test-integration = "test --test test_activities --test test_activity_groups --test test_mood --test test_assessments --test test_scheduling --test test_visualization --test test_database --test repository_integration --test test_property_based --test test_mockall_example"
+
+# Run all tests (may fail on Windows due to Tauri plugin dependencies)
+test-all = "test"

@@ -138,8 +138,11 @@ mod tests {
     use super::*;
 
     /// Test to generate TypeScript bindings
-    /// Run with: cargo test generate_types -- --exact --nocapture
+    /// Run with: cargo test generate_types -- --exact --nocapture --ignored
+    /// This test is ignored by default because it requires Tauri/Wry which has
+    /// Windows GUI dependencies that may not be available in all test environments.
     #[test]
+    #[ignore]
     fn generate_types() {
         let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
             greet,
