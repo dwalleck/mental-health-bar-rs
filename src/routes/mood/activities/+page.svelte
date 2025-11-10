@@ -1,22 +1,24 @@
 <script lang="ts">
 	// T114: /mood/activities route - Manage custom activities (CRUD operations)
 
+	import { onMount } from 'svelte'
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import Card from '$lib/components/ui/Card.svelte'
 	import ActivityForm from '$lib/components/mood/ActivityForm.svelte'
 	import ActivityList from '$lib/components/mood/ActivityList.svelte'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
-	import type { Activity } from '$lib/bindings'
+	import type { Activity, ActivityGroup } from '$lib/bindings'
 
 	let activities: Activity[] = $state([])
+	let activityGroups: ActivityGroup[] = $state([])
 	let loading = $state(true)
 	let error = $state<string | null>(null)
 	let showForm = $state(false)
 	let editingActivity = $state<Activity | null>(null)
 
-	// Load activities on mount
-	$effect(() => {
-		loadActivities()
+	// Load activities and groups on mount
+	onMount(async () => {
+		await Promise.all([loadActivities(), loadActivityGroups()])
 	})
 
 	async function loadActivities() {
@@ -31,6 +33,17 @@
 			}
 		} finally {
 			loading = false
+		}
+	}
+
+	async function loadActivityGroups() {
+		try {
+			activityGroups = await invokeWithRetry('get_activity_groups')
+		} catch (e) {
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to load activity groups'
+			}
 		}
 	}
 
@@ -49,7 +62,7 @@
 		editingActivity = null
 	}
 
-	async function handleSubmit(name: string, color: string, icon: string) {
+	async function handleSubmit(name: string, color: string, icon: string, groupId: number) {
 		try {
 			error = null
 
@@ -61,6 +74,7 @@
 						name: name || null,
 						color: color || null,
 						icon: icon || null,
+						group_id: groupId,
 					},
 				})
 			} else {
@@ -70,6 +84,7 @@
 						name,
 						color: color || null,
 						icon: icon || null,
+						group_id: groupId,
 					},
 				})
 			}
@@ -120,9 +135,30 @@
 		</div>
 	{/if}
 
+	{#if activityGroups.length === 0 && !loading}
+		<div class="mb-4 p-4 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-lg">
+			<div class="font-semibold">No Activity Groups</div>
+			<div class="text-sm mt-1">
+				You need to create at least one activity group before you can add activities.
+				<a
+					href="/activity-groups"
+					class="underline hover:no-underline font-medium"
+					data-sveltekit-preload-data="hover"
+				>
+					Create a group now →
+				</a>
+			</div>
+		</div>
+	{/if}
+
 	{#if showForm}
 		<Card title={editingActivity ? 'Edit Activity' : 'Create New Activity'}>
-			<ActivityForm activity={editingActivity} onSubmit={handleSubmit} onCancel={handleCancel} />
+			<ActivityForm
+				activity={editingActivity}
+				groups={activityGroups}
+				onSubmit={handleSubmit}
+				onCancel={handleCancel}
+			/>
 		</Card>
 	{:else}
 		<div class="mb-4">
