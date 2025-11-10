@@ -136,7 +136,13 @@
 		},
 	]}
 >
-	<form class="space-y-4" onsubmit={(e) => e.preventDefault()}>
+	<form
+		class="space-y-4"
+		onsubmit={(e) => {
+			e.preventDefault()
+			handleSubmit()
+		}}
+	>
 		<!-- Name field -->
 		<Input
 			bind:value={name}

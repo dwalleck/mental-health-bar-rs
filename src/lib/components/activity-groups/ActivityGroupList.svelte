@@ -28,9 +28,13 @@
 		}
 	}
 
-	// Format date helper
+	// Format date helper with consistent locale and format
 	function formatDate(dateString: string): string {
-		return new Date(dateString).toLocaleDateString()
+		return new Date(dateString).toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+		})
 	}
 </script>
 

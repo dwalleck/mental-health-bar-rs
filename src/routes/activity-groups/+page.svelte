@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
 	import { invoke } from '@tauri-apps/api/core'
 	import { invokeWithRetry } from '$lib/utils/retry'
@@ -21,18 +22,15 @@
 	let isDeleting = $state(false)
 
 	// Load activity groups on mount
-	$effect(() => {
-		async function loadActivityGroups() {
-			try {
-				isLoading = true
-				activityGroups = await invokeWithRetry('get_activity_groups')
-			} catch (e) {
-				displayError(e)
-			} finally {
-				isLoading = false
-			}
+	onMount(async () => {
+		try {
+			isLoading = true
+			activityGroups = await invokeWithRetry('get_activity_groups')
+		} catch (e) {
+			displayError(e)
+		} finally {
+			isLoading = false
 		}
-		loadActivityGroups()
 	})
 
 	// Handle successful group creation
