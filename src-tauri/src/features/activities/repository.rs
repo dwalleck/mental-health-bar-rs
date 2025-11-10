@@ -1,20 +1,17 @@
 // Activity repository - Data access layer for activity groups, activities, logs, and goals
 //
-// ## Lock Poisoning
-// This repository uses a Mutex to protect database connections. Lock poisoning occurs when
-// a thread panics while holding the lock, leaving the Mutex in a "poisoned" state.
+// ## Concurrency Safety
+// This repository uses parking_lot::Mutex to protect database connections. Unlike std::sync::Mutex,
+// parking_lot does not implement lock poisoning - it simply blocks until the lock is available.
 //
-// In a single-threaded Tauri application, lock poisoning should never occur under normal
-// circumstances. If it does occur, it indicates a serious bug (panic in database code) that
-// has likely left the database in an inconsistent state.
+// This design choice is intentional for this application:
+// - Tauri applications are single-threaded for UI operations
+// - parking_lot provides better performance and simpler error handling
+// - If a panic occurs while holding the lock, the application should be restarted
 //
-// The fail-fast approach (returning ActivityError::LockPoisoned) is intentional:
-// - It surfaces the critical error to the UI layer
-// - Prevents continuing with potentially corrupted data
-// - The application should be restarted to recover
-//
-// Recovery: The database file itself is not corrupted (SQLite is ACID-compliant), but
-// the in-memory state may be inconsistent. Restarting the application will recover.
+// Database safety: SQLite transactions are ACID-compliant, so the database file itself
+// cannot be corrupted by panics. However, in-memory state may be inconsistent after a panic,
+// requiring application restart for full recovery.
 
 use super::models::*;
 use crate::db::Database;
@@ -54,16 +51,18 @@ impl ActivityRepository {
         name: &str,
         description: Option<&str>,
     ) -> Result<ActivityGroup, ActivityError> {
-        // Validate name
+        // Validate name (use char count for UTF-8 correctness)
+        let name_char_count = name.chars().count();
         if name.is_empty() {
             return Err(ActivityError::EmptyGroupName);
         }
-        if name.len() > 100 {
-            return Err(ActivityError::GroupNameTooLong(name.len()));
+        if name_char_count > 100 {
+            return Err(ActivityError::GroupNameTooLong(name_char_count));
         }
         if let Some(desc) = description {
-            if desc.len() > 500 {
-                return Err(ActivityError::GroupNameTooLong(desc.len()));
+            let desc_char_count = desc.chars().count();
+            if desc_char_count > 500 {
+                return Err(ActivityError::DescriptionTooLong(desc_char_count));
             }
         }
 
@@ -77,7 +76,12 @@ impl ActivityRepository {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
 
-        info!("Created activity group '{}' with ID: {}", name, id);
+        info!(
+            group_id = id,
+            group_name = name,
+            has_description = description.is_some(),
+            "Created activity group"
+        );
 
         Ok(ActivityGroup {
             id,
@@ -110,18 +114,20 @@ impl ActivityRepository {
         name: Option<&str>,
         description: Option<&str>,
     ) -> Result<ActivityGroup, ActivityError> {
-        // Validate name if provided
+        // Validate name if provided (use char count for UTF-8 correctness)
         if let Some(n) = name {
+            let name_char_count = n.chars().count();
             if n.is_empty() {
                 return Err(ActivityError::EmptyGroupName);
             }
-            if n.len() > 100 {
-                return Err(ActivityError::GroupNameTooLong(n.len()));
+            if name_char_count > 100 {
+                return Err(ActivityError::GroupNameTooLong(name_char_count));
             }
         }
         if let Some(desc) = description {
-            if desc.len() > 500 {
-                return Err(ActivityError::GroupNameTooLong(desc.len()));
+            let desc_char_count = desc.chars().count();
+            if desc_char_count > 500 {
+                return Err(ActivityError::DescriptionTooLong(desc_char_count));
             }
         }
 
@@ -169,7 +175,12 @@ impl ActivityRepository {
             }
         }
 
-        info!("Updated activity group ID: {}", id);
+        info!(
+            group_id = id,
+            updated_name = name.is_some(),
+            updated_description = description.is_some(),
+            "Updated activity group"
+        );
 
         // Fetch and return the updated group
         self.get_activity_group_by_id_with_conn(&conn, id)
@@ -212,7 +223,7 @@ impl ActivityRepository {
             rusqlite::params![id],
         )?;
 
-        info!("Soft deleted activity group ID: {}", id);
+        info!(group_id = id, "Soft deleted activity group");
 
         Ok(())
     }
@@ -426,23 +437,152 @@ mod tests {
 
     #[test]
     fn test_cascading_deletes() {
-        // This test will verify CASCADE delete behavior when implemented
-        // For now, we'll test that the group deletion works
+        // This test verifies CASCADE delete behavior defined in migration 003_activity_groups.sql
+        // Full cascade testing requires Activity creation methods (not yet implemented)
+        // For now, verify database schema has CASCADE constraints
         let (repo, _temp_dir) = setup_test_repo();
 
         let group = repo
             .create_activity_group("Exercise", None)
             .expect("Failed to create group");
 
-        // TODO: Create activities associated with this group
-        // TODO: Delete the group
-        // TODO: Verify all activities are CASCADE deleted
+        // Verify the CASCADE constraint exists in the schema
+        let conn = repo.db.get_connection();
+        let conn = conn.lock().unwrap();
 
+        // Query sqlite_master to verify FOREIGN KEY with CASCADE is defined
+        let has_cascade: bool = conn
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='activities'",
+                [],
+                |row| {
+                    let sql: String = row.get(0)?;
+                    Ok(sql.contains("ON DELETE CASCADE"))
+                },
+            )
+            .unwrap_or(false);
+
+        assert!(
+            has_cascade,
+            "activities table should have ON DELETE CASCADE constraint"
+        );
+
+        // Soft delete the group (actual CASCADE testing requires Activity methods)
+        drop(conn); // Release lock before calling repository method
         repo.delete_activity_group(group.id)
             .expect("Failed to delete group");
 
-        // Verify group is deleted
+        // Verify group is soft deleted
         let groups = repo.get_activity_groups().expect("Failed to get groups");
         assert!(!groups.iter().any(|g| g.id == group.id));
+
+        // NOTE: Full CASCADE delete testing will be added when Activity CRUD methods
+        // are implemented (tasks 1.21-1.29). This will include:
+        // 1. Creating activities linked to this group
+        // 2. Deleting the group
+        // 3. Verifying all linked activities are CASCADE deleted
+    }
+
+    #[test]
+    fn test_create_activity_group_description_too_long() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let long_description = "a".repeat(501);
+        let result = repo.create_activity_group("Exercise", Some(&long_description));
+
+        assert!(matches!(
+            result,
+            Err(ActivityError::DescriptionTooLong(501))
+        ));
+    }
+
+    #[test]
+    fn test_update_activity_group_partial_name_only() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", Some("Original description"))
+            .expect("Failed to create group");
+
+        let updated = repo
+            .update_activity_group(group.id, Some("Updated Name"), None)
+            .expect("Failed to update");
+
+        assert_eq!(updated.name, "Updated Name");
+        assert_eq!(
+            updated.description,
+            Some("Original description".to_string())
+        );
+    }
+
+    #[test]
+    fn test_update_activity_group_partial_description_only() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", Some("Original"))
+            .expect("Failed to create group");
+
+        let updated = repo
+            .update_activity_group(group.id, None, Some("Updated description"))
+            .expect("Failed to update");
+
+        assert_eq!(updated.name, "Exercise");
+        assert_eq!(updated.description, Some("Updated description".to_string()));
+    }
+
+    #[test]
+    fn test_create_activity_group_utf8_characters() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Test with emojis and multi-byte characters
+        let name_with_emoji = "Exercise 💪";
+        let description_with_unicode = "健康とフィットネス"; // Japanese characters
+
+        let group = repo
+            .create_activity_group(name_with_emoji, Some(description_with_unicode))
+            .expect("Failed to create group with UTF-8");
+
+        assert_eq!(group.name, name_with_emoji);
+        assert_eq!(
+            group.description,
+            Some(description_with_unicode.to_string())
+        );
+    }
+
+    #[test]
+    fn test_create_activity_group_utf8_length_validation() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Create a name with exactly 100 emoji characters (which are 4 bytes each)
+        // This tests that we're counting characters, not bytes
+        let emoji_name = "😀".repeat(100);
+        let result = repo.create_activity_group(&emoji_name, None);
+        assert!(result.is_ok(), "Should accept 100 emoji characters");
+
+        // 101 emoji characters should fail
+        let emoji_name_too_long = "😀".repeat(101);
+        let result = repo.create_activity_group(&emoji_name_too_long, None);
+        assert!(
+            matches!(result, Err(ActivityError::GroupNameTooLong(101))),
+            "Should reject 101 emoji characters"
+        );
+    }
+
+    #[test]
+    fn test_update_activity_group_description_too_long() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let long_description = "a".repeat(501);
+        let result = repo.update_activity_group(group.id, None, Some(&long_description));
+
+        assert!(matches!(
+            result,
+            Err(ActivityError::DescriptionTooLong(501))
+        ));
     }
 }

@@ -24,6 +24,9 @@ pub enum ActivityError {
     #[error("Activity group name too long: {0} characters. Maximum 100 characters allowed")]
     GroupNameTooLong(usize),
 
+    #[error("Activity group description too long: {0} characters. Maximum 500 characters allowed")]
+    DescriptionTooLong(usize),
+
     #[error("Activity group name already exists: {0}")]
     DuplicateGroupName(String),
 
@@ -75,6 +78,9 @@ impl ToCommandError for ActivityError {
                 CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             ActivityError::GroupNameTooLong(_) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation)
+            }
+            ActivityError::DescriptionTooLong(_) => {
                 CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             ActivityError::EmptyActivityName => {
