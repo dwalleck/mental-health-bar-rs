@@ -693,7 +693,7 @@ The following were in the original plan but are already 100% complete:
 
 ### Release Completion Status
 
-- [ ] **v0.1**: Activity Groups Shipped (0/107 tasks) - End of Week 4
+- [ ] **v0.1**: Activity Groups Shipped (29/107 tasks - Week 1 Complete!) - End of Week 4
 - [ ] **v0.2**: Check-In v2.0 Shipped (0/28 tasks) - End of Week 5
 - [ ] **v0.3**: Spec Gaps Shipped (0/27 tasks) - End of Week 6
 - [ ] **v0.4**: Catalyst UI Shipped (0/26 tasks) - End of Week 8
