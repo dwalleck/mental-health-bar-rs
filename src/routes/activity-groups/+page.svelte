@@ -6,10 +6,12 @@
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
 	import ActivityGroupList from '$lib/components/activity-groups/ActivityGroupList.svelte'
+	import ActivityGroupForm from '$lib/components/activity-groups/ActivityGroupForm.svelte'
 
 	// Reactive state for activity groups
 	let activityGroups = $state<ActivityGroup[]>([])
 	let isLoading = $state(true)
+	let showAddModal = $state(false)
 
 	// Load activity groups on mount
 	$effect(() => {
@@ -25,6 +27,11 @@
 		}
 		loadActivityGroups()
 	})
+
+	// Handle successful group creation
+	function handleGroupCreated(newGroup: ActivityGroup) {
+		activityGroups = [...activityGroups, newGroup]
+	}
 
 	// Event handlers for ActivityGroupList
 	function handleEdit(group: ActivityGroup) {
@@ -47,7 +54,7 @@
 				Organize your activities into groups for better tracking and insights.
 			</p>
 		</div>
-		<Button variant="primary" onclick={() => {}}>Add Group</Button>
+		<Button variant="primary" onclick={() => (showAddModal = true)}>Add Group</Button>
 	</div>
 
 	<!-- Activity Groups List -->
@@ -72,7 +79,9 @@
 				<p class="text-gray-600 mb-6">
 					Get started by creating your first activity group to organize your activities.
 				</p>
-				<Button variant="primary" onclick={() => {}}>Create Your First Group</Button>
+				<Button variant="primary" onclick={() => (showAddModal = true)}
+					>Create Your First Group</Button
+				>
 			</div>
 		</Card>
 	{:else}
@@ -84,3 +93,6 @@
 		<Button variant="secondary" onclick={() => goto('/')}>Back to Dashboard</Button>
 	</div>
 </div>
+
+<!-- Add Group Modal -->
+<ActivityGroupForm bind:open={showAddModal} onSuccess={handleGroupCreated} />
