@@ -12,6 +12,8 @@
 	let activityGroups = $state<ActivityGroup[]>([])
 	let isLoading = $state(true)
 	let showAddModal = $state(false)
+	let showEditModal = $state(false)
+	let selectedGroup = $state<ActivityGroup | undefined>(undefined)
 
 	// Load activity groups on mount
 	$effect(() => {
@@ -33,10 +35,15 @@
 		activityGroups = [...activityGroups, newGroup]
 	}
 
+	// Handle successful group update
+	function handleGroupUpdated(updatedGroup: ActivityGroup) {
+		activityGroups = activityGroups.map((g) => (g.id === updatedGroup.id ? updatedGroup : g))
+	}
+
 	// Event handlers for ActivityGroupList
 	function handleEdit(group: ActivityGroup) {
-		console.log('Edit group:', group)
-		// TODO: Open edit modal (Task 3.6)
+		selectedGroup = group
+		showEditModal = true
 	}
 
 	function handleDelete(group: ActivityGroup) {
@@ -96,3 +103,6 @@
 
 <!-- Add Group Modal -->
 <ActivityGroupForm bind:open={showAddModal} onSuccess={handleGroupCreated} />
+
+<!-- Edit Group Modal -->
+<ActivityGroupForm bind:open={showEditModal} group={selectedGroup} onSuccess={handleGroupUpdated} />
