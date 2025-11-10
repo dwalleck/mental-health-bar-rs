@@ -5,6 +5,7 @@
 	import type { ActivityGroup } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
+	import ActivityGroupList from '$lib/components/activity-groups/ActivityGroupList.svelte'
 
 	// Reactive state for activity groups
 	let activityGroups = $state<ActivityGroup[]>([])
@@ -24,6 +25,17 @@
 		}
 		loadActivityGroups()
 	})
+
+	// Event handlers for ActivityGroupList
+	function handleEdit(group: ActivityGroup) {
+		console.log('Edit group:', group)
+		// TODO: Open edit modal (Task 3.6)
+	}
+
+	function handleDelete(group: ActivityGroup) {
+		console.log('Delete group:', group)
+		// TODO: Show confirmation dialog (Task 3.7)
+	}
 </script>
 
 <div class="space-y-6">
@@ -64,31 +76,11 @@
 			</div>
 		</Card>
 	{:else}
-		<div class="space-y-4">
-			{#each activityGroups as group (group.id)}
-				<Card>
-					<div class="flex items-center justify-between">
-						<div>
-							<h3 class="text-lg font-semibold text-gray-800">{group.name}</h3>
-							{#if group.description}
-								<p class="text-sm text-gray-600 mt-1">{group.description}</p>
-							{/if}
-							<p class="text-xs text-gray-500 mt-2">
-								Created {new Date(group.created_at).toLocaleDateString()}
-							</p>
-						</div>
-						<div class="flex items-center gap-2">
-							<Button variant="outline" size="sm" onclick={() => {}}>Edit</Button>
-							<Button variant="outline" size="sm" onclick={() => {}}>Delete</Button>
-						</div>
-					</div>
-				</Card>
-			{/each}
-		</div>
+		<ActivityGroupList groups={activityGroups} onEdit={handleEdit} onDelete={handleDelete} />
 	{/if}
 
 	<!-- Back to Dashboard -->
 	<div class="flex justify-start">
-		<Button variant="outline" onclick={() => goto('/')}>Back to Dashboard</Button>
+		<Button variant="secondary" onclick={() => goto('/')}>Back to Dashboard</Button>
 	</div>
 </div>
