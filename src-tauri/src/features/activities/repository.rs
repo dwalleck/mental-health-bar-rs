@@ -448,7 +448,7 @@ mod tests {
 
         // Verify the CASCADE constraint exists in the schema
         let conn = repo.db.get_connection();
-        let conn = conn.lock().unwrap();
+        let conn = conn.lock();
 
         // Query sqlite_master to verify FOREIGN KEY with CASCADE is defined
         let has_cascade: bool = conn
