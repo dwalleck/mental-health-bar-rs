@@ -148,7 +148,7 @@ The following were in the original plan but are already 100% complete:
 - [X] 2.28 Implement `get_activity_frequency` query
 - [X] 2.29 Implement `get_activity_trend` query
 - [X] 2.30 Implement `check_goal_progress` query
-- [ ] 2.31 Generate TypeScript bindings with `cargo test` (tauri-specta)
+- [X] 2.31 Generate TypeScript bindings with `cargo test` (tauri-specta)
 - [ ] 2.32 Write command tests for error handling (invalid IDs, missing FKs)
 
 **Week 2 Total**: ~32 tasks, ~24-28 hours
@@ -164,13 +164,13 @@ The following were in the original plan but are already 100% complete:
 
 #### Activity Group Management Page (8-10 hours)
 
-- [ ] 3.1 Create `/routes/activity-groups/+page.svelte`
-- [ ] 3.2 Create `ActivityGroupList.svelte` component (display all groups)
-- [ ] 3.3 Add expand/collapse functionality for each group (show activities when expanded)
-- [ ] 3.4 Create `ActivityGroupForm.svelte` modal component (create/edit group)
-- [ ] 3.5 Implement "Add Group" button → open modal
-- [ ] 3.6 Implement "Edit Group" button → open modal with existing data
-- [ ] 3.7 Implement delete group with confirmation dialog
+- [X] 3.1 Create `/routes/activity-groups/+page.svelte`
+- [X] 3.2 Create `ActivityGroupList.svelte` component (display all groups)
+- [X] 3.3 Add expand/collapse functionality for each group (show activities when expanded)
+- [X] 3.4 Create `ActivityGroupForm.svelte` modal component (create/edit group)
+- [X] 3.5 Implement "Add Group" button → open modal
+- [X] 3.6 Implement "Edit Group" button → open modal with existing data
+- [X] 3.7 Implement delete group with confirmation dialog
   - **Warning Message**: "Deleting this group will permanently delete all X activities in it. This cannot be undone."
   - **Count Activities**: Query activities by group_id to show count in warning
   - **Cascade Behavior**: Backend CASCADE deletes activities when group is deleted
