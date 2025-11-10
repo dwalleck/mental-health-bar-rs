@@ -57,6 +57,23 @@ pub fn run() {
         features::scheduling::commands::delete_schedule,
         features::scheduling::queries::get_schedules,
         features::scheduling::queries::get_schedule,
+        // Activity Groups (Week 2)
+        features::activities::commands::create_activity_group,
+        features::activities::commands::update_activity_group,
+        features::activities::commands::delete_activity_group,
+        features::activities::queries::get_activity_groups,
+        // Activity Logging (Week 2)
+        features::activities::commands::log_activity,
+        features::activities::queries::get_activity_logs,
+        // Activity Goals (Week 2)
+        features::activities::commands::set_activity_goal,
+        features::activities::commands::update_activity_goal,
+        features::activities::commands::delete_activity_goal,
+        features::activities::queries::get_activity_goals,
+        // Reporting Queries (Week 2)
+        features::activities::queries::get_activity_frequency,
+        features::activities::queries::get_activity_trend,
+        features::activities::queries::check_goal_progress,
     ]);
 
     #[cfg(debug_assertions)]
@@ -121,8 +138,11 @@ mod tests {
     use super::*;
 
     /// Test to generate TypeScript bindings
-    /// Run with: cargo test generate_types -- --exact --nocapture
+    /// Run with: cargo test generate_types -- --exact --nocapture --ignored
+    /// This test is ignored by default because it requires Tauri/Wry which has
+    /// Windows GUI dependencies that may not be available in all test environments.
     #[test]
+    #[ignore]
     fn generate_types() {
         let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
             greet,
@@ -150,6 +170,23 @@ mod tests {
             features::scheduling::commands::delete_schedule,
             features::scheduling::queries::get_schedules,
             features::scheduling::queries::get_schedule,
+            // Activity Groups (Week 2)
+            features::activities::commands::create_activity_group,
+            features::activities::commands::update_activity_group,
+            features::activities::commands::delete_activity_group,
+            features::activities::queries::get_activity_groups,
+            // Activity Logging (Week 2)
+            features::activities::commands::log_activity,
+            features::activities::queries::get_activity_logs,
+            // Activity Goals (Week 2)
+            features::activities::commands::set_activity_goal,
+            features::activities::commands::update_activity_goal,
+            features::activities::commands::delete_activity_goal,
+            features::activities::queries::get_activity_goals,
+            // Reporting Queries (Week 2)
+            features::activities::queries::get_activity_frequency,
+            features::activities::queries::get_activity_trend,
+            features::activities::queries::check_goal_progress,
         ]);
 
         builder
