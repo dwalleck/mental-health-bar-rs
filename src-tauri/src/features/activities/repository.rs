@@ -316,6 +316,9 @@ impl ActivityRepository {
         logged_at: &str,
         notes: Option<&str>,
     ) -> Result<ActivityLog, ActivityError> {
+        // Trim notes and convert empty string to None
+        let notes = notes.map(|n| n.trim()).filter(|n| !n.is_empty());
+
         // Validate notes length (use char count for UTF-8 correctness)
         if let Some(n) = notes {
             let notes_char_count = n.chars().count();
@@ -452,11 +455,15 @@ impl ActivityRepository {
         color: Option<&str>,
         icon: Option<&str>,
     ) -> Result<Activity, ActivityError> {
+        // Trim input before validation
+        let name = name.trim();
+        let icon = icon.map(|i| i.trim()).filter(|i| !i.is_empty());
+
         // Validate name (use char count for UTF-8 correctness)
-        let name_char_count = name.chars().count();
         if name.is_empty() {
             return Err(ActivityError::EmptyActivityName);
         }
+        let name_char_count = name.chars().count();
         if name_char_count > 50 {
             return Err(ActivityError::ActivityNameTooLong(name_char_count));
         }
@@ -1113,5 +1120,112 @@ mod tests {
             matches!(result, Err(ActivityError::ActivityNameTooLong(51))),
             "Should reject 51 emoji characters"
         );
+    }
+
+    #[test]
+    fn test_create_activity_trims_whitespace() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // Test name trimming
+        let activity = repo
+            .create_activity(group.id, "  Running  ", None, None)
+            .expect("Failed to create activity");
+        assert_eq!(activity.name, "Running", "Name should be trimmed");
+
+        // Test icon trimming
+        let activity = repo
+            .create_activity(group.id, "Cycling", None, Some("  🚴  "))
+            .expect("Failed to create activity");
+        assert_eq!(
+            activity.icon,
+            Some("🚴".to_string()),
+            "Icon should be trimmed"
+        );
+    }
+
+    #[test]
+    fn test_create_activity_whitespace_only_name_fails() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // Whitespace-only name should fail after trimming
+        let result = repo.create_activity(group.id, "     ", None, None);
+        assert!(
+            matches!(result, Err(ActivityError::EmptyActivityName)),
+            "Whitespace-only name should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_create_activity_whitespace_only_icon_becomes_none() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        // Whitespace-only icon should become None after trimming
+        let activity = repo
+            .create_activity(group.id, "Running", None, Some("     "))
+            .expect("Failed to create activity");
+        assert_eq!(
+            activity.icon, None,
+            "Whitespace-only icon should become None"
+        );
+    }
+
+    #[test]
+    fn test_log_activity_trims_notes() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        // Test notes trimming
+        let log = repo
+            .log_activity(
+                activity.id,
+                "2025-01-15T10:00:00Z",
+                Some("  Great workout!  "),
+            )
+            .expect("Failed to log activity");
+
+        assert_eq!(
+            log.notes,
+            Some("Great workout!".to_string()),
+            "Notes should be trimmed"
+        );
+    }
+
+    #[test]
+    fn test_log_activity_whitespace_only_notes_becomes_none() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        let group = repo
+            .create_activity_group("Exercise", None)
+            .expect("Failed to create group");
+
+        let activity = repo
+            .create_activity(group.id, "Running", None, None)
+            .expect("Failed to create activity");
+
+        // Whitespace-only notes should become None after trimming
+        let log = repo
+            .log_activity(activity.id, "2025-01-15T10:00:00Z", Some("     "))
+            .expect("Failed to log activity");
+
+        assert_eq!(log.notes, None, "Whitespace-only notes should become None");
     }
 }

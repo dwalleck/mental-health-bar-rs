@@ -3,7 +3,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 pub mod migrations;
 pub mod query_builder;
@@ -35,6 +35,7 @@ impl Drop for UmaskGuard {
 /// Database connection manager
 pub struct Database {
     conn: Arc<Mutex<Connection>>,
+    #[allow(dead_code)] // Used in set_secure_permissions method
     db_path: PathBuf,
 }
 
