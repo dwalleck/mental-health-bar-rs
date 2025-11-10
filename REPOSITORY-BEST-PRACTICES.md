@@ -100,6 +100,34 @@ pub fn create_activity_group(
 4. Validate optional fields
 5. Business logic validation (duplicates, foreign keys)
 
+**Utility Function for Optional Text Sanitization:**
+
+For `Option<String>` fields, use the `sanitize_optional_text` utility function:
+
+```rust
+use crate::utils::sanitize_optional_text;
+
+pub fn save_assessment(
+    &self,
+    notes: Option<String>,
+) -> Result<i32, Error> {
+    // Sanitize notes (trim and convert empty string to None)
+    let notes = sanitize_optional_text(notes);
+
+    // Continue with database operations...
+}
+```
+
+**When to use:**
+- ✅ Use `sanitize_optional_text()` for `Option<String>` parameters
+- ✅ Use inline pattern for `Option<&str>`: `notes.map(|n| n.trim()).filter(|n| !n.is_empty())`
+
+**Benefits:**
+- Reduces code duplication across repositories
+- Consistent sanitization behavior
+- Centralized location for updates/improvements
+- Prevents empty string values in database (converts to NULL)
+
 ### 4. parking_lot Mutex Usage
 
 **Key Difference from std::sync::Mutex:**

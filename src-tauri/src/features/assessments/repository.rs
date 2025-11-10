@@ -1,6 +1,7 @@
 // Assessment repository - database access layer
 use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
+use crate::utils::sanitize_optional_text;
 use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -26,12 +27,8 @@ impl AssessmentRepository {
         severity_level: &str,
         notes: Option<String>,
     ) -> Result<i32, AssessmentError> {
-        // Trim notes and convert empty string to None
-        let notes = notes
-            .as_deref()
-            .map(|n| n.trim())
-            .filter(|n| !n.is_empty())
-            .map(|n| n.to_string());
+        // Sanitize notes (trim and convert empty string to None)
+        let notes = sanitize_optional_text(notes);
 
         let conn = self.db.get_connection();
         let mut conn = conn.lock();
