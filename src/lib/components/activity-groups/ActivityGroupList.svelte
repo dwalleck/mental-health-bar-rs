@@ -94,16 +94,8 @@
 	onMount(async () => {
 		// Clear notification state each time this list mounts
 		notifiedGoals.clear()
-		const tasks = groups.map((group) => loadGoalsForGroup(group.id))
-		await Promise.all(
-			tasks.map(async (task) => {
-				try {
-					await task
-				} catch {
-					// errors already handled in loadGoalsForGroup
-				}
-			})
-		)
+		// Load all goals in parallel (errors handled in loadGoalsForGroup)
+		await Promise.all(groups.map((group) => loadGoalsForGroup(group.id)))
 	})
 
 	// Use shared date formatting utility

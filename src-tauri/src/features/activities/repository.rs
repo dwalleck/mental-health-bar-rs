@@ -397,7 +397,7 @@ impl ActivityRepository {
         }
 
         let conn = self.db.get_connection();
-        let conn = conn.lock();
+        let mut conn = conn.lock();
 
         // Ensure log exists and is not soft-deleted
         let exists: bool = conn
@@ -413,8 +413,11 @@ impl ActivityRepository {
             return Err(ActivityError::LogNotFound(id));
         }
 
+        // Use RAII transaction for UPDATE + SELECT atomicity
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+
         // Update notes
-        let rows_affected = conn.execute(
+        let rows_affected = tx.execute(
             "UPDATE activity_logs SET notes = ? WHERE id = ? AND deleted_at IS NULL",
             rusqlite::params![notes, id],
         )?;
@@ -424,7 +427,7 @@ impl ActivityRepository {
         }
 
         // Return updated log
-        let log = conn.query_row(
+        let log = tx.query_row(
             "SELECT id, activity_id, CAST(logged_at AS VARCHAR), CAST(created_at AS VARCHAR),
                     notes, CAST(deleted_at AS VARCHAR)
              FROM activity_logs
@@ -442,6 +445,7 @@ impl ActivityRepository {
             },
         )?;
 
+        tx.commit()?;
         Ok(log)
     }
 
