@@ -305,6 +305,7 @@ The following were in the original plan but are already 100% complete:
 - [ ] FE-22 Implement batch API endpoint for goals: getGoalsWithProgressForGroups(groupIds[])
 - [ ] FE-23 Add caching for goal progress data (avoid refetch on every mount)
 - [ ] FE-24 Add loading states and error boundaries per group
+- [ ] FE-25 Add .map_err() to lock acquisitions in repository methods (CLAUDE.md best practice)
 
 **Priority for Next Phase**: Focus on FE-1, FE-2, FE-4 (CRITICAL), FE-7 (most requested features)
 
