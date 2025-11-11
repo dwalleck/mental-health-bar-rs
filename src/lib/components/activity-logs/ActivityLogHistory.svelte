@@ -27,12 +27,26 @@
 	let savingNote = $state(false)
 	let dateFilterTimeout: ReturnType<typeof setTimeout> | null = null
 
-	// Format date for display
+	// Format date for display with proper timezone handling
 	function formatLogDate(isoString: string): string {
 		const date = new Date(isoString)
 		const now = new Date()
-		const diffMs = now.getTime() - date.getTime()
-		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+		// Normalize to start of day for accurate day comparison
+		const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+		const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+		const diffDays = Math.floor((nowDay.getTime() - dateDay.getTime()) / (1000 * 60 * 60 * 24))
+
+		// Handle future dates (possible clock skew)
+		if (diffDays < 0) {
+			return date.toLocaleDateString('en-US', {
+				year: 'numeric',
+				month: 'short',
+				day: 'numeric',
+				hour: 'numeric',
+				minute: '2-digit',
+			})
+		}
 
 		if (diffDays === 0) {
 			return `Today at ${date.toLocaleTimeString('en-US', {

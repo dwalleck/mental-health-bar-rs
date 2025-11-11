@@ -10,6 +10,13 @@
 
 	let { progress, size = 'medium', showLabel = true }: Props = $props()
 
+	// Progress thresholds for color coding
+	const PROGRESS_THRESHOLDS = {
+		EXCELLENT: 75,
+		GOOD: 50,
+		FAIR: 25,
+	} as const
+
 	// Size variants for progress bar height
 	const heightClasses = {
 		small: 'h-2',
@@ -28,11 +35,11 @@
 	let progressColor = $derived(
 		progress.is_achieved
 			? 'bg-green-600'
-			: progress.percentage >= 75
+			: progress.percentage >= PROGRESS_THRESHOLDS.EXCELLENT
 				? 'bg-blue-600'
-				: progress.percentage >= 50
+				: progress.percentage >= PROGRESS_THRESHOLDS.GOOD
 					? 'bg-blue-500'
-					: progress.percentage >= 25
+					: progress.percentage >= PROGRESS_THRESHOLDS.FAIR
 						? 'bg-yellow-500'
 						: 'bg-gray-400'
 	)
@@ -44,11 +51,11 @@
 	let statusMessage = $derived(
 		progress.is_achieved
 			? 'Goal Achieved! 🎉'
-			: progress.percentage >= 75
+			: progress.percentage >= PROGRESS_THRESHOLDS.EXCELLENT
 				? 'Almost there!'
-				: progress.percentage >= 50
+				: progress.percentage >= PROGRESS_THRESHOLDS.GOOD
 					? 'Making good progress'
-					: progress.percentage >= 25
+					: progress.percentage >= PROGRESS_THRESHOLDS.FAIR
 						? 'Keep going!'
 						: 'Just getting started'
 	)

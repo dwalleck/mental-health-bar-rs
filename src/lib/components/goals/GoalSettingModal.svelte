@@ -17,6 +17,14 @@
 
 	let { open = $bindable(), activity, group, existingGoal, onSuccess, onCancel }: Props = $props()
 
+	// Validate that either activity or group is provided
+	$effect(() => {
+		if (open && !activity && !group) {
+			console.error('GoalSettingModal: Either activity or group must be provided')
+			onCancel()
+		}
+	})
+
 	// Determine if editing or creating
 	let isEditMode = $derived(existingGoal !== undefined)
 
@@ -130,13 +138,11 @@
 	}
 
 	// Helper text for goal types
-	let goalTypeDescription = $derived(() => {
-		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD) {
-			return `Track how many days you complete this activity within a ${periodDays === -1 ? customPeriod || '?' : periodDays}-day period.`
-		} else {
-			return `Track percentage improvement compared to your ${periodDays === -1 ? customPeriod || '?' : periodDays}-day baseline average.`
-		}
-	})
+	let goalTypeDescription = $derived(
+		goalType === GOAL_TYPES.DAYS_PER_PERIOD
+			? `Track how many days you complete this activity within a ${periodDays === -1 ? customPeriod || '?' : periodDays}-day period.`
+			: `Track percentage improvement compared to your ${periodDays === -1 ? customPeriod || '?' : periodDays}-day baseline average.`
+	)
 
 	// Target label based on goal type
 	let targetLabel = $derived(
@@ -226,7 +232,7 @@
 		<div
 			class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3"
 		>
-			<p class="text-sm text-blue-900 dark:text-blue-200">{goalTypeDescription()}</p>
+			<p class="text-sm text-blue-900 dark:text-blue-200">{goalTypeDescription}</p>
 		</div>
 
 		<!-- Target Value Input (Task 3.20) -->

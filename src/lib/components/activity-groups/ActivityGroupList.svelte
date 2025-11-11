@@ -52,10 +52,15 @@
 
 			groupGoals.set(groupId, result.data)
 
-			// Load progress for each goal
+			// Load progress for each goal in parallel
 			const currentTime = new Date().toISOString()
-			for (const goal of result.data) {
-				const progressResult = await commands.checkGoalProgress(goal.id, currentTime)
+			const progressPromises = result.data.map((goal) =>
+				commands.checkGoalProgress(goal.id, currentTime)
+			)
+			const progressResults = await Promise.all(progressPromises)
+
+			progressResults.forEach((progressResult, index) => {
+				const goal = result.data[index]
 
 				if (progressResult.status === 'ok') {
 					const progress = progressResult.data
@@ -73,7 +78,7 @@
 						notifiedGoals.add(goal.id)
 					}
 				}
-			}
+			})
 		} catch (error) {
 			displayError(error)
 		}
