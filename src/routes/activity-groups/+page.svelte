@@ -9,6 +9,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte'
 	import ActivityGroupList from '$lib/components/activity-groups/ActivityGroupList.svelte'
 	import ActivityGroupForm from '$lib/components/activity-groups/ActivityGroupForm.svelte'
+	import GoalSettingModal from '$lib/components/goals/GoalSettingModal.svelte'
 
 	// Reactive state for activity groups
 	let activityGroups = $state<ActivityGroup[]>([])
@@ -16,27 +17,15 @@
 	let showAddModal = $state(false)
 	let showEditModal = $state(false)
 	let showDeleteModal = $state(false)
+	let showGoalModal = $state(false)
 	let selectedGroup = $state<ActivityGroup | undefined>(undefined)
 	let groupToDelete = $state<ActivityGroup | undefined>(undefined)
+	let groupForGoal = $state<ActivityGroup | undefined>(undefined)
 	let isDeleting = $state(false)
 
 	// Load activity groups on mount
-	onMount(async () => {
-		try {
-			isLoading = true
-
-			const result = await commands.getActivityGroups()
-
-			if (result.status === 'error') {
-				throw new Error(result.error.message)
-			}
-
-			activityGroups = result.data
-		} catch (e) {
-			displayError(e)
-		} finally {
-			isLoading = false
-		}
+	onMount(() => {
+		loadGroups()
 	})
 
 	// Handle successful group creation
@@ -58,6 +47,23 @@
 	function handleDelete(group: ActivityGroup) {
 		groupToDelete = group
 		showDeleteModal = true
+	}
+
+	function handleSetGoal(group: ActivityGroup) {
+		groupForGoal = group
+		showGoalModal = true
+	}
+
+	function handleGoalSuccess() {
+		showGoalModal = false
+		groupForGoal = undefined
+		// Reload groups to refresh goal data
+		loadGroups()
+	}
+
+	function handleGoalCancel() {
+		showGoalModal = false
+		groupForGoal = undefined
 	}
 
 	// Confirm and execute delete
@@ -84,6 +90,25 @@
 			displayError(error)
 		} finally {
 			isDeleting = false
+		}
+	}
+
+	// Separate function for loading groups (can be called multiple times)
+	async function loadGroups() {
+		try {
+			isLoading = true
+
+			const result = await commands.getActivityGroups()
+
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
+			}
+
+			activityGroups = result.data
+		} catch (e) {
+			displayError(e)
+		} finally {
+			isLoading = false
 		}
 	}
 </script>
@@ -128,7 +153,12 @@
 			</div>
 		</Card>
 	{:else}
-		<ActivityGroupList groups={activityGroups} onEdit={handleEdit} onDelete={handleDelete} />
+		<ActivityGroupList
+			groups={activityGroups}
+			onEdit={handleEdit}
+			onDelete={handleDelete}
+			onSetGoal={handleSetGoal}
+		/>
 	{/if}
 
 	<!-- Back to Dashboard -->
@@ -142,6 +172,14 @@
 
 <!-- Edit Group Modal -->
 <ActivityGroupForm bind:open={showEditModal} group={selectedGroup} onSuccess={handleGroupUpdated} />
+
+<!-- Goal Setting Modal (Task 3.23) -->
+<GoalSettingModal
+	bind:open={showGoalModal}
+	group={groupForGoal}
+	onSuccess={handleGoalSuccess}
+	onCancel={handleGoalCancel}
+/>
 
 <!-- Delete Confirmation Modal -->
 <Modal

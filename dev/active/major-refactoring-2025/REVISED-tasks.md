@@ -196,13 +196,13 @@ The following were in the original plan but are already 100% complete:
 
 #### Goal Setting UI (4-6 hours)
 
-- [ ] 3.18 Create `GoalSettingModal.svelte` component
-- [ ] 3.19 Implement goal type selector (radio buttons: "Days per period" / "Percent improvement")
-- [ ] 3.20 Create target value input with validation (positive integers only)
-- [ ] 3.21 Create period selector (dropdown: 7 days, 14 days, 30 days, custom)
-- [ ] 3.22 Create `GoalProgressIndicator.svelte` (progress bar with percentage)
-- [ ] 3.23 Display active goals for each activity/group in ActivityGroupList
-- [ ] 3.23a Wire up goal achievement notification (show toast when goal achieved, option to view details)
+- [X] 3.18 Create `GoalSettingModal.svelte` component
+- [X] 3.19 Implement goal type selector (radio buttons: "Days per period" / "Percent improvement")
+- [X] 3.20 Create target value input with validation (positive integers only)
+- [X] 3.21 Create period selector (dropdown: 7 days, 14 days, 30 days, custom)
+- [X] 3.22 Create `GoalProgressIndicator.svelte` (progress bar with percentage)
+- [X] 3.23 Display active goals for each activity/group in ActivityGroupList
+- [X] 3.23a Wire up goal achievement notification (show toast when goal achieved, option to view details)
 
 **Week 3 Total**: ~24 tasks, ~22-26 hours
 
