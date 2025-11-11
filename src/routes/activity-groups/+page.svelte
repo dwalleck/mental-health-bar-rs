@@ -22,6 +22,8 @@
 	let groupToDelete = $state<ActivityGroup | undefined>(undefined)
 	let groupForGoal = $state<ActivityGroup | undefined>(undefined)
 	let isDeleting = $state(false)
+	let hasError = $state(false)
+	let errorMessage = $state('')
 
 	// Load activity groups on mount
 	onMount(() => {
@@ -64,6 +66,15 @@
 	function handleGoalCancel() {
 		showGoalModal = false
 		groupForGoal = undefined
+	}
+
+	// Error boundary handler for ActivityGroupList
+	function handleGroupListError(error: unknown) {
+		console.error('Error in ActivityGroupList:', error)
+		hasError = true
+		errorMessage =
+			error instanceof Error ? error.message : 'An unexpected error occurred while loading goals'
+		displayError(error)
 	}
 
 	// Confirm and execute delete
@@ -153,12 +164,40 @@
 			</div>
 		</Card>
 	{:else}
-		<ActivityGroupList
-			groups={activityGroups}
-			onEdit={handleEdit}
-			onDelete={handleDelete}
-			onSetGoal={handleSetGoal}
-		/>
+		<svelte:boundary onerror={handleGroupListError}>
+			{#if hasError}
+				<Card>
+					<div class="text-center py-8">
+						<div class="text-red-600 mb-4">
+							<svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
+							</svg>
+						</div>
+						<h3 class="text-lg font-medium text-gray-900 mb-2">Error Loading Goals</h3>
+						<p class="text-gray-600 mb-4">{errorMessage}</p>
+						<Button
+							variant="primary"
+							onclick={() => {
+								hasError = false
+								loadGroups()
+							}}>Retry</Button
+						>
+					</div>
+				</Card>
+			{:else}
+				<ActivityGroupList
+					groups={activityGroups}
+					onEdit={handleEdit}
+					onDelete={handleDelete}
+					onSetGoal={handleSetGoal}
+				/>
+			{/if}
+		</svelte:boundary>
 	{/if}
 
 	<!-- Back to Dashboard -->

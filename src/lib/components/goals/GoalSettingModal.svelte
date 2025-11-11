@@ -2,7 +2,7 @@
 	// T116: GoalSettingModal - Create/edit activity goals
 	import { commands } from '$lib/bindings'
 	import type { ActivityGoal, Activity, ActivityGroup } from '$lib/bindings'
-	import { GOAL_TYPES, type GoalType } from '$lib/constants/activities'
+	import { GOAL_TYPES, ACTIVITY_GOAL, type GoalType } from '$lib/constants/activities'
 	import Modal from '$lib/components/ui/Modal.svelte'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 
@@ -86,8 +86,8 @@
 			const custom = parseInt(customPeriod)
 			if (!custom || custom <= 0) {
 				newErrors.periodDays = 'Custom period must be a positive number'
-			} else if (custom > 365) {
-				newErrors.periodDays = 'Period cannot exceed 365 days'
+			} else if (custom > ACTIVITY_GOAL.MAX_PERIOD_DAYS) {
+				newErrors.periodDays = `Period cannot exceed ${ACTIVITY_GOAL.MAX_PERIOD_DAYS} days`
 			}
 		}
 
@@ -292,7 +292,7 @@
 					<input
 						type="number"
 						min="1"
-						max="365"
+						max={ACTIVITY_GOAL.MAX_PERIOD_DAYS}
 						bind:value={customPeriod}
 						placeholder="Enter custom period (days)"
 						disabled={isSubmitting}

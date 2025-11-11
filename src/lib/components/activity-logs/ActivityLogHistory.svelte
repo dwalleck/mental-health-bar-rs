@@ -125,6 +125,11 @@
 
 	onMount(() => {
 		loadLogs()
+		return () => {
+			if (dateFilterTimeout) {
+				clearTimeout(dateFilterTimeout)
+			}
+		}
 	})
 </script>
 

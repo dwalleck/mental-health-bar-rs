@@ -30,8 +30,33 @@
 	// State for goals and progress
 	let groupGoals = $state<Map<number, ActivityGoal[]>>(new Map())
 	let goalProgress = $state<Map<number, GoalProgress>>(new Map())
+
+	// Helper functions for localStorage persistence of notified goals
+	function loadNotifiedGoals(): SvelteSet<number> {
+		try {
+			const stored = localStorage.getItem('notifiedGoals')
+			if (stored) {
+				const array = JSON.parse(stored) as number[]
+				return new SvelteSet(array)
+			}
+		} catch (error) {
+			console.error('Failed to load notified goals from localStorage:', error)
+		}
+		return new SvelteSet<number>()
+	}
+
+	function saveNotifiedGoals(goals: SvelteSet<number>) {
+		try {
+			const array = Array.from(goals)
+			localStorage.setItem('notifiedGoals', JSON.stringify(array))
+		} catch (error) {
+			console.error('Failed to save notified goals to localStorage:', error)
+		}
+	}
+
 	// Track goals that have been notified about achievement (Task 3.23a)
-	let notifiedGoals = new SvelteSet<number>()
+	// Persisted to localStorage to prevent duplicate notifications on page refresh
+	let notifiedGoals = loadNotifiedGoals()
 
 	// Toggle group expansion
 	function toggleExpand(groupId: number) {
@@ -77,6 +102,7 @@
 						)
 
 						notifiedGoals.add(goal.id)
+						saveNotifiedGoals(notifiedGoals)
 					}
 				}
 			})
@@ -92,8 +118,6 @@
 	// For 5 groups with 3 goals each = 20 API calls
 	// Future optimization: Consider batch endpoint getGoalsWithProgressForGroups(groupIds[])
 	onMount(async () => {
-		// Clear notification state each time this list mounts
-		notifiedGoals.clear()
 		// Load all goals in parallel (errors handled in loadGoalsForGroup)
 		await Promise.all(groups.map((group) => loadGoalsForGroup(group.id)))
 	})
@@ -202,7 +226,11 @@
 									{#if progress}
 										<GoalProgressIndicator {progress} size="medium" />
 									{:else}
-										<div class="text-sm text-gray-500 dark:text-gray-400">Loading progress...</div>
+										<!-- Skeleton loader for better perceived performance -->
+										<div class="animate-pulse space-y-2">
+											<div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+											<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+										</div>
 									{/if}
 								</div>
 							{/each}
