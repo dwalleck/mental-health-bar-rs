@@ -49,6 +49,15 @@ CREATE UNIQUE INDEX idx_activity_groups_name_unique ON activity_groups(name) WHE
 -- Modify existing activities table to add group_id foreign key
 -- SQLite doesn't support ALTER COLUMN, so we need to recreate the table
 -- Since no user data exists yet, this is a safe operation
+--
+-- IMPORTANT: We must disable foreign keys during table recreation because:
+-- 1. mood_checkin_activities has FK to activities (from migration 001)
+-- 2. We need to drop the old activities table
+-- 3. SQLite prevents dropping tables referenced by FKs when PRAGMA foreign_keys = ON
+--
+-- Standard SQLite pattern for table recreation with foreign keys:
+-- https://www.sqlite.org/lang_altertable.html#otheralter
+PRAGMA foreign_keys = OFF;
 
 -- Step 1: Create new activities table with group_id
 CREATE TABLE activities_new (
@@ -124,3 +133,7 @@ CREATE INDEX idx_activity_goals_deleted ON activity_goals(deleted_at);
 
 -- Partial index for active goals (common query pattern)
 CREATE INDEX idx_activity_goals_active ON activity_goals(activity_id, group_id) WHERE deleted_at IS NULL;
+
+-- Re-enable foreign key constraints (must match db/mod.rs PRAGMA setting)
+-- This is critical to restore referential integrity enforcement
+PRAGMA foreign_keys = ON;

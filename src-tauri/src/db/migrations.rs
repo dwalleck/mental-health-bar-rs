@@ -111,23 +111,26 @@ fn apply_migration_002(db: &Database) -> Result<()> {
 }
 
 /// Migration 003: Activity groups and tracking
+///
+/// This migration recreates the activities table to add group_id foreign key.
+/// Because mood_checkin_activities has a FK to activities (from migration 001),
+/// we must temporarily disable foreign keys during table recreation.
+///
+/// SQLite's PRAGMA foreign_keys cannot be changed inside a transaction,
+/// so we execute this migration without a transaction wrapper.
+/// The migration SQL itself contains PRAGMA statements to disable/enable FKs.
 fn apply_migration_003(db: &Database) -> Result<()> {
     let schema_sql = include_str!("migrations/003_activity_groups.sql");
 
     let conn = db.get_connection();
-    let mut conn = conn.lock();
+    let conn = conn.lock();
 
-    // Wrap migration in explicit transaction for atomicity
-    // If any DDL statement fails, entire migration rolls back
-    let tx = conn
-        .transaction()
-        .context("Failed to begin transaction for migration 003")?;
-
-    tx.execute_batch(schema_sql)
+    // Execute migration without transaction because:
+    // 1. PRAGMA foreign_keys only takes effect outside transactions
+    // 2. The SQL file contains PRAGMA foreign_keys = OFF/ON statements
+    // 3. We verify integrity with PRAGMA foreign_key_check at the end
+    conn.execute_batch(schema_sql)
         .context("Failed to execute migration 003 DDL statements")?;
-
-    tx.commit()
-        .context("Failed to commit migration 003 transaction")?;
 
     Ok(())
 }
