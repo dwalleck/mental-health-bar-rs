@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest'
 import { render, fireEvent } from '@testing-library/svelte'
 import ActivityList from './ActivityList.svelte'
-import type { Activity } from '$lib/bindings'
+import type { Activity, ActivityGroup } from '$lib/bindings'
 
 describe('ActivityList', () => {
 	const mockActivities: Activity[] = [
@@ -34,12 +34,22 @@ describe('ActivityList', () => {
 		},
 	]
 
+	const mockGroups: ActivityGroup[] = [
+		{
+			id: 1,
+			name: 'Wellness',
+			description: 'Wellness activities',
+			created_at: '2024-01-01T00:00:00Z',
+			deleted_at: null,
+		},
+	]
+
 	describe('Loading State', () => {
 		it('should display loading message when loading prop is true', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [], onEdit, onDelete, loading: true },
+				props: { activities: [], groups: [], onEdit, onDelete, loading: true },
 			})
 
 			expect(container.textContent).toContain('Loading activities...')
@@ -49,7 +59,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [], onEdit, onDelete, loading: true },
+				props: { activities: [], groups: [], onEdit, onDelete, loading: true },
 			})
 
 			const loadingDiv = container.querySelector('.animate-pulse')
@@ -60,7 +70,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete, loading: true },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete, loading: true },
 			})
 
 			const activityCards = container.querySelectorAll('.activity-card')
@@ -73,7 +83,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [], onEdit, onDelete, loading: false },
+				props: { activities: [], groups: [], onEdit, onDelete, loading: false },
 			})
 
 			expect(container.textContent).toContain('No activities yet')
@@ -83,7 +93,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [], onEdit, onDelete, loading: false },
+				props: { activities: [], groups: [], onEdit, onDelete, loading: false },
 			})
 
 			expect(container.textContent).toContain('Create your first activity to start tracking')
@@ -93,7 +103,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [], onEdit, onDelete, loading: false },
+				props: { activities: [], groups: [], onEdit, onDelete, loading: false },
 			})
 
 			expect(container.textContent).toContain('📝')
@@ -105,7 +115,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const activityCards = container.querySelectorAll('.activity-card')
@@ -116,7 +126,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			expect(container.textContent).toContain('Exercise')
@@ -128,7 +138,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			expect(container.textContent).toContain('🏃')
@@ -139,7 +149,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[2]], onEdit, onDelete },
+				props: { activities: [mockActivities[2]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			// Reading activity has no icon
@@ -151,7 +161,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			expect(container.textContent).toContain('#22C55E')
@@ -162,7 +172,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const colorSwatch = container.querySelector('.w-6.h-6.rounded-sm')
@@ -174,7 +184,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[2]], onEdit, onDelete },
+				props: { activities: [mockActivities[2]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const colorSwatch = container.querySelector('.w-6.h-6.rounded-sm')
@@ -185,7 +195,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const grid = container.querySelector('.grid')
@@ -197,7 +207,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const activityCard = container.querySelector('.activity-card')
@@ -208,7 +218,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[2]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const activityCard = container.querySelector('.activity-card')
@@ -221,7 +231,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const editButtons = Array.from(container.querySelectorAll('button')).filter((btn) =>
@@ -234,7 +244,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const editButtons = Array.from(container.querySelectorAll('button')).filter((btn) =>
@@ -249,7 +259,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const editButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -262,7 +272,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const editButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -275,7 +285,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const editButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -289,7 +299,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const editButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -314,7 +324,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButtons = Array.from(container.querySelectorAll('button')).filter((btn) =>
@@ -328,7 +338,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -346,7 +356,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -362,7 +372,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -377,7 +387,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -390,7 +400,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -403,7 +413,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -417,7 +427,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const deleteButton = Array.from(container.querySelectorAll('button')).find((btn) =>
@@ -432,7 +442,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const buttons = container.querySelectorAll('button')
@@ -445,7 +455,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			const buttons = container.querySelectorAll('button')
@@ -458,7 +468,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: [mockActivities[0]], onEdit, onDelete },
+				props: { activities: [mockActivities[0]], groups: mockGroups, onEdit, onDelete },
 			})
 
 			const activityName = container.querySelector('h3')
@@ -471,7 +481,7 @@ describe('ActivityList', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
 			const { container } = render(ActivityList, {
-				props: { activities: mockActivities, onEdit, onDelete },
+				props: { activities: mockActivities, groups: mockGroups, onEdit, onDelete },
 			})
 
 			expect(container.textContent).not.toContain('Loading activities...')
@@ -482,7 +492,9 @@ describe('ActivityList', () => {
 		it('should default activities to empty array', () => {
 			const onEdit = vi.fn()
 			const onDelete = vi.fn()
-			const { container } = render(ActivityList, { props: { activities: [], onEdit, onDelete } })
+			const { container } = render(ActivityList, {
+				props: { activities: [], groups: [], onEdit, onDelete },
+			})
 
 			expect(container.textContent).toContain('No activities yet')
 		})
