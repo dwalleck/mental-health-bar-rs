@@ -3,6 +3,7 @@
 	import { SvelteSet } from 'svelte/reactivity'
 	import { commands } from '$lib/bindings'
 	import type { ActivityGroup, ActivityGoal, GoalProgress } from '$lib/bindings'
+	import { GOAL_TYPES } from '$lib/constants/activities'
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
 	import GoalProgressIndicator from '$lib/components/goals/GoalProgressIndicator.svelte'
@@ -94,9 +95,9 @@
 
 	// Get goal type display name
 	function getGoalTypeLabel(goalType: string): string {
-		if (goalType === 'days_per_period') {
+		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD) {
 			return 'Days per Period'
-		} else if (goalType === 'percent_improvement') {
+		} else if (goalType === GOAL_TYPES.PERCENT_IMPROVEMENT) {
 			return 'Percent Improvement'
 		}
 		return goalType
@@ -175,7 +176,7 @@
 												{getGoalTypeLabel(goal.goal_type)}
 											</div>
 											<div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-												{#if goal.goal_type === 'days_per_period'}
+												{#if goal.goal_type === GOAL_TYPES.DAYS_PER_PERIOD}
 													Target: {goal.target_value} days every {goal.period_days} days
 												{:else}
 													Target: {goal.target_value}% improvement over {goal.period_days} days

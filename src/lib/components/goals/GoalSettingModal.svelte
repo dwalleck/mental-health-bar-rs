@@ -2,6 +2,7 @@
 	// T116: GoalSettingModal - Create/edit activity goals
 	import { commands } from '$lib/bindings'
 	import type { ActivityGoal, Activity, ActivityGroup } from '$lib/bindings'
+	import { GOAL_TYPES, type GoalType } from '$lib/constants/activities'
 	import Modal from '$lib/components/ui/Modal.svelte'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 
@@ -20,8 +21,8 @@
 	let isEditMode = $derived(existingGoal !== undefined)
 
 	// Form state
-	let goalType = $state<'days_per_period' | 'percent_improvement'>(
-		(existingGoal?.goal_type as 'days_per_period' | 'percent_improvement') || 'days_per_period'
+	let goalType = $state<GoalType>(
+		(existingGoal?.goal_type as GoalType) || GOAL_TYPES.DAYS_PER_PERIOD
 	)
 	let targetValue = $state(existingGoal?.target_value ?? 3)
 	let periodDays = $state(existingGoal?.period_days ?? 7)
@@ -40,8 +41,7 @@
 	// Reset form when modal opens
 	$effect(() => {
 		if (open) {
-			goalType =
-				(existingGoal?.goal_type as 'days_per_period' | 'percent_improvement') || 'days_per_period'
+			goalType = (existingGoal?.goal_type as GoalType) || GOAL_TYPES.DAYS_PER_PERIOD
 			targetValue = existingGoal?.target_value ?? 3
 			periodDays = existingGoal?.period_days ?? 7
 			customPeriod = ''
@@ -57,11 +57,11 @@
 			newErrors.targetValue = 'Target value must be a positive number'
 		}
 
-		if (goalType === 'days_per_period' && targetValue > periodDays) {
+		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD && targetValue > periodDays) {
 			newErrors.targetValue = `Cannot exceed ${periodDays} days in the period`
 		}
 
-		if (goalType === 'percent_improvement' && targetValue > 1000) {
+		if (goalType === GOAL_TYPES.PERCENT_IMPROVEMENT && targetValue > 1000) {
 			newErrors.targetValue = 'Percentage cannot exceed 1000%'
 		}
 
@@ -125,7 +125,7 @@
 
 	// Helper text for goal types
 	let goalTypeDescription = $derived(() => {
-		if (goalType === 'days_per_period') {
+		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD) {
 			return `Track how many days you complete this activity within a ${periodDays === -1 ? customPeriod || '?' : periodDays}-day period.`
 		} else {
 			return `Track percentage improvement compared to your ${periodDays === -1 ? customPeriod || '?' : periodDays}-day baseline average.`
@@ -133,8 +133,10 @@
 	})
 
 	// Target label based on goal type
-	let targetLabel = $derived(goalType === 'days_per_period' ? 'Target Days' : 'Target Percentage')
-	let targetPlaceholder = $derived(goalType === 'days_per_period' ? 'e.g., 3' : 'e.g., 20')
+	let targetLabel = $derived(
+		goalType === GOAL_TYPES.DAYS_PER_PERIOD ? 'Target Days' : 'Target Percentage'
+	)
+	let targetPlaceholder = $derived(goalType === GOAL_TYPES.DAYS_PER_PERIOD ? 'e.g., 3' : 'e.g., 20')
 </script>
 
 <Modal
@@ -179,7 +181,7 @@
 					<input
 						type="radio"
 						bind:group={goalType}
-						value="days_per_period"
+						value={GOAL_TYPES.DAYS_PER_PERIOD}
 						disabled={isEditMode || isSubmitting}
 						class="mt-1"
 					/>
@@ -195,7 +197,7 @@
 					<input
 						type="radio"
 						bind:group={goalType}
-						value="percent_improvement"
+						value={GOAL_TYPES.PERCENT_IMPROVEMENT}
 						disabled={isEditMode || isSubmitting}
 						class="mt-1"
 					/>
@@ -233,7 +235,7 @@
 				id="target-value"
 				type="number"
 				min="1"
-				max={goalType === 'percent_improvement' ? 1000 : undefined}
+				max={goalType === GOAL_TYPES.PERCENT_IMPROVEMENT ? 1000 : undefined}
 				bind:value={targetValue}
 				placeholder={targetPlaceholder}
 				disabled={isSubmitting}
@@ -245,7 +247,7 @@
 				<p class="mt-1 text-sm text-red-500">{errors.targetValue}</p>
 			{:else}
 				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-					{#if goalType === 'days_per_period'}
+					{#if goalType === GOAL_TYPES.DAYS_PER_PERIOD}
 						Number of days to complete this activity
 					{:else}
 						Percentage improvement (e.g., 20 for 20%)
@@ -291,7 +293,7 @@
 			{/if}
 
 			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-				{#if goalType === 'days_per_period'}
+				{#if goalType === GOAL_TYPES.DAYS_PER_PERIOD}
 					Rolling window for tracking days
 				{:else}
 					Baseline period for comparison

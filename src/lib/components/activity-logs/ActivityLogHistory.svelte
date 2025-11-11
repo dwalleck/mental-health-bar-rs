@@ -4,6 +4,7 @@
 	import { commands } from '$lib/bindings'
 	import type { ActivityLog, Activity } from '$lib/bindings'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import { ACTIVITY_LOG } from '$lib/constants/activities'
 	import Card from '$lib/components/ui/Card.svelte'
 
 	interface Props {
@@ -253,16 +254,16 @@
 										<div class="space-y-2">
 											<textarea
 												bind:value={editingNoteText}
-												maxlength="500"
+												maxlength={ACTIVITY_LOG.MAX_NOTE_LENGTH}
 												rows="3"
-												placeholder="Add a note (optional, max 500 characters)"
+												placeholder="Add a note (optional, max {ACTIVITY_LOG.MAX_NOTE_LENGTH} characters)"
 												class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
 													focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white
 													text-sm"
 											></textarea>
 											<div class="flex items-center justify-between">
 												<span class="text-xs text-gray-500 dark:text-gray-400">
-													{editingNoteText.length} / 500 characters
+													{editingNoteText.length} / {ACTIVITY_LOG.MAX_NOTE_LENGTH} characters
 												</span>
 												<div class="flex gap-2">
 													<button

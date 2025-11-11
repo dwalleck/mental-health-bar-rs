@@ -25,37 +25,33 @@
 	}
 
 	// Color based on achievement status and percentage
-	let progressColor = $derived(() => {
-		if (progress.is_achieved) {
-			return 'bg-green-600'
-		} else if (progress.percentage >= 75) {
-			return 'bg-blue-600'
-		} else if (progress.percentage >= 50) {
-			return 'bg-blue-500'
-		} else if (progress.percentage >= 25) {
-			return 'bg-yellow-500'
-		} else {
-			return 'bg-gray-400'
-		}
-	})
+	let progressColor = $derived(
+		progress.is_achieved
+			? 'bg-green-600'
+			: progress.percentage >= 75
+				? 'bg-blue-600'
+				: progress.percentage >= 50
+					? 'bg-blue-500'
+					: progress.percentage >= 25
+						? 'bg-yellow-500'
+						: 'bg-gray-400'
+	)
 
 	// Cap percentage at 100 for visual display
 	let displayPercentage = $derived(Math.min(progress.percentage, 100))
 
 	// Status message
-	let statusMessage = $derived(() => {
-		if (progress.is_achieved) {
-			return 'Goal Achieved! 🎉'
-		} else if (progress.percentage >= 75) {
-			return 'Almost there!'
-		} else if (progress.percentage >= 50) {
-			return 'Making good progress'
-		} else if (progress.percentage >= 25) {
-			return 'Keep going!'
-		} else {
-			return 'Just getting started'
-		}
-	})
+	let statusMessage = $derived(
+		progress.is_achieved
+			? 'Goal Achieved! 🎉'
+			: progress.percentage >= 75
+				? 'Almost there!'
+				: progress.percentage >= 50
+					? 'Making good progress'
+					: progress.percentage >= 25
+						? 'Keep going!'
+						: 'Just getting started'
+	)
 </script>
 
 <div class="space-y-2">
@@ -69,7 +65,7 @@
 		aria-label="Goal progress: {progress.percentage.toFixed(1)}%"
 	>
 		<div
-			class="{progressColor()} {heightClasses[
+			class="{progressColor} {heightClasses[
 				size
 			]} rounded-full transition-all duration-500 ease-out"
 			style="width: {displayPercentage}%"
@@ -101,7 +97,7 @@
 					? 'text-green-600 dark:text-green-400'
 					: 'text-gray-500 dark:text-gray-400'}"
 			>
-				{statusMessage()}
+				{statusMessage}
 			</span>
 		</div>
 	{/if}
