@@ -99,8 +99,7 @@
 		<h3>How It Works</h3>
 		<ul>
 			<li>
-				<strong>Validation Errors:</strong> Show inline with the form using the ErrorMessage
-				component
+				<strong>Validation Errors:</strong> Show inline with the form using the ErrorMessage component
 			</li>
 			<li>
 				<strong>System Errors:</strong> Automatically display as toast notifications
@@ -109,8 +108,8 @@
 				<strong>Retry Logic:</strong> Database lock and transient errors are automatically retried
 			</li>
 			<li>
-				<strong>CommandError:</strong> Structured errors from the backend include error_type and
-				retryable flag
+				<strong>CommandError:</strong> Structured errors from the backend include error_type and retryable
+				flag
 			</li>
 		</ul>
 	</section>

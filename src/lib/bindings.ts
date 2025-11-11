@@ -357,6 +357,24 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
+	/**
+	 * Update notes for an existing activity log.
+	 *
+	 * Frontend usage:
+	 * - Allows editing/clearing notes from ActivityLogHistory
+	 * - Enforces same constraints as log_activity (<= 500 chars, trimmed)
+	 */
+	async updateActivityLog(
+		id: number,
+		notes: string | null
+	): Promise<Result<ActivityLog, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('update_activity_log', { id, notes }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
 	async getActivityLogs(
 		activityId: number | null,
 		startDate: string | null,

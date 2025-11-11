@@ -369,6 +369,86 @@ impl ActivityRepository {
         })
     }
 
+    /// Updates notes for an existing activity log.
+    ///
+    /// # Arguments
+    /// * `id` - Activity log ID to update
+    /// * `notes` - Optional notes (max 500 characters, trimmed; empty/whitespace -> NULL)
+    ///
+    /// # Returns
+    /// * `Ok(ActivityLog)` - The updated activity log
+    /// * `Err(ActivityError)` - If validation fails, log not found, or database error
+    pub fn update_activity_log_notes(
+        &self,
+        id: i32,
+        notes: Option<String>,
+    ) -> Result<ActivityLog, ActivityError> {
+        // Normalize notes: trim and convert empty to None
+        let notes = notes
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty());
+
+        // Validate notes length (UTF-8 safe)
+        if let Some(ref n) = notes {
+            let notes_char_count = n.chars().count();
+            if notes_char_count > 500 {
+                return Err(ActivityError::NotesLengthExceeded(notes_char_count));
+            }
+        }
+
+        let conn = self.db.get_connection();
+        let mut conn = conn.lock();
+
+        // Ensure log exists and is not soft-deleted
+        let exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM activity_logs WHERE id = ? AND deleted_at IS NULL",
+                rusqlite::params![id],
+                |_| Ok(true),
+            )
+            .optional()?
+            .unwrap_or(false);
+
+        if !exists {
+            return Err(ActivityError::LogNotFound(id));
+        }
+
+        // Use RAII transaction for UPDATE + SELECT atomicity
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+
+        // Update notes
+        let rows_affected = tx.execute(
+            "UPDATE activity_logs SET notes = ? WHERE id = ? AND deleted_at IS NULL",
+            rusqlite::params![notes, id],
+        )?;
+
+        if rows_affected == 0 {
+            return Err(ActivityError::LogNotFound(id));
+        }
+
+        // Return updated log
+        let log = tx.query_row(
+            "SELECT id, activity_id, CAST(logged_at AS VARCHAR), CAST(created_at AS VARCHAR),
+                    notes, CAST(deleted_at AS VARCHAR)
+             FROM activity_logs
+             WHERE id = ?",
+            rusqlite::params![id],
+            |row| {
+                Ok(ActivityLog {
+                    id: row.get(0)?,
+                    activity_id: row.get(1)?,
+                    logged_at: row.get(2)?,
+                    created_at: row.get(3)?,
+                    notes: row.get(4)?,
+                    deleted_at: row.get(5)?,
+                })
+            },
+        )?;
+
+        tx.commit()?;
+        Ok(log)
+    }
+
     /// Gets activity logs with optional date filtering.
     ///
     /// # Arguments

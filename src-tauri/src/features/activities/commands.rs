@@ -114,6 +114,35 @@ pub async fn log_activity(
         })
 }
 
+/// Update notes for an existing activity log.
+///
+/// Frontend usage:
+/// - Allows editing/clearing notes from ActivityLogHistory
+/// - Enforces same constraints as log_activity (<= 500 chars, trimmed)
+#[tauri::command]
+#[specta::specta]
+pub async fn update_activity_log(
+    id: i32,
+    notes: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<ActivityLog, CommandError> {
+    let repo = ActivityRepository::new(state.db.clone());
+
+    // Capture whether notes is present before moving it
+    let has_notes = notes
+        .as_ref()
+        .map(|n| !n.trim().is_empty())
+        .unwrap_or(false);
+
+    repo.update_activity_log_notes(id, notes).map_err(|e| {
+        error!(
+            "update_activity_log error: {} (id: {}, has_notes: {})",
+            e, id, has_notes
+        );
+        e.to_command_error()
+    })
+}
+
 // ========================================
 // Activity Goal Commands
 // ========================================

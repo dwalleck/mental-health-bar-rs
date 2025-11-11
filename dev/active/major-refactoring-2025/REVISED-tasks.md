@@ -177,32 +177,32 @@ The following were in the original plan but are already 100% complete:
 
 #### Update Activity Management UI (6-8 hours)
 
-- [ ] 3.8 Update `/routes/mood/activities/+page.svelte` to show grouped view
-- [ ] 3.9 Update `ActivityForm.svelte` to include required group selector (dropdown of all groups)
-- [ ] 3.10 Create `IconPicker.svelte` component with Heroicon names validation (e.g., "academic-cap", "heart")
-- [ ] 3.10a Validate icon names against Heroicons list in frontend
-- [ ] 3.11 Update `ActivityList.svelte` to display activities grouped by Activity Group
-- [ ] 3.12 Add "Move to Group" action for existing activities
+- [X] 3.8 Update `/routes/mood/activities/+page.svelte` to show grouped view
+- [X] 3.9 Update `ActivityForm.svelte` to include required group selector (dropdown of all groups)
+- [X] 3.10 Create `IconPicker.svelte` component with Heroicon names validation (e.g., "academic-cap", "heart")
+- [X] 3.10a Validate icon names against Heroicons list in frontend
+- [X] 3.11 Update `ActivityList.svelte` to display activities grouped by Activity Group
+- [X] 3.12 Add "Move to Group" action for existing activities
   - **UI**: Dropdown in activity editor to select different group
   - **Backend**: Just update `group_id` column (simple UPDATE query)
   - **Options**: List all groups (required - cannot be null)
 
 #### Activity Logging Interface (4-6 hours)
 
-- [ ] 3.14 Create `ActivityLogButton.svelte` (quick log button for each activity)
-- [ ] 3.15 Create `ActivityLogHistory.svelte` (timeline view with notes)
-- [ ] 3.16 Add date filtering for log history (date range picker)
-- [ ] 3.17 Implement "Add Note" feature for logs (textarea with 500 char limit)
+- [X] 3.14 Create `ActivityLogButton.svelte` (quick log button for each activity)
+- [X] 3.15 Create `ActivityLogHistory.svelte` (timeline view with notes)
+- [X] 3.16 Add date filtering for log history (date range picker)
+- [X] 3.17 Implement "Add Note" feature for logs (textarea with 500 char limit)
 
 #### Goal Setting UI (4-6 hours)
 
-- [ ] 3.18 Create `GoalSettingModal.svelte` component
-- [ ] 3.19 Implement goal type selector (radio buttons: "Days per period" / "Percent improvement")
-- [ ] 3.20 Create target value input with validation (positive integers only)
-- [ ] 3.21 Create period selector (dropdown: 7 days, 14 days, 30 days, custom)
-- [ ] 3.22 Create `GoalProgressIndicator.svelte` (progress bar with percentage)
-- [ ] 3.23 Display active goals for each activity/group in ActivityGroupList
-- [ ] 3.23a Wire up goal achievement notification (show toast when goal achieved, option to view details)
+- [X] 3.18 Create `GoalSettingModal.svelte` component
+- [X] 3.19 Implement goal type selector (radio buttons: "Days per period" / "Percent improvement")
+- [X] 3.20 Create target value input with validation (positive integers only)
+- [X] 3.21 Create period selector (dropdown: 7 days, 14 days, 30 days, custom)
+- [X] 3.22 Create `GoalProgressIndicator.svelte` (progress bar with percentage)
+- [X] 3.23 Display active goals for each activity/group in ActivityGroupList
+- [X] 3.23a Wire up goal achievement notification (show toast when goal achieved, option to view details)
 
 **Week 3 Total**: ~24 tasks, ~22-26 hours
 
@@ -265,6 +265,49 @@ The following were in the original plan but are already 100% complete:
 - ✅ Tests pass, no P0 bugs
 - ✅ Performance: Activity list loads <200ms
 - 🚀 **SHIP v0.1 to users**
+
+---
+
+## 💡 Future Enhancements (Nice to Have)
+
+**Note**: These are enhancement ideas for future iterations, not required for v0.1 release.
+
+### Activity Logging Enhancements
+- [ ] FE-1 Add optimistic UI updates for quick log button (show in list immediately before backend confirms)
+- [ ] FE-2 Add bulk activity logging interface ("I did these 5 activities today")
+- [ ] FE-3 Add export functionality for activity logs (CSV/JSON download)
+- [ ] FE-4 Implement backend update_activity_log command (CRITICAL - note editing currently non-functional)
+- [ ] FE-5 Add activity log search/filter (by date range, activity, notes content)
+- [ ] FE-6 Virtualize long log lists with svelte-virtual-list (for 100+ logs)
+
+### Goal Management Enhancements
+- [ ] FE-7 Add goal deletion functionality (currently can only create/update)
+- [ ] FE-8 Add goal history/archive (track completed goals over time)
+- [ ] FE-9 Add goal templates (pre-defined common goals like "Exercise 3x/week")
+- [ ] FE-10 Add goal streaks visualization ("7 day streak!")
+- [ ] FE-11 Add goal reminders/notifications (when falling behind)
+
+### Reporting Enhancements
+- [ ] FE-12 Add activity heatmap calendar view (GitHub-style contribution graph)
+- [ ] FE-13 Add comparative reporting (this month vs last month)
+- [ ] FE-14 Add custom report builder (user-defined date ranges, metrics)
+- [ ] FE-15 Add PDF export for reports
+- [ ] FE-16 Add data insights/recommendations ("You tend to exercise more on weekends")
+
+### Activity Group Enhancements
+- [ ] FE-17 Add group color theming (each group has custom color scheme)
+- [ ] FE-18 Add group sorting/reordering (drag-and-drop)
+- [ ] FE-19 Add group archiving (hide inactive groups without deleting)
+- [ ] FE-20 Add group templates (pre-configured activity sets)
+- [ ] FE-21 Add group-level statistics dashboard
+
+### Performance & Scalability
+- [ ] FE-22 Implement batch API endpoint for goals: getGoalsWithProgressForGroups(groupIds[])
+- [ ] FE-23 Add caching for goal progress data (avoid refetch on every mount)
+- [ ] FE-24 Add loading states and error boundaries per group
+- [ ] FE-25 Add .map_err() to lock acquisitions in repository methods (CLAUDE.md best practice)
+
+**Priority for Next Phase**: Focus on FE-1, FE-2, FE-4 (CRITICAL), FE-7 (most requested features)
 
 ---
 

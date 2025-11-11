@@ -64,6 +64,7 @@ pub fn run() {
         features::activities::queries::get_activity_groups,
         // Activity Logging (Week 2)
         features::activities::commands::log_activity,
+        features::activities::commands::update_activity_log,
         features::activities::queries::get_activity_logs,
         // Activity Goals (Week 2)
         features::activities::commands::set_activity_goal,
@@ -177,6 +178,7 @@ mod tests {
             features::activities::queries::get_activity_groups,
             // Activity Logging (Week 2)
             features::activities::commands::log_activity,
+            features::activities::commands::update_activity_log,
             features::activities::queries::get_activity_logs,
             // Activity Goals (Week 2)
             features::activities::commands::set_activity_goal,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/core'
+	import { commands } from '$lib/bindings'
 	import type { ActivityGroup } from '$lib/bindings'
 	import Modal from '$lib/components/ui/Modal.svelte'
 	import Input from '$lib/components/ui/Input.svelte'
@@ -60,45 +60,30 @@
 
 			if (isEditMode && group) {
 				// Update existing group
-				const result = await invoke<{ data?: ActivityGroup; error?: string }>(
-					'update_activity_group',
-					{
-						request: {
-							id: group.id,
-							name: name.trim(),
-							description: description.trim() || null,
-						},
-					}
-				)
+				const result = await commands.updateActivityGroup(group.id, {
+					name: name.trim(),
+					description: description.trim() || null,
+				})
 
-				if (result.error) {
-					throw new Error(result.error)
+				if (result.status === 'error') {
+					throw new Error(result.error.message)
 				}
 
-				if (result.data) {
-					onSuccess(result.data)
-					open = false
-				}
+				onSuccess(result.data)
+				open = false
 			} else {
 				// Create new group
-				const result = await invoke<{ data?: ActivityGroup; error?: string }>(
-					'create_activity_group',
-					{
-						request: {
-							name: name.trim(),
-							description: description.trim() || null,
-						},
-					}
-				)
+				const result = await commands.createActivityGroup({
+					name: name.trim(),
+					description: description.trim() || null,
+				})
 
-				if (result.error) {
-					throw new Error(result.error)
+				if (result.status === 'error') {
+					throw new Error(result.error.message)
 				}
 
-				if (result.data) {
-					onSuccess(result.data)
-					open = false
-				}
+				onSuccess(result.data)
+				open = false
 			}
 		} catch (error) {
 			displayError(error)

@@ -18,12 +18,9 @@
 
 		async function fetchAssessment() {
 			try {
-				const response = await invokeWithRetry<AssessmentResponse>(
-					'get_assessment_response',
-					{
-						id: assessmentId,
-					}
-				)
+				const response = await invokeWithRetry<AssessmentResponse>('get_assessment_response', {
+					id: assessmentId,
+				})
 
 				if (!isMounted) return
 

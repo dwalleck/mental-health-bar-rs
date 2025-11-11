@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
-	import { invokeWithRetry } from '$lib/utils/retry'
+	import { commands } from '$lib/bindings'
 	import { displayError } from '$lib/utils/errors'
 	import type { ActivityGroup } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
@@ -10,6 +9,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte'
 	import ActivityGroupList from '$lib/components/activity-groups/ActivityGroupList.svelte'
 	import ActivityGroupForm from '$lib/components/activity-groups/ActivityGroupForm.svelte'
+	import GoalSettingModal from '$lib/components/goals/GoalSettingModal.svelte'
 
 	// Reactive state for activity groups
 	let activityGroups = $state<ActivityGroup[]>([])
@@ -17,20 +17,17 @@
 	let showAddModal = $state(false)
 	let showEditModal = $state(false)
 	let showDeleteModal = $state(false)
+	let showGoalModal = $state(false)
 	let selectedGroup = $state<ActivityGroup | undefined>(undefined)
 	let groupToDelete = $state<ActivityGroup | undefined>(undefined)
+	let groupForGoal = $state<ActivityGroup | undefined>(undefined)
 	let isDeleting = $state(false)
+	let hasError = $state(false)
+	let errorMessage = $state('')
 
 	// Load activity groups on mount
-	onMount(async () => {
-		try {
-			isLoading = true
-			activityGroups = await invokeWithRetry('get_activity_groups')
-		} catch (e) {
-			displayError(e)
-		} finally {
-			isLoading = false
-		}
+	onMount(() => {
+		loadGroups()
 	})
 
 	// Handle successful group creation
@@ -54,29 +51,75 @@
 		showDeleteModal = true
 	}
 
+	function handleSetGoal(group: ActivityGroup) {
+		groupForGoal = group
+		showGoalModal = true
+	}
+
+	function handleGoalSuccess() {
+		showGoalModal = false
+		groupForGoal = undefined
+		// Reload groups to refresh goal data
+		loadGroups()
+	}
+
+	function handleGoalCancel() {
+		showGoalModal = false
+		groupForGoal = undefined
+	}
+
+	// Error boundary handler for ActivityGroupList
+	function handleGroupListError(error: unknown) {
+		console.error('Error in ActivityGroupList:', error)
+		hasError = true
+		errorMessage =
+			error instanceof Error ? error.message : 'An unexpected error occurred while loading goals'
+		displayError(error)
+	}
+
 	// Confirm and execute delete
 	async function confirmDelete() {
 		if (!groupToDelete) return
 
+		// Store reference for TypeScript narrowing
+		const groupId = groupToDelete.id
+
 		try {
 			isDeleting = true
 
-			const result = await invoke<{ data?: null; error?: string }>('delete_activity_group', {
-				id: groupToDelete.id,
-			})
+			const result = await commands.deleteActivityGroup(groupId)
 
-			if (result.error) {
-				throw new Error(result.error)
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
 			}
 
 			// Remove deleted group from list
-			activityGroups = activityGroups.filter((g) => g.id !== groupToDelete.id)
+			activityGroups = activityGroups.filter((g) => g.id !== groupId)
 			showDeleteModal = false
 			groupToDelete = undefined
 		} catch (error) {
 			displayError(error)
 		} finally {
 			isDeleting = false
+		}
+	}
+
+	// Separate function for loading groups (can be called multiple times)
+	async function loadGroups() {
+		try {
+			isLoading = true
+
+			const result = await commands.getActivityGroups()
+
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
+			}
+
+			activityGroups = result.data
+		} catch (e) {
+			displayError(e)
+		} finally {
+			isLoading = false
 		}
 	}
 </script>
@@ -121,7 +164,40 @@
 			</div>
 		</Card>
 	{:else}
-		<ActivityGroupList groups={activityGroups} onEdit={handleEdit} onDelete={handleDelete} />
+		<svelte:boundary onerror={handleGroupListError}>
+			{#if hasError}
+				<Card>
+					<div class="text-center py-8">
+						<div class="text-red-600 mb-4">
+							<svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
+							</svg>
+						</div>
+						<h3 class="text-lg font-medium text-gray-900 mb-2">Error Loading Goals</h3>
+						<p class="text-gray-600 mb-4">{errorMessage}</p>
+						<Button
+							variant="primary"
+							onclick={() => {
+								hasError = false
+								loadGroups()
+							}}>Retry</Button
+						>
+					</div>
+				</Card>
+			{:else}
+				<ActivityGroupList
+					groups={activityGroups}
+					onEdit={handleEdit}
+					onDelete={handleDelete}
+					onSetGoal={handleSetGoal}
+				/>
+			{/if}
+		</svelte:boundary>
 	{/if}
 
 	<!-- Back to Dashboard -->
@@ -135,6 +211,14 @@
 
 <!-- Edit Group Modal -->
 <ActivityGroupForm bind:open={showEditModal} group={selectedGroup} onSuccess={handleGroupUpdated} />
+
+<!-- Goal Setting Modal (Task 3.23) -->
+<GoalSettingModal
+	bind:open={showGoalModal}
+	group={groupForGoal}
+	onSuccess={handleGoalSuccess}
+	onCancel={handleGoalCancel}
+/>
 
 <!-- Delete Confirmation Modal -->
 <Modal
