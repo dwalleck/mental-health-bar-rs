@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
-	import { invoke } from '@tauri-apps/api/core'
+	import { commands } from '$lib/bindings'
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError } from '$lib/utils/errors'
 	import type { ActivityGroup } from '$lib/bindings'
@@ -58,19 +58,20 @@
 	async function confirmDelete() {
 		if (!groupToDelete) return
 
+		// Store reference for TypeScript narrowing
+		const groupId = groupToDelete.id
+
 		try {
 			isDeleting = true
 
-			const result = await invoke<{ data?: null; error?: string }>('delete_activity_group', {
-				id: groupToDelete.id,
-			})
+			const result = await commands.deleteActivityGroup(groupId)
 
-			if (result.error) {
-				throw new Error(result.error)
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
 			}
 
 			// Remove deleted group from list
-			activityGroups = activityGroups.filter((g) => g.id !== groupToDelete.id)
+			activityGroups = activityGroups.filter((g) => g.id !== groupId)
 			showDeleteModal = false
 			groupToDelete = undefined
 		} catch (error) {
