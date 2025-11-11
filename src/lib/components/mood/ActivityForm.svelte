@@ -4,6 +4,7 @@
 	import type { Activity, ActivityGroup } from '$lib/bindings'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import IconPicker from '$lib/components/ui/IconPicker.svelte'
 
 	interface Props {
 		activity?: Activity | null
@@ -158,27 +159,7 @@
 		{/if}
 	</div>
 
-	<div>
-		<label
-			for="activity-icon"
-			class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-		>
-			Icon (optional)
-		</label>
-		<input
-			id="activity-icon"
-			type="text"
-			bind:value={icon}
-			placeholder="🏃 (emoji)"
-			class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
-				focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-			maxlength="20"
-			disabled={isSubmitting}
-		/>
-		<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-			Enter an emoji to represent this activity
-		</p>
-	</div>
+	<IconPicker bind:value={icon} label="Icon (optional)" disabled={isSubmitting} />
 
 	<div class="flex gap-3 pt-4">
 		<button
