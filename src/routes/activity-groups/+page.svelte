@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
 	import { commands } from '$lib/bindings'
-	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError } from '$lib/utils/errors'
 	import type { ActivityGroup } from '$lib/bindings'
 	import Card from '$lib/components/ui/Card.svelte'
@@ -25,7 +24,14 @@
 	onMount(async () => {
 		try {
 			isLoading = true
-			activityGroups = await invokeWithRetry('get_activity_groups')
+
+			const result = await commands.getActivityGroups()
+
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
+			}
+
+			activityGroups = result.data
 		} catch (e) {
 			displayError(e)
 		} finally {
