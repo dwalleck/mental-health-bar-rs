@@ -42,6 +42,37 @@ vi.mock('@tauri-apps/api/core', () => ({
 	invoke: vi.fn()
 }))
 
+// Mock Web Animations API for JSDOM
+if (typeof Element.prototype.animate === 'undefined') {
+	Element.prototype.animate = vi.fn(() => ({
+		cancel: vi.fn(),
+		finish: vi.fn(),
+		pause: vi.fn(),
+		play: vi.fn(),
+		reverse: vi.fn(),
+		updatePlaybackRate: vi.fn(),
+		persist: vi.fn(),
+		commitStyles: vi.fn(),
+		playbackRate: 1,
+		playState: 'finished',
+		ready: Promise.resolve(),
+		finished: Promise.resolve(),
+		onfinish: null,
+		oncancel: null,
+		onremove: null,
+		currentTime: 0,
+		effect: null,
+		id: '',
+		pending: false,
+		replaceState: 'active',
+		startTime: 0,
+		timeline: null,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+		dispatchEvent: vi.fn(),
+	}))
+}
+
 // Cleanup after each test
 afterEach(() => {
 	cleanup()
