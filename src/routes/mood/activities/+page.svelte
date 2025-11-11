@@ -114,6 +114,31 @@
 			}
 		}
 	}
+
+	async function handleMoveToGroup(activityId: number, newGroupId: number) {
+		const activity = activities.find((a) => a.id === activityId)
+		if (!activity) return
+
+		try {
+			error = null
+			await invokeWithRetry('update_activity', {
+				id: activityId,
+				request: {
+					name: activity.name,
+					color: activity.color,
+					icon: activity.icon,
+					group_id: newGroupId,
+				},
+			})
+			displaySuccess('Activity moved to new group!')
+			await loadActivities()
+		} catch (e) {
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to move activity'
+			}
+		}
+	}
 </script>
 
 <svelte:head>
@@ -181,6 +206,7 @@
 				{loading}
 				onEdit={handleEdit}
 				onDelete={handleDelete}
+				onMoveToGroup={handleMoveToGroup}
 			/>
 		</Card>
 	{/if}

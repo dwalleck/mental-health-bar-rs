@@ -9,10 +9,18 @@
 		groups: ActivityGroup[]
 		onEdit: (activity: Activity) => void
 		onDelete: (id: number) => void
+		onMoveToGroup?: (activityId: number, newGroupId: number) => Promise<void>
 		loading?: boolean
 	}
 
-	let { activities = [], groups = [], onEdit, onDelete, loading = false }: Props = $props()
+	let {
+		activities = [],
+		groups = [],
+		onEdit,
+		onDelete,
+		onMoveToGroup,
+		loading = false,
+	}: Props = $props()
 
 	// Group activities by their group_id using SvelteMap for reactivity
 	let groupedActivities = $derived(() => {
@@ -37,6 +45,12 @@
 			confirm(`Are you sure you want to delete "${activity.name}"? This action cannot be undone.`)
 		) {
 			onDelete(activity.id)
+		}
+	}
+
+	async function handleMoveToGroup(activityId: number, newGroupId: number) {
+		if (onMoveToGroup) {
+			await onMoveToGroup(activityId, newGroupId)
 		}
 	}
 </script>
@@ -94,6 +108,29 @@
 												<span class="text-xs font-mono text-gray-500 dark:text-gray-400">
 													{activity.color}
 												</span>
+											</div>
+										{/if}
+
+										<!-- Move to Group Dropdown -->
+										{#if onMoveToGroup && groups.length > 1}
+											<div class="mt-2">
+												<label
+													for="move-group-{activity.id}"
+													class="block text-xs text-gray-600 dark:text-gray-400 mb-1"
+												>
+													Move to:
+												</label>
+												<select
+													id="move-group-{activity.id}"
+													value={activity.group_id}
+													onchange={(e) =>
+														handleMoveToGroup(activity.id, Number(e.currentTarget.value))}
+													class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+												>
+													{#each groups as g (g.id)}
+														<option value={g.id}>{g.name}</option>
+													{/each}
+												</select>
 											</div>
 										{/if}
 									</div>
