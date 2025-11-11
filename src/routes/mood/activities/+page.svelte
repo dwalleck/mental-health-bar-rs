@@ -175,7 +175,13 @@
 		</div>
 
 		<Card title="Your Activities">
-			<ActivityList {activities} {loading} onEdit={handleEdit} onDelete={handleDelete} />
+			<ActivityList
+				{activities}
+				groups={activityGroups}
+				{loading}
+				onEdit={handleEdit}
+				onDelete={handleDelete}
+			/>
 		</Card>
 	{/if}
 
