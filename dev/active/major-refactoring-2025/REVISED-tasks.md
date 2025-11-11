@@ -268,6 +268,42 @@ The following were in the original plan but are already 100% complete:
 
 ---
 
+## 💡 Future Enhancements (Nice to Have)
+
+**Note**: These are enhancement ideas for future iterations, not required for v0.1 release.
+
+### Activity Logging Enhancements
+- [ ] FE-1 Add optimistic UI updates for quick log button (show in list immediately before backend confirms)
+- [ ] FE-2 Add bulk activity logging interface ("I did these 5 activities today")
+- [ ] FE-3 Add export functionality for activity logs (CSV/JSON download)
+- [ ] FE-4 Add activity log editing (change timestamp, update notes)
+- [ ] FE-5 Add activity log search/filter (by date range, activity, notes content)
+
+### Goal Management Enhancements
+- [ ] FE-6 Add goal deletion functionality (currently can only create/update)
+- [ ] FE-7 Add goal history/archive (track completed goals over time)
+- [ ] FE-8 Add goal templates (pre-defined common goals like "Exercise 3x/week")
+- [ ] FE-9 Add goal streaks visualization ("7 day streak!")
+- [ ] FE-10 Add goal reminders/notifications (when falling behind)
+
+### Reporting Enhancements
+- [ ] FE-11 Add activity heatmap calendar view (GitHub-style contribution graph)
+- [ ] FE-12 Add comparative reporting (this month vs last month)
+- [ ] FE-13 Add custom report builder (user-defined date ranges, metrics)
+- [ ] FE-14 Add PDF export for reports
+- [ ] FE-15 Add data insights/recommendations ("You tend to exercise more on weekends")
+
+### Activity Group Enhancements
+- [ ] FE-16 Add group color theming (each group has custom color scheme)
+- [ ] FE-17 Add group sorting/reordering (drag-and-drop)
+- [ ] FE-18 Add group archiving (hide inactive groups without deleting)
+- [ ] FE-19 Add group templates (pre-configured activity sets)
+- [ ] FE-20 Add group-level statistics dashboard
+
+**Priority for Next Phase**: Focus on FE-1, FE-2, FE-6, FE-7 (most requested features)
+
+---
+
 ## Phase 2 (v0.2): Check-In v2.0 (Week 5) → SHIP IT
 
 **Goal**: Users get improved check-in experience with 7-point mood scale and Activity Group integration
