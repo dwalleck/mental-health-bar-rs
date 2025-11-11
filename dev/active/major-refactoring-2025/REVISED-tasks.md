@@ -276,31 +276,37 @@ The following were in the original plan but are already 100% complete:
 - [ ] FE-1 Add optimistic UI updates for quick log button (show in list immediately before backend confirms)
 - [ ] FE-2 Add bulk activity logging interface ("I did these 5 activities today")
 - [ ] FE-3 Add export functionality for activity logs (CSV/JSON download)
-- [ ] FE-4 Add activity log editing (change timestamp, update notes)
+- [ ] FE-4 Implement backend update_activity_log command (CRITICAL - note editing currently non-functional)
 - [ ] FE-5 Add activity log search/filter (by date range, activity, notes content)
+- [ ] FE-6 Virtualize long log lists with svelte-virtual-list (for 100+ logs)
 
 ### Goal Management Enhancements
-- [ ] FE-6 Add goal deletion functionality (currently can only create/update)
-- [ ] FE-7 Add goal history/archive (track completed goals over time)
-- [ ] FE-8 Add goal templates (pre-defined common goals like "Exercise 3x/week")
-- [ ] FE-9 Add goal streaks visualization ("7 day streak!")
-- [ ] FE-10 Add goal reminders/notifications (when falling behind)
+- [ ] FE-7 Add goal deletion functionality (currently can only create/update)
+- [ ] FE-8 Add goal history/archive (track completed goals over time)
+- [ ] FE-9 Add goal templates (pre-defined common goals like "Exercise 3x/week")
+- [ ] FE-10 Add goal streaks visualization ("7 day streak!")
+- [ ] FE-11 Add goal reminders/notifications (when falling behind)
 
 ### Reporting Enhancements
-- [ ] FE-11 Add activity heatmap calendar view (GitHub-style contribution graph)
-- [ ] FE-12 Add comparative reporting (this month vs last month)
-- [ ] FE-13 Add custom report builder (user-defined date ranges, metrics)
-- [ ] FE-14 Add PDF export for reports
-- [ ] FE-15 Add data insights/recommendations ("You tend to exercise more on weekends")
+- [ ] FE-12 Add activity heatmap calendar view (GitHub-style contribution graph)
+- [ ] FE-13 Add comparative reporting (this month vs last month)
+- [ ] FE-14 Add custom report builder (user-defined date ranges, metrics)
+- [ ] FE-15 Add PDF export for reports
+- [ ] FE-16 Add data insights/recommendations ("You tend to exercise more on weekends")
 
 ### Activity Group Enhancements
-- [ ] FE-16 Add group color theming (each group has custom color scheme)
-- [ ] FE-17 Add group sorting/reordering (drag-and-drop)
-- [ ] FE-18 Add group archiving (hide inactive groups without deleting)
-- [ ] FE-19 Add group templates (pre-configured activity sets)
-- [ ] FE-20 Add group-level statistics dashboard
+- [ ] FE-17 Add group color theming (each group has custom color scheme)
+- [ ] FE-18 Add group sorting/reordering (drag-and-drop)
+- [ ] FE-19 Add group archiving (hide inactive groups without deleting)
+- [ ] FE-20 Add group templates (pre-configured activity sets)
+- [ ] FE-21 Add group-level statistics dashboard
 
-**Priority for Next Phase**: Focus on FE-1, FE-2, FE-6, FE-7 (most requested features)
+### Performance & Scalability
+- [ ] FE-22 Implement batch API endpoint for goals: getGoalsWithProgressForGroups(groupIds[])
+- [ ] FE-23 Add caching for goal progress data (avoid refetch on every mount)
+- [ ] FE-24 Add loading states and error boundaries per group
+
+**Priority for Next Phase**: Focus on FE-1, FE-2, FE-4 (CRITICAL), FE-7 (most requested features)
 
 ---
 

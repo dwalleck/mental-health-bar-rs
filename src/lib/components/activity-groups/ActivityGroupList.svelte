@@ -80,7 +80,14 @@
 	}
 
 	// Load all goals on mount
+	// NOTE: N+1 Query Pattern - This makes multiple API calls:
+	// - getActivityGoals(null, groupId) for each group
+	// - checkGoalProgress(goal.id, currentTime) for each goal
+	// For 5 groups with 3 goals each = 20 API calls
+	// Future optimization: Consider batch endpoint getGoalsWithProgressForGroups(groupIds[])
 	onMount(async () => {
+		// Clear notification state to prevent memory leak
+		notifiedGoals.clear()
 		await Promise.all(groups.map((group) => loadGoalsForGroup(group.id)))
 	})
 
@@ -93,14 +100,15 @@
 		})
 	}
 
-	// Get goal type display name
+	// Memoized goal type display names (Performance: Issue 2)
+	// Prevents recalculation on every render
+	const goalTypeLabels: Record<string, string> = {
+		[GOAL_TYPES.DAYS_PER_PERIOD]: 'Days per Period',
+		[GOAL_TYPES.PERCENT_IMPROVEMENT]: 'Percent Improvement',
+	}
+
 	function getGoalTypeLabel(goalType: string): string {
-		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD) {
-			return 'Days per Period'
-		} else if (goalType === GOAL_TYPES.PERCENT_IMPROVEMENT) {
-			return 'Percent Improvement'
-		}
-		return goalType
+		return goalTypeLabels[goalType] || goalType
 	}
 </script>
 

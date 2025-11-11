@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte'
 	import { commands } from '$lib/bindings'
 	import type { ActivityLog, Activity } from '$lib/bindings'
-	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import { displayError } from '$lib/utils/errors'
 	import { ACTIVITY_LOG } from '$lib/constants/activities'
 	import Card from '$lib/components/ui/Card.svelte'
 
@@ -25,6 +25,7 @@
 	let editingNoteId = $state<number | null>(null)
 	let editingNoteText = $state('')
 	let savingNote = $state(false)
+	let dateFilterTimeout: ReturnType<typeof setTimeout> | null = null
 
 	// Format date for display
 	function formatLogDate(isoString: string): string {
@@ -91,18 +92,21 @@
 	}
 
 	async function handleSaveNote(logId: number) {
-		// Note: We need an update_activity_log command for this
-		// For now, just show success and clear editing state
+		// CRITICAL TODO: Backend implementation required
+		// The update_activity_log command does not exist yet
+		// This displays a warning instead of a misleading success message
 		try {
 			savingNote = true
-			// TODO: Implement update_activity_log command in backend
-			// const result = await commands.updateActivityLog(logId, { notes: editingNoteText })
-			console.log('Would update log', logId, 'with note:', editingNoteText)
 
-			displaySuccess('Note saved (frontend only - backend update needed)')
-			editingNoteId = null
-			editingNoteText = ''
-			await loadLogs()
+			// Log for debugging purposes
+			console.warn('Note save attempted but not implemented:', { logId, note: editingNoteText })
+
+			// Display clear warning that this doesn't actually save
+			displayError(
+				'Note editing is not yet implemented. Backend update_activity_log command is required.'
+			)
+
+			// Don't clear editing state since nothing was saved
 		} catch (error) {
 			displayError(error)
 		} finally {
@@ -110,11 +114,25 @@
 		}
 	}
 
+	// Debounced date filter to prevent excessive API calls (Performance: Issue 1)
 	function handleDateFilterChange() {
-		loadLogs()
+		if (dateFilterTimeout) {
+			clearTimeout(dateFilterTimeout)
+		}
+		dateFilterTimeout = setTimeout(() => {
+			// Validate date range
+			if (startDate && endDate && startDate > endDate) {
+				displayError('Start date cannot be after end date')
+				return
+			}
+			loadLogs()
+		}, 300)
 	}
 
 	function clearDateFilter() {
+		if (dateFilterTimeout) {
+			clearTimeout(dateFilterTimeout)
+		}
 		startDate = ''
 		endDate = ''
 		loadLogs()
@@ -208,6 +226,9 @@
 					></div>
 
 					<!-- Log entries -->
+					<!-- Performance Note: For users with 100+ logs, consider implementing
+					     svelte-virtual-list for virtualization to improve render performance.
+					     See: https://github.com/sveltejs/svelte-virtual-list -->
 					<div class="space-y-6">
 						{#each logs as log (log.id)}
 							<div class="relative flex gap-4">

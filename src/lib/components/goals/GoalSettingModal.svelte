@@ -52,13 +52,19 @@
 	function validateForm(): boolean {
 		const newErrors: Record<string, string> = {}
 
+		// Calculate effective period (handles custom period case)
+		const effectivePeriod = periodDays === -1 ? parseInt(customPeriod) || 0 : periodDays
+
 		// Validate target value
 		if (!targetValue || targetValue <= 0) {
 			newErrors.targetValue = 'Target value must be a positive number'
 		}
 
-		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD && targetValue > periodDays) {
-			newErrors.targetValue = `Cannot exceed ${periodDays} days in the period`
+		// FIXED: Use effectivePeriod instead of periodDays to handle custom period correctly
+		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD && effectivePeriod > 0) {
+			if (targetValue > effectivePeriod) {
+				newErrors.targetValue = `Cannot exceed ${effectivePeriod} days in the period`
+			}
 		}
 
 		if (goalType === GOAL_TYPES.PERCENT_IMPROVEMENT && targetValue > 1000) {
