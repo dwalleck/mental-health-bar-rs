@@ -1,21 +1,24 @@
 <script lang="ts">
 	// T112: ActivityForm component - Form for creating/editing activities with validation
 
-	import type { Activity } from '$lib/bindings'
+	import type { Activity, ActivityGroup } from '$lib/bindings'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import IconPicker from '$lib/components/ui/IconPicker.svelte'
 
 	interface Props {
 		activity?: Activity | null
-		onSubmit: (name: string, color: string, icon: string) => Promise<void>
+		groups: ActivityGroup[]
+		onSubmit: (name: string, color: string, icon: string, groupId: number) => Promise<void>
 		onCancel: () => void
 	}
 
-	let { activity = null, onSubmit, onCancel }: Props = $props()
+	let { activity = null, groups = [], onSubmit, onCancel }: Props = $props()
 
 	let name = $state(activity?.name || '')
 	let color = $state(activity?.color || '#3B82F6')
 	let icon = $state(activity?.icon || '')
+	let groupId = $state(activity?.group_id || 0)
 	let isSubmitting = $state(false)
 	let errors = $state<Record<string, string>>({})
 	let formError = $state<unknown>(undefined)
@@ -38,6 +41,11 @@
 			newErrors.color = 'Color must be in #RRGGBB format'
 		}
 
+		// Validate group selection (required)
+		if (!groupId || groupId === 0) {
+			newErrors.groupId = 'Please select an activity group'
+		}
+
 		errors = newErrors
 		return Object.keys(newErrors).length === 0
 	}
@@ -49,7 +57,7 @@
 		try {
 			isSubmitting = true
 			formError = undefined
-			await onSubmit(name.trim(), color, icon.trim())
+			await onSubmit(name.trim(), color, icon.trim(), groupId)
 			displaySuccess(`Activity ${isEditing ? 'updated' : 'created'} successfully!`)
 		} catch (error) {
 			const result = displayError(error)
@@ -94,6 +102,34 @@
 
 	<div>
 		<label
+			for="activity-group"
+			class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+		>
+			Activity Group <span class="text-red-500">*</span>
+		</label>
+		<select
+			id="activity-group"
+			bind:value={groupId}
+			class="w-full px-3 py-2 border rounded-md
+				{errors.groupId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
+				focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+			disabled={isSubmitting}
+		>
+			<option value={0} disabled>Select a group...</option>
+			{#each groups as group (group.id)}
+				<option value={group.id}>{group.name}</option>
+			{/each}
+		</select>
+		{#if errors.groupId}
+			<p class="mt-1 text-sm text-red-500">{errors.groupId}</p>
+		{/if}
+		<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+			Activities must belong to a group for organization
+		</p>
+	</div>
+
+	<div>
+		<label
 			for="activity-color"
 			class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
 		>
@@ -123,27 +159,7 @@
 		{/if}
 	</div>
 
-	<div>
-		<label
-			for="activity-icon"
-			class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-		>
-			Icon (optional)
-		</label>
-		<input
-			id="activity-icon"
-			type="text"
-			bind:value={icon}
-			placeholder="🏃 (emoji)"
-			class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
-				focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-			maxlength="20"
-			disabled={isSubmitting}
-		/>
-		<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-			Enter an emoji to represent this activity
-		</p>
-	</div>
+	<IconPicker bind:value={icon} label="Icon (optional)" disabled={isSubmitting} />
 
 	<div class="flex gap-3 pt-4">
 		<button

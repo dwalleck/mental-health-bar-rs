@@ -312,6 +312,157 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
+	async createActivityGroup(
+		request: CreateActivityGroupRequest
+	): Promise<Result<ActivityGroup, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('create_activity_group', { request }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async updateActivityGroup(
+		id: number,
+		request: UpdateActivityGroupRequest
+	): Promise<Result<ActivityGroup, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('update_activity_group', { id, request }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async deleteActivityGroup(id: number): Promise<Result<null, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('delete_activity_group', { id }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async getActivityGroups(): Promise<Result<ActivityGroup[], CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('get_activity_groups') }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async logActivity(request: LogActivityRequest): Promise<Result<ActivityLog, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('log_activity', { request }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async getActivityLogs(
+		activityId: number | null,
+		startDate: string | null,
+		endDate: string | null
+	): Promise<Result<ActivityLog[], CommandError>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('get_activity_logs', { activityId, startDate, endDate }),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async setActivityGoal(
+		request: SetActivityGoalRequest
+	): Promise<Result<ActivityGoal, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('set_activity_goal', { request }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async updateActivityGoal(
+		goalId: number,
+		targetValue: number,
+		periodDays: number
+	): Promise<Result<ActivityGoal, CommandError>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('update_activity_goal', { goalId, targetValue, periodDays }),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async deleteActivityGoal(goalId: number): Promise<Result<null, CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('delete_activity_goal', { goalId }) }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async getActivityGoals(
+		activityId: number | null,
+		groupId: number | null
+	): Promise<Result<ActivityGoal[], CommandError>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('get_activity_goals', { activityId, groupId }),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async getActivityFrequency(
+		activityId: number,
+		startDate: string,
+		endDate: string
+	): Promise<Result<ActivityFrequency, CommandError>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('get_activity_frequency', { activityId, startDate, endDate }),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async getActivityTrend(
+		activityId: number,
+		periodDays: number,
+		currentTime: string
+	): Promise<Result<ActivityTrend, CommandError>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('get_activity_trend', { activityId, periodDays, currentTime }),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
+	async checkGoalProgress(
+		goalId: number,
+		currentTime: string
+	): Promise<Result<GoalProgress, CommandError>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('check_goal_progress', { goalId, currentTime }),
+			}
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
 }
 
 /** user-defined events **/
@@ -341,12 +492,150 @@ export type ActivityCorrelation = {
 	checkin_count: number
 }
 /**
+ * Activity frequency report showing days per week
+ */
+export type ActivityFrequency = {
+	activity_id: number
+	/**
+	 * Number of unique days with activity logs
+	 */
+	unique_days: number
+	/**
+	 * Total number of activity logs (may be multiple per day)
+	 */
+	total_logs: number
+	/**
+	 * Average days per week: (unique_days / num_weeks)
+	 */
+	days_per_week: number
+	/**
+	 * Start of analysis period (ISO 8601)
+	 */
+	period_start: string
+	/**
+	 * End of analysis period (ISO 8601)
+	 */
+	period_end: string
+}
+/**
+ * Activity Goal model
+ *
+ * Represents a user-defined goal for tracking activity completion or improvement.
+ *
+ * # Goal Target (Mutually Exclusive)
+ *
+ * Goals must target either:
+ * - A specific `activity_id` (e.g., "Exercise 3 times per week")
+ * - An entire `group_id` (e.g., "Do any social activity 5 times per week")
+ *
+ * Setting both or neither is invalid and enforced by:
+ * - Database CHECK constraint: `NOT (activity_id IS NOT NULL AND group_id IS NOT NULL)`
+ * - Validation layer: `validate_goal_target_exclusivity()` function
+ *
+ * # Goal Types
+ *
+ * - `"days_per_period"`: Track frequency of activity within a time period
+ * - Example: "Exercise 3 days per 7-day period"
+ * - `target_value`: number of days activity should be performed
+ * - `period_days`: rolling window size in days
+ *
+ * - `"percent_improvement"`: Track improvement over baseline period
+ * - Example: "Increase meditation by 20% over 30-day baseline"
+ * - `target_value`: percentage improvement (e.g., 20 = 20%)
+ * - `period_days`: baseline comparison period in days
+ *
+ * # Soft Deletes
+ *
+ * Goals use soft delete pattern via `deleted_at` timestamp, allowing:
+ * - Historical goal tracking and analysis
+ * - Recovery of accidentally deleted goals
+ * - Audit trail of goal changes over time
+ */
+export type ActivityGoal = {
+	id: number
+	/**
+	 * ID of specific activity this goal targets (mutually exclusive with group_id)
+	 */
+	activity_id: number | null
+	/**
+	 * ID of activity group this goal targets (mutually exclusive with activity_id)
+	 */
+	group_id: number | null
+	/**
+	 * Type of goal: 'days_per_period' or 'percent_improvement'
+	 */
+	goal_type: string
+	/**
+	 * Target value: days count for 'days_per_period', percentage for 'percent_improvement'
+	 */
+	target_value: number
+	/**
+	 * Time period in days for goal measurement or baseline comparison
+	 */
+	period_days: number
+	/**
+	 * ISO 8601 timestamp when goal was created
+	 */
+	created_at: string
+	/**
+	 * ISO 8601 timestamp when goal was soft-deleted (None if active)
+	 */
+	deleted_at: string | null
+}
+/**
+ * Activity Group model
+ */
+export type ActivityGroup = {
+	id: number
+	name: string
+	description: string | null
+	created_at: string
+	deleted_at: string | null
+}
+/**
+ * Activity Log model
+ */
+export type ActivityLog = {
+	id: number
+	activity_id: number
+	logged_at: string
+	created_at: string
+	notes: string | null
+	deleted_at: string | null
+}
+/**
  * Activity-specific mood data for correlation analysis
  */
 export type ActivityMoodData = {
 	activity: Activity
 	average_mood: number
 	data_points: ChartDataPoint[]
+}
+/**
+ * Activity trend report comparing current vs previous period
+ */
+export type ActivityTrend = {
+	activity_id: number
+	/**
+	 * Unique days in current period
+	 */
+	current_period_days: number
+	/**
+	 * Unique days in previous period (same duration)
+	 */
+	previous_period_days: number
+	/**
+	 * Difference: current - previous
+	 */
+	change_days: number
+	/**
+	 * Percentage change: ((current - previous) / previous) * 100
+	 */
+	change_percentage: number
+	/**
+	 * Trend classification based on change_percentage
+	 */
+	trend: Trend
 }
 /**
  * Assessment chart data with thresholds and statistics
@@ -445,6 +734,10 @@ export type CommandError = {
 	retryable: boolean
 }
 /**
+ * Request to create an activity group
+ */
+export type CreateActivityGroupRequest = { name: string; description: string | null }
+/**
  * Request to create an activity
  */
 export type CreateActivityRequest = {
@@ -485,6 +778,44 @@ export type ErrorType =
 	| 'config'
 	| 'io_error'
 	| 'serialization'
+/**
+ * Goal progress report showing current vs target values
+ */
+export type GoalProgress = {
+	goal_id: number
+	/**
+	 * Current value achieved (days or percentage depending on goal_type)
+	 */
+	current_value: number
+	/**
+	 * Target value from goal definition
+	 */
+	target_value: number
+	/**
+	 * Progress percentage: (current / target) * 100
+	 */
+	percentage: number
+	/**
+	 * Whether goal has been achieved (percentage >= 100)
+	 */
+	is_achieved: boolean
+	/**
+	 * Start of measurement period (ISO 8601)
+	 */
+	period_start: string
+	/**
+	 * End of measurement period (ISO 8601)
+	 */
+	period_end: string
+}
+/**
+ * Request to log an activity
+ */
+export type LogActivityRequest = {
+	activity_id: number
+	logged_at: string | null
+	notes: string | null
+}
 /**
  * Request to log a mood check-in
  */
@@ -533,6 +864,16 @@ export type MoodStats = {
  */
 export type ScheduleFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly'
 /**
+ * Request to set an activity goal
+ */
+export type SetActivityGoalRequest = {
+	activity_id: number | null
+	group_id: number | null
+	goal_type: string
+	target_value: number
+	period_days: number
+}
+/**
  * Request to submit assessment
  */
 export type SubmitAssessmentRequest = {
@@ -549,9 +890,29 @@ export type ThresholdLine = { label: string; value: number; color: string }
  */
 export type TimeRange = 'week' | 'month' | 'quarter' | 'year' | 'alltime' | 'custom'
 /**
+ * Trend classification for activity analysis
+ */
+export type Trend =
+	/**
+	 * Activity frequency improving (>10% increase)
+	 */
+	| 'Improving'
+	/**
+	 * Activity frequency declining (>10% decrease)
+	 */
+	| 'Declining'
+	/**
+	 * Activity frequency stable (within ±10%)
+	 */
+	| 'Stable'
+/**
  * Trend direction for assessment scores
  */
 export type TrendDirection = 'improving' | 'worsening' | 'stable'
+/**
+ * Request to update an activity group
+ */
+export type UpdateActivityGroupRequest = { name: string | null; description: string | null }
 /**
  * Request to update an activity
  */
