@@ -10,9 +10,14 @@ vi.mock('$lib/utils/retry', () => ({
 
 // Mock error handling utilities
 vi.mock('$lib/utils/errors', () => ({
-	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displayError: vi.fn((error) => ({
+		type: 'inline',
+		message: typeof error === 'string' ? error : error?.message || 'Error',
+	})),
 	displaySuccess: vi.fn(),
-	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	formatUserError: vi.fn((error) =>
+		typeof error === 'string' ? error : error?.message || 'Error'
+	),
 	isValidationError: vi.fn(() => false),
 	isCommandError: vi.fn(() => false),
 }))
@@ -353,7 +358,9 @@ describe('AssessmentForm', () => {
 
 	describe('Form Submission', () => {
 		it('should submit assessment with responses', async () => {
-			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
+			invokeWithRetryMock
+				.mockResolvedValueOnce(mockQuestions)
+				.mockResolvedValueOnce(mockSubmitResponse)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -382,7 +389,9 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should include notes in submission', async () => {
-			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
+			invokeWithRetryMock
+				.mockResolvedValueOnce(mockQuestions)
+				.mockResolvedValueOnce(mockSubmitResponse)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -414,7 +423,9 @@ describe('AssessmentForm', () => {
 		})
 
 		it('should navigate to results after successful submission', async () => {
-			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockResolvedValueOnce(mockSubmitResponse)
+			invokeWithRetryMock
+				.mockResolvedValueOnce(mockQuestions)
+				.mockResolvedValueOnce(mockSubmitResponse)
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })
 
@@ -459,9 +470,7 @@ describe('AssessmentForm', () => {
 
 		it('should show error if submission fails', async () => {
 			const mockError = new Error('Submission failed')
-			invokeWithRetryMock
-				.mockResolvedValueOnce(mockQuestions)
-				.mockRejectedValueOnce(mockError)
+			invokeWithRetryMock.mockResolvedValueOnce(mockQuestions).mockRejectedValueOnce(mockError)
 			displayErrorMock.mockReturnValue({ type: 'inline', message: 'Submission failed' })
 
 			const { container } = render(AssessmentForm, { props: { assessmentCode: 'PHQ9' } })

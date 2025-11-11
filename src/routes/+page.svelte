@@ -16,15 +16,12 @@
 		async function loadDashboardData() {
 			try {
 				assessmentTypes = await invokeWithRetry('get_assessment_types')
-				const history = await invokeWithRetry<AssessmentResponse[]>(
-					'get_assessment_history',
-					{
-						assessmentTypeCode: null,
-						fromDate: null,
-						toDate: null,
-						limit: 10,
-					}
-				)
+				const history = await invokeWithRetry<AssessmentResponse[]>('get_assessment_history', {
+					assessmentTypeCode: null,
+					fromDate: null,
+					toDate: null,
+					limit: 10,
+				})
 				recentCount = history.length
 			} catch (e) {
 				displayError(e)

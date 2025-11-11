@@ -69,8 +69,10 @@
 		}
 
 		// FIXED: Use effectivePeriod instead of periodDays to handle custom period correctly
-		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD && effectivePeriod > 0) {
-			if (targetValue > effectivePeriod) {
+		if (goalType === GOAL_TYPES.DAYS_PER_PERIOD) {
+			if (effectivePeriod <= 0) {
+				newErrors.periodDays = 'Custom period must be a positive number'
+			} else if (targetValue > effectivePeriod) {
 				newErrors.targetValue = `Cannot exceed ${effectivePeriod} days in the period`
 			}
 		}

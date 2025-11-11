@@ -6,6 +6,7 @@
 	import { displayError } from '$lib/utils/errors'
 	import { ACTIVITY_LOG } from '$lib/constants/activities'
 	import Card from '$lib/components/ui/Card.svelte'
+	import { formatRelativeDate } from '$lib/utils/date'
 
 	interface Props {
 		activity?: Activity
@@ -28,47 +29,9 @@
 	let dateFilterTimeout: ReturnType<typeof setTimeout> | null = null
 
 	// Format date for display with proper timezone handling
+	// Uses shared formatRelativeDate from $lib/utils/date
 	function formatLogDate(isoString: string): string {
-		const date = new Date(isoString)
-		const now = new Date()
-
-		// Normalize to start of day for accurate day comparison
-		const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-		const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-		const diffDays = Math.floor((nowDay.getTime() - dateDay.getTime()) / (1000 * 60 * 60 * 24))
-
-		// Handle future dates (possible clock skew)
-		if (diffDays < 0) {
-			return date.toLocaleDateString('en-US', {
-				year: 'numeric',
-				month: 'short',
-				day: 'numeric',
-				hour: 'numeric',
-				minute: '2-digit',
-			})
-		}
-
-		if (diffDays === 0) {
-			return `Today at ${date.toLocaleTimeString('en-US', {
-				hour: 'numeric',
-				minute: '2-digit',
-			})}`
-		} else if (diffDays === 1) {
-			return `Yesterday at ${date.toLocaleTimeString('en-US', {
-				hour: 'numeric',
-				minute: '2-digit',
-			})}`
-		} else if (diffDays < 7) {
-			return `${diffDays} days ago`
-		} else {
-			return date.toLocaleDateString('en-US', {
-				year: 'numeric',
-				month: 'short',
-				day: 'numeric',
-				hour: 'numeric',
-				minute: '2-digit',
-			})
-		}
+		return formatRelativeDate(isoString)
 	}
 
 	async function loadLogs() {
@@ -106,21 +69,29 @@
 	}
 
 	async function handleSaveNote(logId: number) {
-		// CRITICAL TODO: Backend implementation required
-		// The update_activity_log command does not exist yet
-		// This displays a warning instead of a misleading success message
 		try {
 			savingNote = true
 
-			// Log for debugging purposes
-			console.warn('Note save attempted but not implemented:', { logId, note: editingNoteText })
+			const trimmed = editingNoteText.trim()
+			if (trimmed.length > ACTIVITY_LOG.MAX_NOTE_LENGTH) {
+				displayError(`Note cannot exceed ${ACTIVITY_LOG.MAX_NOTE_LENGTH} characters`)
+				return
+			}
 
-			// Display clear warning that this doesn't actually save
-			displayError(
-				'Note editing is not yet implemented. Backend update_activity_log command is required.'
-			)
+			const result = await commands.updateActivityLog(logId, trimmed || null)
 
-			// Don't clear editing state since nothing was saved
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
+			}
+
+			const updated = result.data
+
+			// Update local logs with the updated notes
+			logs = logs.map((log) => (log.id === logId ? { ...log, notes: updated.notes } : log))
+
+			// Reset editing state
+			editingNoteId = null
+			editingNoteText = ''
 		} catch (error) {
 			displayError(error)
 		} finally {

@@ -8,6 +8,7 @@
 	import Button from '$lib/components/ui/Button.svelte'
 	import GoalProgressIndicator from '$lib/components/goals/GoalProgressIndicator.svelte'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
+	import { formatSimpleDate } from '$lib/utils/date'
 
 	// Props using Svelte 5 $props() rune
 	let {
@@ -91,18 +92,23 @@
 	// For 5 groups with 3 goals each = 20 API calls
 	// Future optimization: Consider batch endpoint getGoalsWithProgressForGroups(groupIds[])
 	onMount(async () => {
-		// Clear notification state to prevent memory leak
+		// Clear notification state each time this list mounts
 		notifiedGoals.clear()
-		await Promise.all(groups.map((group) => loadGoalsForGroup(group.id)))
+		const tasks = groups.map((group) => loadGoalsForGroup(group.id))
+		await Promise.all(
+			tasks.map(async (task) => {
+				try {
+					await task
+				} catch {
+					// errors already handled in loadGoalsForGroup
+				}
+			})
+		)
 	})
 
-	// Format date helper with consistent locale and format
+	// Use shared date formatting utility
 	function formatDate(dateString: string): string {
-		return new Date(dateString).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-		})
+		return formatSimpleDate(dateString)
 	}
 
 	// Memoized goal type display names (Performance: Issue 2)

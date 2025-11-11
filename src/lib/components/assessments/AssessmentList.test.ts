@@ -10,9 +10,14 @@ vi.mock('$lib/utils/retry', () => ({
 
 // Mock error handling utilities
 vi.mock('$lib/utils/errors', () => ({
-	displayError: vi.fn((error) => ({ type: 'inline', message: typeof error === 'string' ? error : error?.message || 'Error' })),
+	displayError: vi.fn((error) => ({
+		type: 'inline',
+		message: typeof error === 'string' ? error : error?.message || 'Error',
+	})),
 	displaySuccess: vi.fn(),
-	formatUserError: vi.fn((error) => typeof error === 'string' ? error : error?.message || 'Error'),
+	formatUserError: vi.fn((error) =>
+		typeof error === 'string' ? error : error?.message || 'Error'
+	),
 	isValidationError: vi.fn(() => false),
 	isCommandError: vi.fn(() => false),
 }))
