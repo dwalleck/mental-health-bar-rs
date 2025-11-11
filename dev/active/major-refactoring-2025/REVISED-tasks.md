@@ -177,22 +177,22 @@ The following were in the original plan but are already 100% complete:
 
 #### Update Activity Management UI (6-8 hours)
 
-- [ ] 3.8 Update `/routes/mood/activities/+page.svelte` to show grouped view
-- [ ] 3.9 Update `ActivityForm.svelte` to include required group selector (dropdown of all groups)
-- [ ] 3.10 Create `IconPicker.svelte` component with Heroicon names validation (e.g., "academic-cap", "heart")
-- [ ] 3.10a Validate icon names against Heroicons list in frontend
-- [ ] 3.11 Update `ActivityList.svelte` to display activities grouped by Activity Group
-- [ ] 3.12 Add "Move to Group" action for existing activities
+- [X] 3.8 Update `/routes/mood/activities/+page.svelte` to show grouped view
+- [X] 3.9 Update `ActivityForm.svelte` to include required group selector (dropdown of all groups)
+- [X] 3.10 Create `IconPicker.svelte` component with Heroicon names validation (e.g., "academic-cap", "heart")
+- [X] 3.10a Validate icon names against Heroicons list in frontend
+- [X] 3.11 Update `ActivityList.svelte` to display activities grouped by Activity Group
+- [X] 3.12 Add "Move to Group" action for existing activities
   - **UI**: Dropdown in activity editor to select different group
   - **Backend**: Just update `group_id` column (simple UPDATE query)
   - **Options**: List all groups (required - cannot be null)
 
 #### Activity Logging Interface (4-6 hours)
 
-- [ ] 3.14 Create `ActivityLogButton.svelte` (quick log button for each activity)
-- [ ] 3.15 Create `ActivityLogHistory.svelte` (timeline view with notes)
-- [ ] 3.16 Add date filtering for log history (date range picker)
-- [ ] 3.17 Implement "Add Note" feature for logs (textarea with 500 char limit)
+- [X] 3.14 Create `ActivityLogButton.svelte` (quick log button for each activity)
+- [X] 3.15 Create `ActivityLogHistory.svelte` (timeline view with notes)
+- [X] 3.16 Add date filtering for log history (date range picker)
+- [X] 3.17 Implement "Add Note" feature for logs (textarea with 500 char limit)
 
 #### Goal Setting UI (4-6 hours)
 
