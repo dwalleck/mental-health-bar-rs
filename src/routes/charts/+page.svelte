@@ -3,12 +3,24 @@
 	import { page } from '$app/stores'
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError } from '$lib/utils/errors'
-	import type { AssessmentType, AssessmentChartData, MoodChartData, TimeRange } from '$lib/bindings'
+	import type {
+		AssessmentType,
+		AssessmentChartData,
+		MoodChartData,
+		TimeRange,
+		Activity,
+		ActivityFrequency,
+		ActivityTrend,
+	} from '$lib/bindings'
+	import { commands } from '$lib/bindings'
 	import AssessmentChart from '$lib/components/charts/AssessmentChart.svelte'
 	import ChartStatistics from '$lib/components/charts/ChartStatistics.svelte'
 	import TimeRangeSelector from '$lib/components/charts/TimeRangeSelector.svelte'
 	import MoodChart from '$lib/components/charts/MoodChart.svelte'
 	import ActivityCorrelationChart from '$lib/components/charts/ActivityCorrelationChart.svelte'
+	import ActivityReportCard from '$lib/components/charts/ActivityReportCard.svelte'
+	import ActivityTrendChart from '$lib/components/charts/ActivityTrendChart.svelte'
+	import GoalProgressDashboard from '$lib/components/charts/GoalProgressDashboard.svelte'
 
 	// Assessment state
 	let assessmentTypes: AssessmentType[] = $state([])
@@ -25,7 +37,16 @@
 	let moodError: string = $state('')
 
 	// Tab state
-	let activeTab: 'assessments' | 'mood' = $state('assessments')
+	let activeTab: 'assessments' | 'mood' | 'activities' = $state('assessments')
+
+	// Activities state (T4.4)
+	let activities: Activity[] = $state([])
+	let selectedActivityId: number | null = $state(null)
+	let activityTimeRange: TimeRange = $state('month')
+	let activityFrequency: ActivityFrequency | null = $state(null)
+	let activityTrend: ActivityTrend | null = $state(null)
+	let activitiesLoading: boolean = $state(false)
+	let activitiesError: string = $state('')
 
 	// Load chart data on mount
 	$effect(() => {
@@ -114,6 +135,102 @@
 		moodTimeRange = range
 		await loadMoodChartData()
 	}
+
+	// T4.4: Activities reporting data loading
+	async function loadActivities() {
+		try {
+			const result = await commands.getActivities()
+			if (result.status === 'error') {
+				throw new Error(result.error.message)
+			}
+			activities = result.data
+			if (activities.length > 0 && !selectedActivityId) {
+				selectedActivityId = activities[0].id
+				await loadActivityReports()
+			}
+		} catch (err) {
+			displayError(err)
+			activitiesError = 'Failed to load activities'
+		}
+	}
+
+	async function loadActivityReports() {
+		if (!selectedActivityId) return
+
+		activitiesLoading = true
+		activitiesError = ''
+
+		try {
+			// Calculate date range based on timeRange
+			 
+			const endDate = new Date()
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			let startDate = new Date()
+
+			switch (activityTimeRange) {
+				case 'week':
+					startDate.setDate(endDate.getDate() - 7)
+					break
+				case 'month':
+					startDate.setMonth(endDate.getMonth() - 1)
+					break
+				case 'quarter':
+					startDate.setMonth(endDate.getMonth() - 3)
+					break
+				case 'year':
+					startDate.setFullYear(endDate.getFullYear() - 1)
+					break
+			}
+
+			// Load frequency data
+			const frequencyResult = await commands.getActivityFrequency(
+				selectedActivityId,
+				startDate.toISOString(),
+				endDate.toISOString()
+			)
+			if (frequencyResult.status === 'ok') {
+				activityFrequency = frequencyResult.data
+			}
+
+			// Load trend data
+			const periodDays = Math.ceil(
+				(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+			)
+			const trendResult = await commands.getActivityTrend(
+				selectedActivityId,
+				periodDays,
+				endDate.toISOString()
+			)
+			if (trendResult.status === 'ok') {
+				activityTrend = trendResult.data
+			}
+		} catch (err) {
+			displayError(err)
+			activitiesError = 'Failed to load activity reports'
+			activityFrequency = null
+			activityTrend = null
+		} finally {
+			activitiesLoading = false
+		}
+	}
+
+	async function handleActivityChange(event: Event) {
+		const target = event.target as HTMLSelectElement
+		selectedActivityId = parseInt(target.value)
+		await loadActivityReports()
+	}
+
+	async function handleActivityTimeRangeChange(range: TimeRange) {
+		activityTimeRange = range
+		await loadActivityReports()
+	}
+
+	// Load activities when tab becomes active
+	$effect(() => {
+		if (activeTab === 'activities' && activities.length === 0) {
+			loadActivities()
+		}
+	})
 </script>
 
 <svelte:head>
@@ -139,6 +256,12 @@
 			onclick={() => (activeTab = 'mood')}
 		>
 			😊 Mood Patterns
+		</button>
+		<button
+			class="tab-button {activeTab === 'activities' ? 'active' : ''}"
+			onclick={() => (activeTab = 'activities')}
+		>
+			🎯 Activity Reports
 		</button>
 	</div>
 
@@ -286,6 +409,117 @@
 				</li>
 			</ul>
 		</div>
+	{/if}
+
+	<!-- Activity Reports Tab (T4.4) -->
+	{#if activeTab === 'activities'}
+		{#if activitiesError}
+			<div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-6">
+				<p class="font-semibold">Error</p>
+				<p>{activitiesError}</p>
+			</div>
+		{/if}
+
+		{#if activities.length === 0 && !activitiesLoading}
+			<!-- Empty State -->
+			<div class="bg-white rounded-lg shadow-xs border border-gray-200 p-12 text-center">
+				<div class="text-4xl mb-4">🎯</div>
+				<h3 class="text-lg font-medium text-gray-900 mb-2">No Activities Yet</h3>
+				<p class="text-gray-600 mb-6">
+					Create activities and log them to see frequency reports and trends
+				</p>
+				<a
+					href="/mood/activities"
+					class="inline-block px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+				>
+					Go to Activities
+				</a>
+			</div>
+		{:else}
+			<!-- Activity Selection and Filters -->
+			<div class="controls-section bg-white rounded-lg shadow-xs border border-gray-200 p-6 mb-6">
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<!-- Activity Selector -->
+					<div>
+						<label for="activity-select" class="block text-sm font-medium text-gray-700 mb-2">
+							Select Activity
+						</label>
+						<select
+							id="activity-select"
+							value={selectedActivityId || ''}
+							onchange={handleActivityChange}
+							class="block w-full rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-4 py-2 border"
+						>
+							{#each activities as activity (activity.id)}
+								<option value={activity.id}>
+									{activity.icon ? `${activity.icon} ` : ''}{activity.name}
+								</option>
+							{/each}
+						</select>
+					</div>
+
+					<!-- Time Range Selector -->
+					<TimeRangeSelector
+						selected={activityTimeRange}
+						onchange={handleActivityTimeRangeChange}
+					/>
+				</div>
+			</div>
+
+			{#if selectedActivityId}
+				{@const selectedActivity = activities.find((a) => a.id === selectedActivityId)}
+				{#if selectedActivity}
+					<!-- Activity Reports Grid -->
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+						<!-- Frequency Report Card -->
+						<ActivityReportCard
+							activity={selectedActivity}
+							frequency={activityFrequency}
+							loading={activitiesLoading}
+						/>
+
+						<!-- Trend Chart -->
+						<ActivityTrendChart
+							activity={selectedActivity}
+							trend={activityTrend}
+							loading={activitiesLoading}
+							periodLabel={activityTimeRange === 'week'
+								? '7 days'
+								: activityTimeRange === 'month'
+									? '30 days'
+									: activityTimeRange === 'quarter'
+										? '90 days'
+										: '365 days'}
+						/>
+					</div>
+				{/if}
+			{/if}
+
+			<!-- Goal Progress Dashboard -->
+			<div class="mb-6">
+				<GoalProgressDashboard {activities} />
+			</div>
+
+			<!-- Info Section -->
+			<div class="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
+				<h3 class="text-lg font-semibold text-green-900 mb-2">Understanding Activity Reports</h3>
+				<ul class="space-y-2 text-green-800 text-sm">
+					<li>
+						<strong>Days/Week</strong> - Shows how frequently you perform this activity
+					</li>
+					<li>
+						<strong>Trend Analysis</strong> - Compares your current period to the previous period of
+						the same length
+					</li>
+					<li>
+						<strong>Goal Progress</strong> - Track all your active goals in one place
+					</li>
+					<li>
+						<strong>Color coding</strong> - Green (improving), Yellow (stable), Red (declining)
+					</li>
+				</ul>
+			</div>
+		{/if}
 	{/if}
 </div>
 
