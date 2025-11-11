@@ -50,7 +50,12 @@
 
 	async function handleMoveToGroup(activityId: number, newGroupId: number) {
 		if (onMoveToGroup) {
-			await onMoveToGroup(activityId, newGroupId)
+			try {
+				await onMoveToGroup(activityId, newGroupId)
+			} catch (error) {
+				// Error handling is primarily done by parent, but catch here to prevent crash
+				console.error('Failed to move activity to group:', error)
+			}
 		}
 	}
 </script>

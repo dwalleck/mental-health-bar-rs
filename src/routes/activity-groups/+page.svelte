@@ -62,7 +62,7 @@
 			isDeleting = true
 
 			const result = await invoke<{ data?: null; error?: string }>('delete_activity_group', {
-				groupId: groupToDelete.id,
+				id: groupToDelete.id,
 			})
 
 			if (result.error) {

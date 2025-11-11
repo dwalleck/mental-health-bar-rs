@@ -26,7 +26,8 @@
 	let nameError = $state('')
 
 	// Reset form when modal opens/closes or group changes
-	$effect(() => {
+	// Use $effect.pre() to avoid flicker/race conditions during re-renders
+	$effect.pre(() => {
 		if (open) {
 			name = group?.name ?? ''
 			description = group?.description ?? ''
