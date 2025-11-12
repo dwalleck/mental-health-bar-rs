@@ -47,6 +47,7 @@ libc = "0.2.177"
 tempfile = "3.8"
 quickcheck = "1.0"
 mockall = "0.13"
+rstest = "0.23"
 
 # Compilation speed optimizations
 [profile.dev]
