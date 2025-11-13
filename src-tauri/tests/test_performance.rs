@@ -7,17 +7,18 @@
 // - 1000+ activity logs
 // - Performance targets: <200ms for list queries, <500ms for reporting queries
 
-use mental_health_bar::db::Database;
-use mental_health_bar::features::activities::repository::ActivitiesRepository;
 use std::sync::Arc;
 use std::time::Instant;
+use tauri_sveltekit_modern_lib::db::Database;
+use tauri_sveltekit_modern_lib::features::activities::repository::ActivityRepository;
 use tempfile::TempDir;
 
 /// Helper to set up test repository with database
-fn setup_test_repo() -> (ActivitiesRepository, TempDir) {
+fn setup_test_repo() -> (ActivityRepository, TempDir) {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    let db = Arc::new(Database::new(temp_dir.path()).expect("Failed to create database"));
-    (ActivitiesRepository::new(db), temp_dir)
+    let db =
+        Arc::new(Database::new(temp_dir.path().to_path_buf()).expect("Failed to create database"));
+    (ActivityRepository::new(db), temp_dir)
 }
 
 #[test]
@@ -90,9 +91,9 @@ fn test_performance_500_logs() {
     for i in 0..500 {
         let activity_id = activity_ids[i % activity_ids.len()];
         let days_ago = i / 10; // Spread over ~50 days
-        let logged_at = chrono::Utc::now() - chrono::Duration::days(days_ago as i64);
+        let logged_at = (chrono::Utc::now() - chrono::Duration::days(days_ago as i64)).to_rfc3339();
 
-        repo.log_activity(activity_id, Some(logged_at.to_rfc3339()), None)
+        repo.log_activity(activity_id, &logged_at, None)
             .expect("Failed to log activity");
     }
 
@@ -102,7 +103,7 @@ fn test_performance_500_logs() {
     // Test retrieval performance
     let start = Instant::now();
     let logs = repo
-        .get_activity_logs(None, None, None, Some(1000))
+        .get_activity_logs(None, None, None)
         .expect("Failed to get logs");
     let retrieval_time = start.elapsed();
 
@@ -139,9 +140,9 @@ fn test_performance_reporting_queries_1000_logs() {
 
     for i in 0..1200 {
         let days_ago = i / 10;
-        let logged_at = chrono::Utc::now() - chrono::Duration::days(days_ago as i64);
+        let logged_at = (chrono::Utc::now() - chrono::Duration::days(days_ago as i64)).to_rfc3339();
 
-        repo.log_activity(activity.id, Some(logged_at.to_rfc3339()), None)
+        repo.log_activity(activity.id, &logged_at, None)
             .expect("Failed to log activity");
     }
 
@@ -181,7 +182,7 @@ fn test_performance_reporting_queries_1000_logs() {
 
     println!(
         "Activity trend: {:+.1}% change (calculated in {:?})",
-        trend.percent_change, trend_time
+        trend.change_percentage, trend_time
     );
 
     assert!(
@@ -192,19 +193,13 @@ fn test_performance_reporting_queries_1000_logs() {
 
     // Test 3: Set and Check Goal Progress
     println!("\n--- Testing Goal Progress Query ---");
-    repo.set_activity_goal(
-        Some(activity.id),
-        None,
-        "days_per_period",
-        Some(20),
-        None,
-        30,
-    )
-    .expect("Failed to set goal");
+    let goal = repo
+        .set_activity_goal(Some(activity.id), None, "days_per_period", 20, 30)
+        .expect("Failed to set goal");
 
     let start = Instant::now();
     let progress = repo
-        .check_goal_progress(activity.id, None, &end_date)
+        .check_goal_progress(goal.id, &end_date)
         .expect("Failed to check progress");
     let progress_time = start.elapsed();
 
@@ -223,7 +218,7 @@ fn test_performance_reporting_queries_1000_logs() {
     println!("\n--- Testing Full Log Retrieval ---");
     let start = Instant::now();
     let all_logs = repo
-        .get_activity_logs(None, None, None, Some(2000))
+        .get_activity_logs(None, None, None)
         .expect("Failed to get all logs");
     let all_logs_time = start.elapsed();
 
@@ -269,9 +264,9 @@ fn test_performance_concurrent_operations() {
     for i in 0..500 {
         let activity_id = activity_ids[i % activity_ids.len()];
         let days_ago = i / 10;
-        let logged_at = chrono::Utc::now() - chrono::Duration::days(days_ago as i64);
+        let logged_at = (chrono::Utc::now() - chrono::Duration::days(days_ago as i64)).to_rfc3339();
 
-        repo.log_activity(activity_id, Some(logged_at.to_rfc3339()), None)
+        repo.log_activity(activity_id, &logged_at, None)
             .expect("Failed to log activity");
     }
 
@@ -291,7 +286,7 @@ fn test_performance_concurrent_operations() {
 
     // 3. Load logs for first activity
     let logs = repo
-        .get_activity_logs(Some(activities[0].id), None, None, Some(50))
+        .get_activity_logs(Some(activities[0].id), None, None)
         .expect("Failed to get logs");
     println!("Step 3: Loaded {} recent logs", logs.len());
 
@@ -331,8 +326,8 @@ fn test_performance_index_effectiveness() {
     // Create 1000 logs spread over 1 year
     for i in 0..1000 {
         let days_ago = i % 365;
-        let logged_at = chrono::Utc::now() - chrono::Duration::days(days_ago as i64);
-        repo.log_activity(activity.id, Some(logged_at.to_rfc3339()), None)
+        let logged_at = (chrono::Utc::now() - chrono::Duration::days(days_ago as i64)).to_rfc3339();
+        repo.log_activity(activity.id, &logged_at, None)
             .expect("Failed to log");
     }
 
@@ -340,7 +335,7 @@ fn test_performance_index_effectiveness() {
     let start = Instant::now();
     let from_date = (chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339();
     let recent_logs = repo
-        .get_activity_logs(None, Some(&from_date), None, None)
+        .get_activity_logs(None, Some(&from_date), None)
         .expect("Failed to get recent logs");
     let recent_time = start.elapsed();
 
@@ -358,7 +353,7 @@ fn test_performance_index_effectiveness() {
     // Test 2: Query logs for specific activity (should use idx_activity_logs_activity)
     let start = Instant::now();
     let activity_logs = repo
-        .get_activity_logs(Some(activity.id), None, None, None)
+        .get_activity_logs(Some(activity.id), None, None)
         .expect("Failed to get activity logs");
     let activity_time = start.elapsed();
 
@@ -377,7 +372,7 @@ fn test_performance_index_effectiveness() {
     // Test 3: Exclude soft-deleted (should use partial index idx_activity_logs_deleted)
     let start = Instant::now();
     let active_logs = repo
-        .get_activity_logs(None, None, None, None)
+        .get_activity_logs(None, None, None)
         .expect("Failed to get active logs");
     let active_time = start.elapsed();
 
