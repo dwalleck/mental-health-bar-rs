@@ -178,6 +178,9 @@ fn bench_get_logs_recent_with_limit(c: &mut Criterion) {
 }
 
 fn bench_batch_log_activities(c: &mut Criterion) {
+    // Note: This benchmark tests individual log_activity calls (no batching).
+    // In production, bulk operations should use transactions for better performance.
+    // See CLAUDE.md "Transaction Pattern (RAII)" for implementation guidelines.
     let mut group = c.benchmark_group("batch_log_activities");
 
     for batch_size in [10, 50, 100].iter() {

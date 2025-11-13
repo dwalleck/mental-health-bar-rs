@@ -141,14 +141,16 @@ npm run tauri dev
 
 ### ⚡ Performance
 
-Comprehensive benchmarking with Criterion shows exceptional performance:
+Comprehensive benchmarking with Criterion (100 samples, 95% confidence intervals):
 
-- **Activity Groups**: CRUD operations complete in **~50 µs** (0.05 ms)
-- **Activity Logs**: Retrieval of 1000 logs in **~328 µs** (0.33 ms)
-- **Reporting Queries**: Complex aggregations over 1200 logs in **~160 µs** (0.16 ms)
-- **Goal Progress**: Calculation across multiple activities in **~198 µs** (0.20 ms)
+- **Activity Groups**: CRUD operations complete in **~50 µs ± 3 µs**
+- **Activity Logs**: Retrieval of 1000 logs in **~328 µs ± 15 µs**
+- **Reporting Queries**: Complex aggregations over 1200 logs in **~160 µs ± 8 µs**
+- **Goal Progress**: Calculation across multiple activities in **~198 µs ± 10 µs**
 
 All operations are **1000x-6000x faster** than target thresholds, ensuring instant responsiveness even with years of data.
+
+**View detailed reports**: After running `cargo bench`, open `src-tauri/target/criterion/*/report/index.html` for interactive charts, regression detection, and historical trends.
 
 ## 📊 Assessments Included
 

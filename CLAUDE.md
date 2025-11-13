@@ -309,6 +309,26 @@ let tx = conn.transaction()?;
 tx.commit()?;  // 100x-1000x faster than individual commits
 ```
 
+**Benchmarking Best Practices**:
+
+When writing Criterion benchmarks:
+- **Test public APIs**, not internal implementation details
+- **Benchmark worst-case scenarios** (e.g., batch operations without transactions) to establish baseline
+- **Document transaction patterns** in comments if repository doesn't expose bulk APIs
+- **Follow `_with_conn` pattern** to avoid deadlocks in helpers called by benchmarks
+
+Example:
+```rust
+// Benchmark tests individual calls (worst-case, no transaction batching)
+fn bench_batch_operations(c: &mut Criterion) {
+    // Note: Production code should wrap bulk operations in transactions.
+    // See "Transaction Pattern (RAII)" for implementation.
+    for i in 0..100 {
+        repo.insert_item(i)?;  // Each call = separate transaction
+    }
+}
+```
+
 **Avoid N+1 Queries** (use JOINs):
 ```rust
 // ❌ BAD:
