@@ -1,19 +1,26 @@
 <script lang="ts">
 	// T087: ActivitySelector component - Multi-select activity picker with create new capability
+	// Updated for Week 5: Groups activities by Activity Group for better organization
 
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
-	import type { Activity } from '$lib/bindings'
+	import type { Activity, ActivityGroup } from '$lib/bindings'
 
 	interface Props {
 		selectedIds: number[]
 		onChange: (ids: number[]) => void
 	}
 
+	interface GroupedActivities {
+		group: ActivityGroup | null
+		activities: Activity[]
+	}
+
 	let { selectedIds = [], onChange }: Props = $props()
 
 	let activities = $state<Activity[]>([])
+	let activityGroups = $state<ActivityGroup[]>([])
 	let loading = $state(true)
 	let error = $state<string | undefined>(undefined)
 	let showCreateForm = $state(false)
@@ -22,18 +29,60 @@
 	let newActivityIcon = $state('')
 	let creating = $state(false)
 
+	// Derive grouped activities from activities and groups
+	let groupedActivities = $derived.by(() => {
+		const grouped: GroupedActivities[] = []
+
+		// Group activities by their group_id
+		const activityMap: Record<number, Activity[]> = {}
+
+		for (const activity of activities) {
+			const groupId = activity.group_id
+			if (!activityMap[groupId]) {
+				activityMap[groupId] = []
+			}
+			activityMap[groupId].push(activity)
+		}
+
+		// Add groups with their activities
+		for (const group of activityGroups) {
+			const groupActivities = activityMap[group.id] || []
+			if (groupActivities.length > 0) {
+				grouped.push({ group, activities: groupActivities })
+				delete activityMap[group.id]
+			}
+		}
+
+		// Add ungrouped activities (those with no matching group)
+		const remainingActivities: Activity[] = []
+		for (const acts of Object.values(activityMap)) {
+			remainingActivities.push(...acts)
+		}
+		if (remainingActivities.length > 0) {
+			grouped.push({ group: null, activities: remainingActivities })
+		}
+
+		return grouped
+	})
+
 	$effect(() => {
 		let isMounted = true
 
-		async function loadActivities() {
+		async function loadData() {
 			try {
 				loading = true
 				error = undefined
-				const data = await invokeWithRetry<Activity[]>('get_activities', { includeDeleted: false })
+
+				// Load both activities and groups in parallel
+				const [activitiesData, groupsData] = await Promise.all([
+					invokeWithRetry<Activity[]>('get_activities', { includeDeleted: false }),
+					invokeWithRetry<ActivityGroup[]>('get_activity_groups'),
+				])
 
 				if (!isMounted) return
 
-				activities = data
+				activities = activitiesData
+				activityGroups = groupsData
 				loading = false
 			} catch (e) {
 				if (!isMounted) return
@@ -47,7 +96,7 @@
 			}
 		}
 
-		loadActivities()
+		loadData()
 
 		return () => {
 			isMounted = false
@@ -158,28 +207,52 @@
 			No activities yet. Click "+ Add New" to create one.
 		</div>
 	{:else}
-		<div class="flex flex-wrap gap-2">
-			{#each activities as activity (activity.id)}
-				<button
-					type="button"
-					class="activity-chip inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium
-						transition-all border-2
-						{selectedIds.includes(activity.id)
-						? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-						: 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'}"
-					onclick={() => toggleActivity(activity.id)}
-					aria-pressed={selectedIds.includes(activity.id)}
-					aria-label={`${selectedIds.includes(activity.id) ? 'Deselect' : 'Select'} activity: ${activity.name}`}
-					style={activity.color ? `border-color: ${activity.color}` : ''}
-				>
-					{#if activity.icon}
-						<span>{activity.icon}</span>
+		<div class="space-y-4">
+			{#each groupedActivities as { group, activities: groupActivities } (group?.id || 'ungrouped')}
+				<div class="activity-group">
+					{#if group}
+						<div class="mb-2">
+							<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+								{group.name}
+							</h3>
+							{#if group.description}
+								<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+									{group.description}
+								</p>
+							{/if}
+						</div>
+					{:else}
+						<div class="mb-2">
+							<h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 italic">
+								Other Activities
+							</h3>
+						</div>
 					{/if}
-					<span>{activity.name}</span>
-					{#if selectedIds.includes(activity.id)}
-						<span class="text-blue-600 dark:text-blue-400">✓</span>
-					{/if}
-				</button>
+					<div class="flex flex-wrap gap-2">
+						{#each groupActivities as activity (activity.id)}
+							<button
+								type="button"
+								class="activity-chip inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium
+									transition-all border-2
+									{selectedIds.includes(activity.id)
+									? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+									: 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'}"
+								onclick={() => toggleActivity(activity.id)}
+								aria-pressed={selectedIds.includes(activity.id)}
+								aria-label={`${selectedIds.includes(activity.id) ? 'Deselect' : 'Select'} activity: ${activity.name}`}
+								style={activity.color ? `border-color: ${activity.color}` : ''}
+							>
+								{#if activity.icon}
+									<span>{activity.icon}</span>
+								{/if}
+								<span>{activity.name}</span>
+								{#if selectedIds.includes(activity.id)}
+									<span class="text-blue-600 dark:text-blue-400">✓</span>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				</div>
 			{/each}
 		</div>
 	{/if}

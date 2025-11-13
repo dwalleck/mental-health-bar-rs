@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn test_log_mood_request_validation_invalid_rating_too_high() {
         let request = LogMoodRequest {
-            mood_rating: 6,
+            mood_rating: 8, // Above maximum of 7
             activity_ids: vec![],
             notes: None,
         };

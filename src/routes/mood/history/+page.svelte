@@ -93,7 +93,7 @@
 				<div class="text-4xl font-bold text-blue-600">
 					{stats.average_mood.toFixed(1)}
 				</div>
-				<div class="text-sm text-gray-500 mt-1">out of 5.0</div>
+				<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">out of 7.0</div>
 			</Card>
 			<Card title="Total Check-Ins">
 				<div class="text-4xl font-bold text-green-600">

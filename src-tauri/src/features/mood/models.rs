@@ -9,7 +9,7 @@ use validator::Validate;
 /// Mood feature errors
 #[derive(Error, Debug)]
 pub enum MoodError {
-    #[error("Invalid mood rating: {0}. Must be 1-5")]
+    #[error("Invalid mood rating: {0}. Must be 1-7")]
     InvalidRating(i32),
 
     #[error("Activity not found: {0}")]
@@ -122,9 +122,19 @@ pub struct Activity {
 }
 
 /// Mood check-in model
+///
+/// Tracks a mood rating on a 7-point scale with optional activities and notes:
+/// - 1 = Terrible
+/// - 2 = Very Bad
+/// - 3 = Bad
+/// - 4 = Ok
+/// - 5 = Good
+/// - 6 = Very Good
+/// - 7 = Excellent
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct MoodCheckin {
     pub id: i32,
+    /// Mood rating (1-7): 1=Terrible, 2=Very Bad, 3=Bad, 4=Ok, 5=Good, 6=Very Good, 7=Excellent
     pub mood_rating: i32,
     pub notes: Option<String>,
     pub activities: Vec<Activity>,
@@ -134,7 +144,7 @@ pub struct MoodCheckin {
 /// Request to log a mood check-in
 #[derive(Debug, Serialize, Deserialize, specta::Type, Validate)]
 pub struct LogMoodRequest {
-    #[validate(range(min = 1, max = 5))]
+    #[validate(range(min = 1, max = 7))]
     pub mood_rating: i32,
     pub activity_ids: Vec<i32>,
     #[validate(length(max = 5000))]
@@ -181,9 +191,10 @@ pub struct ActivityCorrelation {
     pub checkin_count: i32,
 }
 
-/// Validate mood rating is between 1 and 5
+/// Validate mood rating is between 1 and 7
+/// 1=Terrible, 2=Very Bad, 3=Bad, 4=Ok, 5=Good, 6=Very Good, 7=Excellent
 pub fn validate_mood_rating(rating: i32) -> Result<(), MoodError> {
-    if !(1..=5).contains(&rating) {
+    if !(1..=7).contains(&rating) {
         return Err(MoodError::InvalidRating(rating));
     }
     Ok(())
@@ -294,20 +305,22 @@ fn validate_optional_icon(icon: &str) -> Result<(), validator::ValidationError> 
 mod tests {
     use super::*;
 
-    // T068: Unit test - Mood rating validation (1-5 only)
+    // T068: Unit test - Mood rating validation (1-7 scale)
     #[test]
     fn test_mood_rating_validation_valid() {
-        assert!(validate_mood_rating(1).is_ok());
-        assert!(validate_mood_rating(2).is_ok());
-        assert!(validate_mood_rating(3).is_ok());
-        assert!(validate_mood_rating(4).is_ok());
-        assert!(validate_mood_rating(5).is_ok());
+        assert!(validate_mood_rating(1).is_ok()); // Terrible
+        assert!(validate_mood_rating(2).is_ok()); // Very Bad
+        assert!(validate_mood_rating(3).is_ok()); // Bad
+        assert!(validate_mood_rating(4).is_ok()); // Ok
+        assert!(validate_mood_rating(5).is_ok()); // Good
+        assert!(validate_mood_rating(6).is_ok()); // Very Good
+        assert!(validate_mood_rating(7).is_ok()); // Excellent
     }
 
     #[test]
     fn test_mood_rating_validation_invalid() {
         assert!(validate_mood_rating(0).is_err());
-        assert!(validate_mood_rating(6).is_err());
+        assert!(validate_mood_rating(8).is_err());
         assert!(validate_mood_rating(-1).is_err());
         assert!(validate_mood_rating(100).is_err());
     }
@@ -318,14 +331,14 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Invalid mood rating: 0. Must be 1-5"
+            "Invalid mood rating: 0. Must be 1-7"
         );
 
-        let result = validate_mood_rating(6);
+        let result = validate_mood_rating(8);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Invalid mood rating: 6. Must be 1-5"
+            "Invalid mood rating: 8. Must be 1-7"
         );
     }
 

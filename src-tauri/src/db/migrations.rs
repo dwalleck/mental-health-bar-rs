@@ -39,6 +39,12 @@ pub fn run_migrations(db: &Database) -> Result<()> {
         info!("Applied migration 003: Activity groups and tracking");
     }
 
+    if current_version < 4 {
+        apply_migration_004(db)?;
+        record_migration(db, 4)?;
+        info!("Applied migration 004: Expand mood scale from 1-5 to 1-7");
+    }
+
     info!("All migrations applied successfully");
     Ok(())
 }
@@ -131,6 +137,33 @@ fn apply_migration_003(db: &Database) -> Result<()> {
     // 3. We verify integrity with PRAGMA foreign_key_check at the end
     conn.execute_batch(schema_sql)
         .context("Failed to execute migration 003 DDL statements")?;
+
+    Ok(())
+}
+
+/// Migration 004: Expand mood scale from 1-5 to 1-7
+///
+/// This migration recreates the mood_checkins table to update the CHECK constraint
+/// from BETWEEN 1 AND 5 to BETWEEN 1 AND 7. It also migrates existing data to the
+/// new scale using the mapping documented in the SQL file.
+///
+/// Because mood_checkin_activities has a FK to mood_checkins (from migration 001),
+/// we must temporarily disable foreign keys during table recreation.
+///
+/// SQLite's PRAGMA foreign_keys cannot be changed inside a transaction,
+/// so we execute this migration without a transaction wrapper.
+/// The migration SQL itself contains PRAGMA statements to disable/enable FKs.
+fn apply_migration_004(db: &Database) -> Result<()> {
+    let schema_sql = include_str!("migrations/004_mood_scale_1_to_7.sql");
+
+    let conn = db.get_connection();
+    let conn = conn.lock();
+
+    // Execute migration without transaction because:
+    // 1. PRAGMA foreign_keys only takes effect outside transactions
+    // 2. The SQL file contains PRAGMA foreign_keys = OFF/ON statements
+    conn.execute_batch(schema_sql)
+        .context("Failed to execute migration 004 DDL statements")?;
 
     Ok(())
 }

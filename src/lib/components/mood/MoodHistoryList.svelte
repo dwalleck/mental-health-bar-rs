@@ -78,7 +78,7 @@
 									class="mood-badge flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold {MOOD_COLORS[
 										checkin.mood_rating
 									]}"
-									aria-label={`Mood rating: ${checkin.mood_rating} out of 5 (${MOOD_LABELS[checkin.mood_rating]})`}
+									aria-label={`Mood rating: ${checkin.mood_rating} out of 7 (${MOOD_LABELS[checkin.mood_rating]})`}
 								>
 									{checkin.mood_rating}
 								</div>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import ActivitySelector from './ActivitySelector.svelte'
-import type { Activity } from '$lib/bindings'
+import type { Activity, ActivityGroup } from '$lib/bindings'
 
 // Mock retry utility
 vi.mock('$lib/utils/retry', () => ({
@@ -40,6 +40,16 @@ describe('ActivitySelector', () => {
 		vi.clearAllMocks()
 	})
 
+	const mockActivityGroups: ActivityGroup[] = [
+		{
+			id: 1,
+			name: 'Physical Activity',
+			description: 'Exercise and movement',
+			created_at: '2024-01-01',
+			deleted_at: null,
+		},
+	]
+
 	const mockActivities: Activity[] = [
 		{
 			id: 1,
@@ -60,6 +70,21 @@ describe('ActivitySelector', () => {
 			deleted_at: null,
 		},
 	]
+
+	// Helper function to setup mocks for both activities and groups
+	function setupMocks(
+		activities: Activity[] = mockActivities,
+		groups: ActivityGroup[] = mockActivityGroups
+	) {
+		invokeWithRetry.mockImplementation((command: string) => {
+			if (command === 'get_activities') {
+				return Promise.resolve(activities)
+			} else if (command === 'get_activity_groups') {
+				return Promise.resolve(groups)
+			}
+			return Promise.resolve([])
+		})
+	}
 
 	describe('Loading State', () => {
 		it('should show loading message initially', () => {
@@ -99,7 +124,7 @@ describe('ActivitySelector', () => {
 
 	describe('Empty State', () => {
 		it('should show empty message when no activities', async () => {
-			invokeWithRetry.mockResolvedValue([])
+			setupMocks([], [])
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -110,7 +135,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should suggest creating an activity', async () => {
-			invokeWithRetry.mockResolvedValue([])
+			setupMocks([], [])
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -123,7 +148,7 @@ describe('ActivitySelector', () => {
 
 	describe('Activities Display', () => {
 		it('should display all activities', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -135,7 +160,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should display activity icons', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -147,7 +172,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should apply custom colors to activity chips', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -165,7 +190,7 @@ describe('ActivitySelector', () => {
 
 	describe('Activity Selection', () => {
 		it('should mark selected activities', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, {
@@ -180,7 +205,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should show checkmark on selected activities', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, {
@@ -193,7 +218,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should call onChange when activity clicked', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, {
@@ -211,7 +236,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should add activity to selection', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, {
@@ -229,7 +254,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should remove activity from selection when clicked again', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, {
@@ -427,14 +452,23 @@ describe('ActivitySelector', () => {
 
 	describe('Creating Activity', () => {
 		it('should create activity with name and defaults', async () => {
-			invokeWithRetry.mockResolvedValueOnce([]).mockResolvedValueOnce({
-				id: 3,
-				group_id: 1,
-				name: 'Meditation',
-				color: '#3B82F6',
-				icon: null,
-				created_at: '2024-01-03',
-				deleted_at: null,
+			invokeWithRetry.mockImplementation((command: string) => {
+				if (command === 'get_activities') {
+					return Promise.resolve([])
+				} else if (command === 'get_activity_groups') {
+					return Promise.resolve([])
+				} else if (command === 'create_activity') {
+					return Promise.resolve({
+						id: 3,
+						group_id: 1,
+						name: 'Meditation',
+						color: '#3B82F6',
+						icon: null,
+						created_at: '2024-01-03',
+						deleted_at: null,
+					})
+				}
+				return Promise.resolve([])
 			})
 
 			const onChange = vi.fn()
@@ -481,14 +515,23 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should automatically select newly created activity', async () => {
-			invokeWithRetry.mockResolvedValueOnce([]).mockResolvedValueOnce({
-				id: 3,
-				group_id: 1,
-				name: 'Meditation',
-				color: '#3B82F6',
-				icon: null,
-				created_at: '2024-01-03',
-				deleted_at: null,
+			invokeWithRetry.mockImplementation((command: string) => {
+				if (command === 'get_activities') {
+					return Promise.resolve([])
+				} else if (command === 'get_activity_groups') {
+					return Promise.resolve([])
+				} else if (command === 'create_activity') {
+					return Promise.resolve({
+						id: 3,
+						group_id: 1,
+						name: 'Meditation',
+						color: '#3B82F6',
+						icon: null,
+						created_at: '2024-01-03',
+						deleted_at: null,
+					})
+				}
+				return Promise.resolve([])
 			})
 
 			const onChange = vi.fn()
@@ -526,14 +569,23 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should close form after successful creation', async () => {
-			invokeWithRetry.mockResolvedValueOnce([]).mockResolvedValueOnce({
-				id: 3,
-				group_id: 1,
-				name: 'Meditation',
-				color: '#3B82F6',
-				icon: null,
-				created_at: '2024-01-03',
-				deleted_at: null,
+			invokeWithRetry.mockImplementation((command: string) => {
+				if (command === 'get_activities') {
+					return Promise.resolve([])
+				} else if (command === 'get_activity_groups') {
+					return Promise.resolve([])
+				} else if (command === 'create_activity') {
+					return Promise.resolve({
+						id: 3,
+						group_id: 1,
+						name: 'Meditation',
+						color: '#3B82F6',
+						icon: null,
+						created_at: '2024-01-03',
+						deleted_at: null,
+					})
+				}
+				return Promise.resolve([])
 			})
 
 			const onChange = vi.fn()
@@ -571,7 +623,16 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should show error if creation fails', async () => {
-			invokeWithRetry.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('Creation failed'))
+			invokeWithRetry.mockImplementation((command: string) => {
+				if (command === 'get_activities') {
+					return Promise.resolve([])
+				} else if (command === 'get_activity_groups') {
+					return Promise.resolve([])
+				} else if (command === 'create_activity') {
+					return Promise.reject(new Error('Creation failed'))
+				}
+				return Promise.resolve([])
+			})
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -610,7 +671,7 @@ describe('ActivitySelector', () => {
 
 	describe('Accessibility', () => {
 		it('should have descriptive aria-label for selecting activity', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })
@@ -622,7 +683,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should have descriptive aria-label for deselecting activity', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, {
@@ -636,7 +697,7 @@ describe('ActivitySelector', () => {
 		})
 
 		it('should have aria-pressed on activity buttons', async () => {
-			invokeWithRetry.mockResolvedValue(mockActivities)
+			setupMocks()
 
 			const onChange = vi.fn()
 			const { container } = render(ActivitySelector, { props: { selectedIds: [], onChange } })

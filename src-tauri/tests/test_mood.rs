@@ -87,13 +87,13 @@ fn test_log_mood_without_activities() {
 
 #[test]
 fn test_log_mood_invalid_rating() {
-    let (repo, _temp_dir, group_id) = setup_test_repo();
+    let (repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Try to log mood with invalid rating
     let result = repo.create_mood_checkin(0, vec![], None);
     assert!(result.is_err());
 
-    let result = repo.create_mood_checkin(6, vec![], None);
+    let result = repo.create_mood_checkin(8, vec![], None); // Above maximum of 7
     assert!(result.is_err());
 }
 
@@ -355,18 +355,18 @@ fn test_log_mood_notes_at_exact_limit() {
     assert!(result.is_ok(), "5,000 characters should be allowed");
 }
 
-// T150j: Test log_mood with boundary ratings (0, 6, -1, 100)
+// T150j: Test log_mood with boundary ratings (0, 8, -1, 100) for 1-7 scale
 #[test]
 fn test_log_mood_with_invalid_boundary_ratings() {
-    let (repo, _temp_dir, group_id) = setup_test_repo();
+    let (repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Test rating 0 (below minimum of 1)
     let result = repo.create_mood_checkin(0, vec![], None);
     assert!(result.is_err());
     assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
 
-    // Test rating 6 (above maximum of 5)
-    let result = repo.create_mood_checkin(6, vec![], None);
+    // Test rating 8 (above maximum of 7)
+    let result = repo.create_mood_checkin(8, vec![], None);
     assert!(result.is_err());
     assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
 
@@ -381,20 +381,20 @@ fn test_log_mood_with_invalid_boundary_ratings() {
     assert!(format!("{}", result.unwrap_err()).contains("Invalid mood rating"));
 }
 
-// T150j continued: Test valid boundary ratings (1 and 5)
+// T150j continued: Test valid boundary ratings (1 and 7) for 1-7 scale
 #[test]
 fn test_log_mood_with_valid_boundary_ratings() {
-    let (repo, _temp_dir, group_id) = setup_test_repo();
+    let (repo, _temp_dir, _group_id) = setup_test_repo();
 
-    // Test rating 1 (minimum valid)
+    // Test rating 1 (minimum valid - Terrible)
     let result = repo.create_mood_checkin(1, vec![], None);
     assert!(result.is_ok(), "Rating 1 should be valid");
     assert_eq!(result.unwrap().mood_rating, 1);
 
-    // Test rating 5 (maximum valid)
-    let result = repo.create_mood_checkin(5, vec![], None);
-    assert!(result.is_ok(), "Rating 5 should be valid");
-    assert_eq!(result.unwrap().mood_rating, 5);
+    // Test rating 7 (maximum valid - Excellent)
+    let result = repo.create_mood_checkin(7, vec![], None);
+    assert!(result.is_ok(), "Rating 7 should be valid");
+    assert_eq!(result.unwrap().mood_rating, 7);
 }
 
 // T150k: Test log_mood with very large activity_ids array (50+ ids)
