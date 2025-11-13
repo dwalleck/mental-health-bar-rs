@@ -11,8 +11,6 @@
 		{ name: 'Mood', path: '/mood', icon: '😊' },
 		{ name: 'Charts', path: '/charts', icon: '📊' },
 		{ name: 'Settings', path: '/settings', icon: '⚙️' },
-		// Development/Testing pages
-		{ name: 'E2E Test', path: '/e2e-test', icon: '🧪' },
 	]
 
 	// Get current path and determine if a nav item is active
