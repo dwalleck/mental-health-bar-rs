@@ -186,15 +186,15 @@ fn test_check_constraint_enforced() {
         "CHECK constraint not enforced! mood_rating=0 should be rejected."
     );
 
-    // Try to insert a mood check-in with invalid rating (6)
+    // Try to insert a mood check-in with invalid rating (8, above maximum of 7)
     let result2 = conn.execute(
-        "INSERT INTO mood_checkins (mood_rating, notes) VALUES (6, NULL)",
+        "INSERT INTO mood_checkins (mood_rating, notes) VALUES (8, NULL)",
         [],
     );
 
     assert!(
         result2.is_err(),
-        "CHECK constraint not enforced! mood_rating=6 should be rejected."
+        "CHECK constraint not enforced! mood_rating=8 should be rejected."
     );
 }
 

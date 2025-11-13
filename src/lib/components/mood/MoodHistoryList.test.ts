@@ -165,9 +165,9 @@ describe('MoodHistoryList', () => {
 				props: { checkins: mockCheckins },
 			})
 
-			expect(container.textContent).toContain('Good') // Rating 4
-			expect(container.textContent).toContain('Neutral') // Rating 3
-			expect(container.textContent).toContain('Very Good') // Rating 5
+			expect(container.textContent).toContain('Ok') // Rating 4
+			expect(container.textContent).toContain('Bad') // Rating 3
+			expect(container.textContent).toContain('Good') // Rating 5
 		})
 
 		it('should apply correct color classes to badges', () => {
@@ -176,7 +176,7 @@ describe('MoodHistoryList', () => {
 			})
 
 			const badge = container.querySelector('.mood-badge')
-			expect(badge).toHaveClass('bg-lime-500') // Good = lime
+			expect(badge).toHaveClass('bg-yellow-500') // Ok = yellow
 		})
 
 		it('should have aria-label on mood badge', () => {
@@ -185,7 +185,7 @@ describe('MoodHistoryList', () => {
 			})
 
 			const badge = container.querySelector('.mood-badge')
-			expect(badge).toHaveAttribute('aria-label', 'Mood rating: 4 out of 5 (Good)')
+			expect(badge).toHaveAttribute('aria-label', 'Mood rating: 4 out of 7 (Ok)')
 		})
 
 		it('should display notes when present', () => {
@@ -381,8 +381,8 @@ describe('MoodHistoryList', () => {
 
 			const badge = container.querySelector('.mood-badge')
 			const ariaLabel = badge?.getAttribute('aria-label')
-			expect(ariaLabel).toContain('5 out of 5')
-			expect(ariaLabel).toContain('Very Good')
+			expect(ariaLabel).toContain('5 out of 7')
+			expect(ariaLabel).toContain('Good')
 		})
 
 		it('should have proper dark mode text styling', () => {
