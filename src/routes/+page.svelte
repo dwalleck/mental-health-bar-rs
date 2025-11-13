@@ -6,7 +6,6 @@
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
 	import DashboardScores from '$lib/components/dashboard/DashboardScores.svelte'
-	import AnnouncementBanner from '$lib/components/ui/AnnouncementBanner.svelte'
 
 	let assessmentTypes = $state<AssessmentType[]>([])
 	let recentCount = $state(0)
@@ -32,15 +31,6 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Announcement for new UI components -->
-	<AnnouncementBanner
-		title="✨ New UI Components Available!"
-		message="Check out the professionally designed Tailwind UI components including modern sidebar, enhanced forms, data tables, modals, and more."
-		actionLabel="View UI Components"
-		actionHref="/ui-showcase-simple"
-		variant="info"
-	/>
-
 	<div>
 		<h1 class="text-4xl font-bold text-gray-800 mb-2">Welcome to Mental Health Tracker</h1>
 		<p class="text-lg text-gray-600">

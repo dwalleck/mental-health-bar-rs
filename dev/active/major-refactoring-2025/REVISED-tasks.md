@@ -351,7 +351,7 @@ The following were in the original plan but are already 100% complete:
   - 1 = "Terrible"
   - 2 = "Very Bad"
   - 3 = "Bad"
-  - 4 = "Neutral"
+  - 4 = "Ok"
   - 5 = "Good"
   - 6 = "Very Good"
   - 7 = "Excellent"
