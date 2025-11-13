@@ -217,10 +217,10 @@ The following were in the original plan but are already 100% complete:
 
 #### Reporting Components (8-10 hours)
 
-- [ ] 4.1 Create `ActivityReportCard.svelte` (days/week display with bar chart)
-- [ ] 4.2 Create `ActivityTrendChart.svelte` (% change visualization with arrow indicators)
-- [ ] 4.3 Create `GoalProgressDashboard.svelte` (all active goals with progress bars)
-- [ ] 4.4 Integrate reporting into existing `/charts` route (add "Activities" tab)
+- [X] 4.1 Create `ActivityReportCard.svelte` (days/week display with bar chart)
+- [X] 4.2 Create `ActivityTrendChart.svelte` (% change visualization with arrow indicators)
+- [X] 4.3 Create `GoalProgressDashboard.svelte` (all active goals with progress bars)
+- [X] 4.4 Integrate reporting into existing `/charts` route (add "Activities" tab)
 
 #### Integration Testing (8-10 hours)
 
@@ -736,11 +736,11 @@ The following were in the original plan but are already 100% complete:
 
 ### Release Completion Status
 
-- [ ] **v0.1**: Activity Groups Shipped (69/107 tasks - Weeks 1-2 Complete! Week 3 Complete! Week 4 In Progress) - End of Week 4
+- [ ] **v0.1**: Activity Groups Shipped (73/107 tasks - Weeks 1-2 Complete! Week 3 Complete! Week 4 In Progress) - End of Week 4
   - Week 1: ✅ 29/29 tasks complete
   - Week 2: 🟡 30/32 tasks complete (bindings generation and command tests pending)
   - Week 3: ✅ 24/24 tasks complete (Frontend UI Components)
-  - Week 4: 🟡 10/22 tasks complete (Integration Testing done! Reporting Dashboard pending)
+  - Week 4: 🟡 14/22 tasks complete (Reporting Components ✅ Integration Testing ✅ - Performance Testing & Documentation pending)
 - [ ] **v0.2**: Check-In v2.0 Shipped (0/28 tasks) - End of Week 5
 - [ ] **v0.3**: Spec Gaps Shipped (0/27 tasks) - End of Week 6
 - [ ] **v0.4**: Catalyst UI Shipped (0/26 tasks) - End of Week 8
