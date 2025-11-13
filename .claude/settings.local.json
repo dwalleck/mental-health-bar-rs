@@ -6,7 +6,11 @@
       "Bash(rustc:*)",
       "Bash(cargo:*)",
       "WebFetch(domain:github.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm test:*)",
+      "mcp__sequentialthinking__sequentialthinking",
+      "Bash(cat:*)",
+      "mcp__fetch__fetch"
     ],
     "deny": [],
     "ask": []

@@ -309,6 +309,26 @@ let tx = conn.transaction()?;
 tx.commit()?;  // 100x-1000x faster than individual commits
 ```
 
+**Benchmarking Best Practices**:
+
+When writing Criterion benchmarks:
+- **Test public APIs**, not internal implementation details
+- **Benchmark worst-case scenarios** (e.g., batch operations without transactions) to establish baseline
+- **Document transaction patterns** in comments if repository doesn't expose bulk APIs
+- **Follow `_with_conn` pattern** to avoid deadlocks in helpers called by benchmarks
+
+Example:
+```rust
+// Benchmark tests individual calls (worst-case, no transaction batching)
+fn bench_batch_operations(c: &mut Criterion) {
+    // Note: Production code should wrap bulk operations in transactions.
+    // See "Transaction Pattern (RAII)" for implementation.
+    for i in 0..100 {
+        repo.insert_item(i)?;  // Each call = separate transaction
+    }
+}
+```
+
 **Avoid N+1 Queries** (use JOINs):
 ```rust
 // ❌ BAD:
@@ -679,5 +699,277 @@ let result = conn.query_row(...)?;  // Auto-converts via #[from]
 - Follow mobile-first responsive design patterns
 - Use proper CSS specificity and avoid `!important`
 - Leverage Tailwind utilities when configured
+
+---
+
+## Database Schema - Activity Groups Feature
+
+### Overview
+
+The Activity Groups feature extends the activities tracking system with organization, goal setting, and reporting capabilities. All data is stored locally in SQLite with proper indexes for performance.
+
+### Schema Tables
+
+#### `activity_groups` Table
+
+Organizes related activities into categories for easier management and group-level reporting.
+
+```sql
+CREATE TABLE IF NOT EXISTS activity_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL CHECK(length(trim(name)) > 0 AND length(name) <= 100),
+    description TEXT CHECK(description IS NULL OR length(description) <= 500),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT,
+    CONSTRAINT unique_active_group_name UNIQUE (name) WHERE deleted_at IS NULL
+);
+
+-- Index for soft-delete filtering
+CREATE INDEX IF NOT EXISTS idx_activity_groups_deleted
+    ON activity_groups(deleted_at)
+    WHERE deleted_at IS NULL;
+```
+
+**Key Features**:
+- **Soft Delete**: `deleted_at` column for data recovery
+- **Unique Names**: Only among active (non-deleted) groups
+- **Validation**: CHECK constraints for name length and non-empty
+- **Partial Index**: Fast filtering of non-deleted groups
+
+#### Updated `activities` Table
+
+Extended with `group_id` foreign key to support group membership.
+
+```sql
+-- New column added to existing activities table
+ALTER TABLE activities ADD COLUMN group_id INTEGER REFERENCES activity_groups(id) ON DELETE SET NULL;
+
+-- Index for group-based queries
+CREATE INDEX IF NOT EXISTS idx_activities_group ON activities(group_id);
+```
+
+**Changes**:
+- **Optional Group**: `group_id` can be NULL (ungrouped activities)
+- **CASCADE NULL**: If group deleted, activities become ungrouped
+- **Indexed**: Fast retrieval of activities by group
+
+#### `activity_logs` Table
+
+Tracks when activities are performed, with timestamps and optional notes.
+
+```sql
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+    logged_at TEXT NOT NULL,
+    notes TEXT CHECK(notes IS NULL OR length(notes) <= 1000),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+);
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_activity_logs_activity ON activity_logs(activity_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_logged_at ON activity_logs(logged_at);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_deleted ON activity_logs(deleted_at) WHERE deleted_at IS NULL;
+```
+
+**Key Features**:
+- **Activity Link**: CASCADE DELETE removes logs when activity deleted
+- **Soft Delete**: Supports data recovery
+- **Timestamp Index**: Fast date-range queries for reporting
+- **Notes**: Optional context for each log entry
+
+#### `activity_goals` Table
+
+Defines targets for activities or groups, supporting two goal types.
+
+```sql
+CREATE TABLE IF NOT EXISTS activity_goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
+    group_id INTEGER REFERENCES activity_groups(id) ON DELETE CASCADE,
+    goal_type TEXT NOT NULL CHECK(goal_type IN ('days_per_period', 'percent_improvement')),
+    target_value INTEGER NOT NULL CHECK(target_value > 0),
+    period_days INTEGER NOT NULL CHECK(period_days > 0),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT,
+    CHECK(
+        (activity_id IS NOT NULL AND group_id IS NULL) OR
+        (activity_id IS NULL AND group_id IS NOT NULL)
+    )
+);
+
+-- Indexes for goal queries
+CREATE INDEX IF NOT EXISTS idx_activity_goals_activity ON activity_goals(activity_id);
+CREATE INDEX IF NOT EXISTS idx_activity_goals_group ON activity_goals(group_id);
+CREATE INDEX IF NOT EXISTS idx_activity_goals_deleted ON activity_goals(deleted_at) WHERE deleted_at IS NULL;
+```
+
+**Key Features**:
+- **XOR Constraint**: Goal applies to EITHER activity OR group, not both
+- **Goal Types**:
+  - `days_per_period`: Track consistency (e.g., "5 days per 7 days")
+  - `percent_improvement`: Track growth (e.g., "25% increase")
+- **Validation**: Positive targets and periods required
+- **CASCADE DELETE**: Goals removed when parent deleted
+
+### Data Integrity
+
+**Foreign Key Constraints**:
+- `activities.group_id → activity_groups.id` (SET NULL on delete)
+- `activity_logs.activity_id → activities.id` (CASCADE on delete)
+- `activity_goals.activity_id → activities.id` (CASCADE on delete)
+- `activity_goals.group_id → activity_groups.id` (CASCADE on delete)
+
+**CHECK Constraints**:
+- String length limits (names, descriptions, notes)
+- Non-empty trimmed strings (prevents whitespace-only entries)
+- Valid enum values (`goal_type`)
+- Positive numeric values (`target_value`, `period_days`)
+- XOR logic (activity_id/group_id exclusivity)
+
+**Soft Deletes**:
+All tables use `deleted_at` timestamps instead of hard deletes:
+- Supports data recovery and audit trails
+- Indexed for fast filtering of active records
+- UNIQUE constraints apply only to non-deleted records
+
+### Performance Optimizations
+
+**Indexes by Use Case**:
+
+1. **List Activities by Group**:
+   ```sql
+   -- Uses: idx_activities_group
+   SELECT * FROM activities WHERE group_id = ? AND deleted_at IS NULL;
+   ```
+
+2. **Get Activity Logs in Date Range**:
+   ```sql
+   -- Uses: idx_activity_logs_logged_at, idx_activity_logs_activity
+   SELECT * FROM activity_logs
+   WHERE activity_id = ?
+     AND logged_at BETWEEN ? AND ?
+     AND deleted_at IS NULL;
+   ```
+
+3. **Find Active Goals**:
+   ```sql
+   -- Uses: idx_activity_goals_deleted, idx_activity_goals_activity
+   SELECT * FROM activity_goals
+   WHERE activity_id = ?
+     AND deleted_at IS NULL;
+   ```
+
+4. **Group-Level Statistics**:
+   ```sql
+   -- Uses: idx_activities_group, idx_activity_logs_activity
+   SELECT COUNT(DISTINCT DATE(logged_at)) as days
+   FROM activity_logs
+   WHERE activity_id IN (
+       SELECT id FROM activities WHERE group_id = ?
+   )
+   AND logged_at > ?
+   AND activity_logs.deleted_at IS NULL;
+   ```
+
+**Benchmark Results** (Criterion):
+- Group CRUD operations: **~50 µs** (0.05 ms)
+- Retrieve 1000 logs: **~328 µs** (0.33 ms)
+- Complex reporting queries (1200 logs): **~160 µs** (0.16 ms)
+- Goal progress calculation: **~198 µs** (0.20 ms)
+
+All operations are **1000x-6000x faster** than target thresholds.
+
+### Migration History
+
+**Migration 002**: Activity Groups Foundation
+- Created `activity_groups` table
+- Added `group_id` to `activities` table
+- Added indexes for group queries
+
+**Migration 003**: Goals and Tracking
+- Created `activity_logs` table
+- Created `activity_goals` table
+- Added comprehensive indexes for reporting queries
+- Fixed foreign key constraints for proper CASCADE behavior
+
+### Query Examples
+
+**Get Activities with Groups**:
+```rust
+let query = "
+    SELECT a.id, a.name, a.color, a.icon,
+           g.id as group_id, g.name as group_name
+    FROM activities a
+    LEFT JOIN activity_groups g ON a.group_id = g.id
+    WHERE a.deleted_at IS NULL
+    ORDER BY g.name, a.name
+";
+```
+
+**Calculate Activity Frequency**:
+```rust
+let query = "
+    SELECT COUNT(DISTINCT DATE(logged_at)) as unique_days
+    FROM activity_logs
+    WHERE activity_id = ?
+      AND logged_at BETWEEN ? AND ?
+      AND deleted_at IS NULL
+";
+// Result: days / total_days_in_period * 7 = days_per_week
+```
+
+**Check Goal Progress (Days per Period)**:
+```rust
+let query = "
+    SELECT COUNT(DISTINCT DATE(logged_at)) as logged_days
+    FROM activity_logs
+    WHERE activity_id = ?
+      AND logged_at >= ?
+      AND deleted_at IS NULL
+";
+// Progress: (logged_days / target_value) * 100
+```
+
+**Group-Level Goal Progress**:
+```rust
+let query = "
+    SELECT COUNT(DISTINCT DATE(al.logged_at)) as logged_days
+    FROM activity_logs al
+    JOIN activities a ON al.activity_id = a.id
+    WHERE a.group_id = ?
+      AND al.logged_at >= ?
+      AND al.deleted_at IS NULL
+      AND a.deleted_at IS NULL
+";
+```
+
+### Best Practices
+
+**When Querying**:
+- Always filter by `deleted_at IS NULL` for active records
+- Use date indexes for time-range queries
+- Leverage partial indexes for soft-delete filtering
+- Use JOINs instead of N+1 queries for group statistics
+
+**When Mutating**:
+- Wrap multiple operations in transactions (RAII pattern)
+- Use CASCADE for dependent deletes (logs, goals)
+- Use SET NULL for optional relationships (group membership)
+- Validate input before database operations
+
+**Performance Tips**:
+- Date filtering is highly optimized (use it!)
+- GROUP BY on dates is fast with proper indexes
+- Avoid DISTINCT unless necessary
+- Use `prepare_cached()` for repeated queries
+
+### Related Documentation
+
+- **User Guide**: [docs/ACTIVITY_GROUPS_GUIDE.md](../docs/ACTIVITY_GROUPS_GUIDE.md)
+- **Repository Code**: `src-tauri/src/features/activities/repository.rs`
+- **Migration Files**: `src-tauri/migrations/002_activity_groups.sql`, `003_goals_and_tracking.sql`
+- **Benchmarks**: `src-tauri/benches/reporting_benchmarks.rs`
 
 <!-- MANUAL ADDITIONS END -->

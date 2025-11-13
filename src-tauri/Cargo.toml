@@ -48,6 +48,7 @@ tempfile = "3.8"
 quickcheck = "1.0"
 mockall = "0.13"
 rstest = "0.23"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 # Compilation speed optimizations
 [profile.dev]
@@ -65,3 +66,16 @@ debug = 0
 [profile.test]
 inherits = "dev"
 debug = 1
+
+# Benchmark configuration
+[[bench]]
+name = "activity_groups_benchmarks"
+harness = false
+
+[[bench]]
+name = "activity_logs_benchmarks"
+harness = false
+
+[[bench]]
+name = "reporting_benchmarks"
+harness = false
