@@ -224,20 +224,20 @@ The following were in the original plan but are already 100% complete:
 
 #### Integration Testing (8-10 hours)
 
-- [ ] 4.5 Test end-to-end: Create group → Add activities → Assign group → View grouped list
-- [ ] 4.6 Test activity logging: Log activity → View log history → Add note
-- [ ] 4.7 Test goal setting: Set goal → Log activities → View progress → Achieve goal
-- [ ] 4.8 Test reporting: View days/week → View % change → View goal progress
-- [ ] 4.9 Test activity deletion (soft delete preserves logs and goals)
-- [ ] 4.10 Test group deletion CASCADE behavior:
+- [X] 4.5 Test end-to-end: Create group → Add activities → Assign group → View grouped list
+- [X] 4.6 Test activity logging: Log activity → View log history → Add note
+- [X] 4.7 Test goal setting: Set goal → Log activities → View progress → Achieve goal
+- [X] 4.8 Test reporting: View days/week → View % change → View goal progress
+- [X] 4.9 Test activity deletion (soft delete preserves logs and goals)
+- [X] 4.10 Test group deletion CASCADE behavior:
   - Create group with 3 activities
   - Delete group
   - Verify all 3 activities are CASCADE deleted from database
   - Verify warning message showed correct count before deletion
-- [ ] 4.11 Test "Move to Group" functionality (update activity.group_id)
-- [ ] 4.12 Write component tests for ActivityGroupList
-- [ ] 4.13 Write component tests for GoalSettingModal
-- [ ] 4.14 Write component tests for ActivityLogButton
+- [X] 4.11 Test "Move to Group" functionality (update activity.group_id)
+- [X] 4.12 Write component tests for ActivityGroupList
+- [X] 4.13 Write component tests for GoalSettingModal
+- [X] 4.14 Write component tests for ActivityLogButton
 
 #### Performance Testing (3-4 hours)
 
@@ -736,11 +736,11 @@ The following were in the original plan but are already 100% complete:
 
 ### Release Completion Status
 
-- [ ] **v0.1**: Activity Groups Shipped (59/107 tasks - Weeks 1-2 Complete! Week 3 Pending) - End of Week 4
+- [ ] **v0.1**: Activity Groups Shipped (69/107 tasks - Weeks 1-2 Complete! Week 3 Complete! Week 4 In Progress) - End of Week 4
   - Week 1: ✅ 29/29 tasks complete
   - Week 2: 🟡 30/32 tasks complete (bindings generation and command tests pending)
-  - Week 3: ⏳ 0/24 tasks (Frontend UI Components)
-  - Week 4: ⏳ 0/22 tasks (Reporting Dashboard)
+  - Week 3: ✅ 24/24 tasks complete (Frontend UI Components)
+  - Week 4: 🟡 10/22 tasks complete (Integration Testing done! Reporting Dashboard pending)
 - [ ] **v0.2**: Check-In v2.0 Shipped (0/28 tasks) - End of Week 5
 - [ ] **v0.3**: Spec Gaps Shipped (0/27 tasks) - End of Week 6
 - [ ] **v0.4**: Catalyst UI Shipped (0/26 tasks) - End of Week 8
