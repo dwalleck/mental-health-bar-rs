@@ -260,6 +260,70 @@ impl AssessmentRepository {
         Ok(responses)
     }
 
+    /// Get all draft assessments (not completed)
+    pub fn get_draft_assessments(&self) -> Result<Vec<AssessmentResponse>, AssessmentError> {
+        let conn = self.db.get_connection();
+        let conn = conn.lock();
+
+        let mut stmt = conn.prepare(
+            "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
+                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes, resp.status,
+                    atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
+             FROM assessment_responses AS resp
+             JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
+             WHERE resp.status = 'draft'
+             ORDER BY resp.completed_at DESC"
+        )?;
+
+        let responses = stmt
+            .query_map([], |row| {
+                let responses_json: String = row.get(2)?;
+                let responses: Vec<i32> = serde_json::from_str(&responses_json).map_err(|e| {
+                    error!("Failed to deserialize assessment responses: {}", e);
+                    rusqlite::Error::InvalidColumnType(
+                        2,
+                        "responses".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?;
+
+                Ok(AssessmentResponse {
+                    id: row.get(0)?,
+                    assessment_type: AssessmentType {
+                        id: row.get(8)?,
+                        code: row.get(9)?,
+                        name: row.get(10)?,
+                        description: row.get(11)?,
+                        question_count: row.get(12)?,
+                        min_score: row.get(13)?,
+                        max_score: row.get(14)?,
+                        thresholds: serde_json::from_str(&row.get::<_, String>(15)?).map_err(
+                            |e| {
+                                error!(
+                                    "Failed to deserialize thresholds in draft assessments: {}",
+                                    e
+                                );
+                                rusqlite::Error::InvalidColumnType(
+                                    15,
+                                    "thresholds".to_string(),
+                                    rusqlite::types::Type::Text,
+                                )
+                            },
+                        )?,
+                    },
+                    responses,
+                    total_score: row.get(3)?,
+                    severity_level: row.get(4)?,
+                    completed_at: row.get(5)?,
+                    notes: row.get(6)?,
+                    status: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(responses)
+    }
+
     /// Get a single assessment response by ID
     pub fn get_assessment_response(&self, id: i32) -> Result<AssessmentResponse, AssessmentError> {
         let conn = self.db.get_connection();
