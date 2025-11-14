@@ -162,7 +162,7 @@
 
 		try {
 			// Calculate date range based on timeRange
-			 
+
 			const endDate = new Date()
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			let startDate = new Date()

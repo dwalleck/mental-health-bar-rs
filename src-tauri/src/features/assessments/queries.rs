@@ -82,3 +82,14 @@ pub async fn get_latest_assessment(
 
     Ok(history.into_iter().next())
 }
+
+/// Get all draft assessments (not completed)
+#[tauri::command]
+#[specta::specta]
+pub async fn get_draft_assessments(
+    state: State<'_, AppState>,
+) -> Result<Vec<AssessmentResponse>, CommandError> {
+    let repo = AssessmentRepository::new(state.db.clone());
+    repo.get_draft_assessments()
+        .map_err(|e| e.to_command_error())
+}

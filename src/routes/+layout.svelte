@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css'
 	import { goto } from '$app/navigation'
+	import { page } from '$app/stores'
 	import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte'
 	import Toast from '$lib/components/ui/Toast.svelte'
 
@@ -13,10 +14,9 @@
 		{ name: 'Settings', path: '/settings', icon: '⚙️' },
 	]
 
-	// Get current path and determine if a nav item is active
-	let currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
-
-	function isActive(itemPath: string, currentPath: string): boolean {
+	// Determine if a nav item is active based on current page
+	function isActive(itemPath: string): boolean {
+		const currentPath = $page.url.pathname
 		if (itemPath === '/') {
 			return currentPath === '/'
 		}
@@ -77,8 +77,7 @@
 					href={item.path}
 					data-sveltekit-preload-data="hover"
 					class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 hover:text-blue-600 dark:hover:text-blue-400 transition-colors {isActive(
-						item.path,
-						currentPath
+						item.path
 					)
 						? 'bg-blue-50 dark:bg-blue-900 text-blue-600 dark:text-blue-400 border-r-4 border-blue-600'
 						: ''}"

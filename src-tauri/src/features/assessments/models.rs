@@ -12,6 +12,10 @@ pub const SEVERITY_MODERATELY_SEVERE: &str = "moderately_severe";
 pub const SEVERITY_SEVERE: &str = "severe";
 pub const SEVERITY_UNKNOWN: &str = "unknown";
 
+/// Assessment status constants
+pub const STATUS_DRAFT: &str = "draft";
+pub const STATUS_COMPLETED: &str = "completed";
+
 /// Assessment error types
 #[derive(Error, Debug)]
 pub enum AssessmentError {
@@ -153,6 +157,19 @@ fn validate_notes_control_chars(notes: &str) -> Result<(), validator::Validation
     Ok(())
 }
 
+/// Custom validator for assessment status
+fn validate_status(status: &str) -> Result<(), validator::ValidationError> {
+    if status != STATUS_DRAFT && status != STATUS_COMPLETED {
+        let mut error = validator::ValidationError::new("invalid_status");
+        error.message = Some(std::borrow::Cow::from(format!(
+            "Assessment status must be either 'draft' or 'completed', got '{}'",
+            status
+        )));
+        return Err(error);
+    }
+    Ok(())
+}
+
 /// Request to submit assessment
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Validate)]
 pub struct SubmitAssessmentRequest {
@@ -161,6 +178,14 @@ pub struct SubmitAssessmentRequest {
     pub responses: Vec<i32>,
     #[validate(length(max = 10000), custom(function = "validate_notes_control_chars"))]
     pub notes: Option<String>,
+    #[validate(custom(function = "validate_status"))]
+    #[serde(default = "default_status")]
+    pub status: String,
+}
+
+/// Default status is "completed" for backward compatibility
+fn default_status() -> String {
+    STATUS_COMPLETED.to_string()
 }
 
 /// Assessment response with calculated score
@@ -173,6 +198,7 @@ pub struct AssessmentResponse {
     pub severity_level: String,
     pub completed_at: String,
     pub notes: Option<String>,
+    pub status: String,
 }
 
 /// Calculate PHQ-9 score (0-27)

@@ -9,7 +9,7 @@
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 	import type { MoodCheckin } from '$lib/bindings'
 
-	let moodRating = $state(3)
+	let moodRating = $state(4)
 	let selectedActivityIds: number[] = $state([])
 	let notes = $state('')
 	let isSubmitting = $state(false)
@@ -67,7 +67,7 @@
 			})
 
 			displaySuccess('Mood logged successfully!')
-			moodRating = 3
+			moodRating = 4
 			selectedActivityIds = []
 			notes = ''
 			await loadRecentCheckins()
