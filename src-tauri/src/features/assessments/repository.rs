@@ -18,7 +18,7 @@ impl AssessmentRepository {
         Self { db }
     }
 
-    /// Save a completed assessment
+    /// Save an assessment (completed or draft)
     pub fn save_assessment(
         &self,
         assessment_type_id: i32,
@@ -26,6 +26,7 @@ impl AssessmentRepository {
         total_score: i32,
         severity_level: &str,
         notes: Option<String>,
+        status: &str,
     ) -> Result<i32, AssessmentError> {
         // Sanitize notes (trim and convert empty string to None)
         let notes = sanitize_optional_text(notes);
@@ -43,8 +44,8 @@ impl AssessmentRepository {
             .map_err(AssessmentError::Database)?;
 
         let id = tx.query_row(
-            "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes)
-             VALUES (?, ?, ?, ?, ?)
+            "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
+             VALUES (?, ?, ?, ?, ?, ?)
              RETURNING id",
             [
                 &assessment_type_id as &dyn rusqlite::ToSql,
@@ -52,6 +53,7 @@ impl AssessmentRepository {
                 &total_score as &dyn rusqlite::ToSql,
                 &severity_level as &dyn rusqlite::ToSql,
                 &notes as &dyn rusqlite::ToSql,
+                &status as &dyn rusqlite::ToSql,
             ],
             |row| row.get(0),
         )?;
@@ -65,6 +67,7 @@ impl AssessmentRepository {
             total_score = total_score,
             severity_level = severity_level,
             has_notes = notes.is_some(),
+            status = status,
             "Saved assessment"
         );
 
@@ -176,7 +179,7 @@ impl AssessmentRepository {
 
         let mut query = format!(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
-                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
+                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes, resp.status,
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
@@ -223,21 +226,21 @@ impl AssessmentRepository {
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
                     assessment_type: AssessmentType {
-                        id: row.get(7)?,
-                        code: row.get(8)?,
-                        name: row.get(9)?,
-                        description: row.get(10)?,
-                        question_count: row.get(11)?,
-                        min_score: row.get(12)?,
-                        max_score: row.get(13)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?).map_err(
+                        id: row.get(8)?,
+                        code: row.get(9)?,
+                        name: row.get(10)?,
+                        description: row.get(11)?,
+                        question_count: row.get(12)?,
+                        min_score: row.get(13)?,
+                        max_score: row.get(14)?,
+                        thresholds: serde_json::from_str(&row.get::<_, String>(15)?).map_err(
                             |e| {
                                 error!(
                                     "Failed to deserialize thresholds in assessment history: {}",
                                     e
                                 );
                                 rusqlite::Error::InvalidColumnType(
-                                    14,
+                                    15,
                                     "thresholds".to_string(),
                                     rusqlite::types::Type::Text,
                                 )
@@ -249,6 +252,7 @@ impl AssessmentRepository {
                     severity_level: row.get(4)?,
                     completed_at: row.get(5)?,
                     notes: row.get(6)?,
+                    status: row.get(7)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -263,7 +267,7 @@ impl AssessmentRepository {
 
         let result = conn.query_row(
             "SELECT resp.id, resp.assessment_type_id, resp.responses, resp.total_score, resp.severity_level,
-                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes,
+                    strftime('%Y-%m-%d %H:%M:%S', resp.completed_at) as completed_at, resp.notes, resp.status,
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
@@ -284,18 +288,18 @@ impl AssessmentRepository {
                 Ok(AssessmentResponse {
                     id: row.get(0)?,
                     assessment_type: AssessmentType {
-                        id: row.get(7)?,
-                        code: row.get(8)?,
-                        name: row.get(9)?,
-                        description: row.get(10)?,
-                        question_count: row.get(11)?,
-                        min_score: row.get(12)?,
-                        max_score: row.get(13)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(14)?)
+                        id: row.get(8)?,
+                        code: row.get(9)?,
+                        name: row.get(10)?,
+                        description: row.get(11)?,
+                        question_count: row.get(12)?,
+                        min_score: row.get(13)?,
+                        max_score: row.get(14)?,
+                        thresholds: serde_json::from_str(&row.get::<_, String>(15)?)
                             .map_err(|e| {
                                 error!("Failed to deserialize thresholds in assessment history: {}", e);
                                 rusqlite::Error::InvalidColumnType(
-                                    14,
+                                    15,
                                     "thresholds".to_string(),
                                     rusqlite::types::Type::Text
                                 )
@@ -306,6 +310,7 @@ impl AssessmentRepository {
                     severity_level: row.get(4)?,
                     completed_at: row.get(5)?,
                     notes: row.get(6)?,
+                    status: row.get(7)?,
                 })
             },
         );
@@ -433,6 +438,7 @@ impl AssessmentRepositoryTrait for AssessmentRepository {
         total_score: i32,
         severity_level: String,
         notes: Option<String>,
+        status: &str,
     ) -> Result<i32, AssessmentError> {
         self.save_assessment(
             assessment_type_id,
@@ -440,6 +446,7 @@ impl AssessmentRepositoryTrait for AssessmentRepository {
             total_score,
             &severity_level,
             notes,
+            status,
         )
     }
 

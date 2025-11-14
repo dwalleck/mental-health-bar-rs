@@ -71,6 +71,7 @@ fn submit_assessment_impl(
         total_score,
         severity_level.clone(),
         request.notes.clone(),
+        request.status.as_str(),
     )?;
 
     // Return the complete response
@@ -136,6 +137,7 @@ mod tests {
             assessment_type_code: "A".repeat(11),
             responses: vec![0, 1, 2],
             notes: None,
+            status: "completed".to_string(),
         };
 
         assert!(request.validate().is_err());
@@ -147,6 +149,7 @@ mod tests {
             assessment_type_code: "PHQ-9".to_string(), // Has hyphen
             responses: vec![0, 1, 2],
             notes: None,
+            status: "completed".to_string(),
         };
 
         assert!(request.validate().is_err());
@@ -158,6 +161,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2],
             notes: Some("a".repeat(10001)),
+            status: "completed".to_string(),
         };
 
         assert!(request.validate().is_err());
@@ -169,6 +173,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2],
             notes: Some("Test\x00Invalid".to_string()), // Null byte
+            status: "completed".to_string(),
         };
 
         assert!(request.validate().is_err());
@@ -180,6 +185,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
             notes: Some("Feeling okay today\nSome notes".to_string()),
+            status: "completed".to_string(),
         };
 
         assert!(request.validate().is_ok());
@@ -211,6 +217,7 @@ mod tests {
                 total_score,
                 severity_level.clone(),
                 request.notes.clone(),
+                request.status.as_str(),
             )
             .map_err(|e| format!("Failed to save assessment: {}", e))?;
 
@@ -231,6 +238,7 @@ mod tests {
             assessment_type_code: "INVALID".to_string(),
             responses: vec![0, 1, 2],
             notes: None,
+            status: "completed".to_string(),
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
@@ -261,7 +269,7 @@ mod tests {
 
         mock_repo
             .expect_save_assessment()
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _, _, _, _| {
                 Err(AssessmentError::Database(rusqlite::Error::InvalidQuery))
             });
 
@@ -269,6 +277,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: None,
+            status: "completed".to_string(),
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
@@ -408,6 +417,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: None,
+            status: "completed".to_string(),
         };
 
         assert!(request.validate().is_ok());
@@ -419,6 +429,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: Some("Line 1\nLine 2\tTabbed".to_string()),
+            status: "completed".to_string(),
         };
 
         // Newlines and tabs should be allowed
@@ -431,6 +442,7 @@ mod tests {
             assessment_type_code: "GAD7".to_string(),
             responses: vec![0; 7],
             notes: Some("".to_string()),
+            status: "completed".to_string(),
         };
 
         // Empty notes should be valid

@@ -848,9 +848,21 @@ export type MoodChartData = {
 }
 /**
  * Mood check-in model
+ *
+ * Tracks a mood rating on a 7-point scale with optional activities and notes:
+ * - 1 = Terrible
+ * - 2 = Very Bad
+ * - 3 = Bad
+ * - 4 = Ok
+ * - 5 = Good
+ * - 6 = Very Good
+ * - 7 = Excellent
  */
 export type MoodCheckin = {
 	id: number
+	/**
+	 * Mood rating (1-7): 1=Terrible, 2=Very Bad, 3=Bad, 4=Ok, 5=Good, 6=Very Good, 7=Excellent
+	 */
 	mood_rating: number
 	notes: string | null
 	activities: Activity[]
@@ -898,6 +910,7 @@ export type SubmitAssessmentRequest = {
 	assessment_type_code: string
 	responses: number[]
 	notes: string | null
+	status?: string
 }
 /**
  * Threshold line for severity level visualization
