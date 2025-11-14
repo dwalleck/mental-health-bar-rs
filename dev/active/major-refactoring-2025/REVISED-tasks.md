@@ -406,14 +406,14 @@ The following were in the original plan but are already 100% complete:
 - [ ] 6.9 Write repository tests for draft functionality
 - [ ] 6.10 Write command tests for save_draft_assessment
 
-#### FR-009b: Daily Assessment Limit (6-8 hours)
+#### FR-009b: Weekly Assessment Limit (6-8 hours)
 
-- [ ] 6.11 Add validation function `check_assessment_already_completed_today` to repository
-- [ ] 6.12 Update `submit_assessment` command to check for existing assessment today (same type_code, DATE(submitted_at) = today)
-- [ ] 6.13 Return user-friendly errdragor: "You have already completed PHQ-9 today. Please try again tomorrow."
-- [ ] 6.14 Update UI to show "Already completed today" state (disable submit button with tooltip)
-- [ ] 6.15 Add "View Today's Result" link to redirect to existing result
-- [ ] 6.16 Write tests for daily limit validation (allow first, reject second on same day, allow next day)
+- [ ] 6.11 Add validation function `check_assessment_already_completed_this_week` to repository
+- [ ] 6.12 Update `submit_assessment` command to check for existing assessment this week (same type_code, DATE(submitted_at) in current week)
+- [ ] 6.13 Return user-friendly error: "You have already completed PHQ-9 this week. Please try again next week."
+- [ ] 6.14 Update UI to show "Already completed this week" state (disable submit button with tooltip)
+- [ ] 6.15 Add "View This Week's Result" link to redirect to existing result
+- [ ] 6.16 Write tests for weekly limit validation (allow first, reject second in same week, allow next week)
 
 #### FR-009c/FR-015a: Backdating (6-8 hours)
 
