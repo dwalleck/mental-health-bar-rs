@@ -475,4 +475,254 @@ mod tests {
         assert_eq!(get_gad7_severity(15), SEVERITY_SEVERE);
         assert_eq!(get_gad7_severity(21), SEVERITY_SEVERE);
     }
+
+    // ========================================================================
+    // Unit Tests: Draft Assessment Functionality (FR-009a)
+    // ========================================================================
+
+    #[test]
+    fn test_submit_assessment_request_validation_status_draft() {
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
+            notes: Some("Draft notes".to_string()),
+            status: "draft".to_string(),
+        };
+
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_submit_assessment_request_validation_status_completed() {
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
+            notes: Some("Completed notes".to_string()),
+            status: "completed".to_string(),
+        };
+
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_submit_assessment_request_validation_status_invalid() {
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
+            notes: None,
+            status: "in_progress".to_string(), // Invalid status
+        };
+
+        assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn test_submit_assessment_request_validation_status_empty() {
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
+            notes: None,
+            status: "".to_string(), // Empty status
+        };
+
+        assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn test_submit_assessment_as_draft() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        // Setup mock
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, _, _, _, _, status| {
+                assert_eq!(status, "draft", "Status should be 'draft'");
+                Ok(1) // Return mock ID
+            });
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 1,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![1, 1, 0, 1, 1, 0, 1, 0, 1],
+                total_score: 6,
+                severity_level: "mild".to_string(),
+                completed_at: "2024-01-01 12:00:00".to_string(),
+                notes: Some("Draft notes".to_string()),
+                status: "draft".to_string(),
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 1, 0, 1, 1, 0, 1, 0, 1],
+            notes: Some("Draft notes".to_string()),
+            status: "draft".to_string(),
+        };
+
+        let result = submit_assessment_with_trait(&mock_repo, request);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, "draft");
+        assert_eq!(response.notes, Some("Draft notes".to_string()));
+    }
+
+    #[test]
+    fn test_submit_assessment_as_completed() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        // Setup mock
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: "GAD7".to_string(),
+                    name: "GAD-7".to_string(),
+                    description: None,
+                    question_count: 7,
+                    min_score: 0,
+                    max_score: 21,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, _, _, _, _, status| {
+                assert_eq!(status, "completed", "Status should be 'completed'");
+                Ok(2) // Return mock ID
+            });
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 2,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: "GAD7".to_string(),
+                    name: "GAD-7".to_string(),
+                    description: None,
+                    question_count: 7,
+                    min_score: 0,
+                    max_score: 21,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![2, 2, 2, 2, 2, 2, 2],
+                total_score: 14,
+                severity_level: "moderate".to_string(),
+                completed_at: "2024-01-01 14:00:00".to_string(),
+                notes: None,
+                status: "completed".to_string(),
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "GAD7".to_string(),
+            responses: vec![2, 2, 2, 2, 2, 2, 2],
+            notes: None,
+            status: "completed".to_string(),
+        };
+
+        let result = submit_assessment_with_trait(&mock_repo, request);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, "completed");
+        assert_eq!(response.total_score, 14);
+    }
+
+    #[test]
+    fn test_submit_assessment_draft_with_partial_responses() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, responses, _, _, _, status| {
+                assert_eq!(status, "draft");
+                // Verify partial responses (some -1 values for unanswered)
+                assert_eq!(responses.len(), 9);
+                assert!(responses.contains(&-1), "Should have unanswered questions");
+                Ok(3)
+            });
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 3,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![1, 2, -1, -1, 1, -1, 1, -1, -1], // Partial responses
+                total_score: 5,
+                severity_level: "minimal".to_string(),
+                completed_at: "2024-01-01 10:00:00".to_string(),
+                notes: Some("Partially completed".to_string()),
+                status: "draft".to_string(),
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 2, -1, -1, 1, -1, 1, -1, -1],
+            notes: Some("Partially completed".to_string()),
+            status: "draft".to_string(),
+        };
+
+        let result = submit_assessment_with_trait(&mock_repo, request);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, "draft");
+        assert_eq!(
+            response.responses.iter().filter(|&&r| r == -1).count(),
+            5,
+            "Should have 5 unanswered questions"
+        );
+    }
 }

@@ -52,6 +52,16 @@
 		privately.
 	</p>
 
+	<div class="flex gap-3">
+		<a href="/assessments/history" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+			View History →
+		</a>
+		<span class="text-gray-300">|</span>
+		<a href="/assessments/drafts" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+			View Drafts →
+		</a>
+	</div>
+
 	{#if loading}
 		<p class="text-gray-500">Loading assessments...</p>
 	{:else if loadError}

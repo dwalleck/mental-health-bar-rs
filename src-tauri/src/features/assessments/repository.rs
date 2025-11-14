@@ -530,3 +530,322 @@ impl AssessmentRepositoryTrait for AssessmentRepository {
         self.delete_assessment_type(id)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::assessments::models::{STATUS_COMPLETED, STATUS_DRAFT};
+    use tempfile::TempDir;
+
+    fn setup_test_repo() -> (AssessmentRepository, TempDir) {
+        let temp_dir = TempDir::new().expect("Failed to create temp directory");
+        let db = Arc::new(
+            Database::new(temp_dir.path().to_path_buf()).expect("Failed to create database"),
+        );
+        (AssessmentRepository::new(db), temp_dir)
+    }
+
+    #[test]
+    fn test_save_assessment_as_draft() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get an assessment type to work with
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+
+        // Save a draft assessment
+        let responses = vec![1, 2, 1, 0, 1, 2, 1, 0, 1];
+        let total_score = 10;
+        let severity_level = "mild";
+        let notes = Some("Test draft notes".to_string());
+
+        let id = repo
+            .save_assessment(
+                phq9.id,
+                &responses,
+                total_score,
+                severity_level,
+                notes,
+                STATUS_DRAFT,
+            )
+            .expect("Failed to save draft assessment");
+
+        // Retrieve and verify
+        let saved = repo
+            .get_assessment_response(id)
+            .expect("Failed to get assessment");
+
+        assert_eq!(saved.status, STATUS_DRAFT);
+        assert_eq!(saved.total_score, total_score);
+        assert_eq!(saved.severity_level, severity_level);
+        assert_eq!(saved.responses, responses);
+        assert_eq!(saved.notes, Some("Test draft notes".to_string()));
+    }
+
+    #[test]
+    fn test_save_assessment_as_completed() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get an assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let gad7 = assessment_types
+            .iter()
+            .find(|at| at.code == "GAD7")
+            .expect("GAD7 not found");
+
+        // Save a completed assessment
+        let responses = vec![2, 2, 3, 2, 1, 2, 3];
+        let total_score = 15;
+        let severity_level = "moderate";
+
+        let id = repo
+            .save_assessment(
+                gad7.id,
+                &responses,
+                total_score,
+                severity_level,
+                None,
+                STATUS_COMPLETED,
+            )
+            .expect("Failed to save completed assessment");
+
+        // Retrieve and verify
+        let saved = repo
+            .get_assessment_response(id)
+            .expect("Failed to get assessment");
+
+        assert_eq!(saved.status, STATUS_COMPLETED);
+        assert_eq!(saved.total_score, total_score);
+        assert_eq!(saved.severity_level, severity_level);
+        assert_eq!(saved.responses, responses);
+        assert_eq!(saved.notes, None);
+    }
+
+    #[test]
+    fn test_get_draft_assessments_returns_only_drafts() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get assessment types
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+        let gad7 = assessment_types
+            .iter()
+            .find(|at| at.code == "GAD7")
+            .expect("GAD7 not found");
+
+        // Create a mix of draft and completed assessments
+        // Draft 1
+        repo.save_assessment(
+            phq9.id,
+            &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
+            9,
+            "mild",
+            Some("Draft 1".to_string()),
+            STATUS_DRAFT,
+        )
+        .expect("Failed to save draft 1");
+
+        // Completed 1
+        repo.save_assessment(
+            phq9.id,
+            &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
+            18,
+            "moderately_severe",
+            Some("Completed 1".to_string()),
+            STATUS_COMPLETED,
+        )
+        .expect("Failed to save completed 1");
+
+        // Draft 2
+        repo.save_assessment(
+            gad7.id,
+            &vec![1, 1, 1, 1, 1, 1, 1],
+            7,
+            "mild",
+            Some("Draft 2".to_string()),
+            STATUS_DRAFT,
+        )
+        .expect("Failed to save draft 2");
+
+        // Completed 2
+        repo.save_assessment(
+            gad7.id,
+            &vec![3, 3, 3, 3, 3, 3, 3],
+            21,
+            "severe",
+            Some("Completed 2".to_string()),
+            STATUS_COMPLETED,
+        )
+        .expect("Failed to save completed 2");
+
+        // Draft 3
+        repo.save_assessment(
+            phq9.id,
+            &vec![0, 0, 1, 1, 0, 1, 0, 0, 1],
+            4,
+            "minimal",
+            Some("Draft 3".to_string()),
+            STATUS_DRAFT,
+        )
+        .expect("Failed to save draft 3");
+
+        // Get only drafts
+        let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
+
+        // Should only return 3 draft assessments
+        assert_eq!(drafts.len(), 3, "Should return exactly 3 drafts");
+
+        // Verify all returned assessments are drafts
+        for draft in &drafts {
+            assert_eq!(
+                draft.status, STATUS_DRAFT,
+                "All returned assessments should be drafts"
+            );
+        }
+
+        // Verify notes to ensure we got the right ones
+        let notes: Vec<Option<String>> = drafts.iter().map(|d| d.notes.clone()).collect();
+        assert!(notes.contains(&Some("Draft 1".to_string())));
+        assert!(notes.contains(&Some("Draft 2".to_string())));
+        assert!(notes.contains(&Some("Draft 3".to_string())));
+        assert!(!notes.contains(&Some("Completed 1".to_string())));
+        assert!(!notes.contains(&Some("Completed 2".to_string())));
+    }
+
+    #[test]
+    fn test_get_draft_assessments_empty_when_no_drafts() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+
+        // Create only completed assessments
+        repo.save_assessment(
+            phq9.id,
+            &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
+            9,
+            "mild",
+            None,
+            STATUS_COMPLETED,
+        )
+        .expect("Failed to save completed assessment");
+
+        // Get drafts should return empty
+        let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
+
+        assert_eq!(drafts.len(), 0, "Should return no drafts");
+    }
+
+    #[test]
+    fn test_get_assessment_history_includes_status() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+
+        // Create both draft and completed
+        repo.save_assessment(
+            phq9.id,
+            &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
+            9,
+            "mild",
+            None,
+            STATUS_DRAFT,
+        )
+        .expect("Failed to save draft");
+
+        repo.save_assessment(
+            phq9.id,
+            &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
+            18,
+            "moderately_severe",
+            None,
+            STATUS_COMPLETED,
+        )
+        .expect("Failed to save completed");
+
+        // Get history (should include both)
+        let history = repo
+            .get_assessment_history(Some("PHQ9".to_string()), None, None, None)
+            .expect("Failed to get history");
+
+        assert_eq!(history.len(), 2, "History should include both assessments");
+
+        // Verify both statuses are present
+        let statuses: Vec<&str> = history.iter().map(|h| h.status.as_str()).collect();
+        assert!(statuses.contains(&STATUS_DRAFT));
+        assert!(statuses.contains(&STATUS_COMPLETED));
+    }
+
+    #[test]
+    fn test_draft_with_partial_responses() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+
+        // Save a draft with some unanswered questions (-1 indicates not answered)
+        let responses = vec![1, 2, -1, -1, 1, -1, 1, -1, -1];
+        let total_score = 5; // Only count answered questions
+        let severity_level = "minimal";
+
+        let id = repo
+            .save_assessment(
+                phq9.id,
+                &responses,
+                total_score,
+                severity_level,
+                Some("Partially completed".to_string()),
+                STATUS_DRAFT,
+            )
+            .expect("Failed to save partial draft");
+
+        // Retrieve and verify
+        let saved = repo
+            .get_assessment_response(id)
+            .expect("Failed to get assessment");
+
+        assert_eq!(saved.status, STATUS_DRAFT);
+        assert_eq!(saved.responses, responses);
+        assert_eq!(
+            saved.responses.iter().filter(|&&r| r == -1).count(),
+            5,
+            "Should have 5 unanswered questions"
+        );
+        assert_eq!(
+            saved.responses.iter().filter(|&&r| r != -1).count(),
+            4,
+            "Should have 4 answered questions"
+        );
+    }
+}

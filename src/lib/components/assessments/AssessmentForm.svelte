@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
+	import { page } from '$app/stores'
 	import type {
 		AssessmentQuestion,
 		AssessmentResponse,
@@ -12,12 +13,16 @@
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 
 	let { assessmentCode }: { assessmentCode: string } = $props()
+	let draftId: number | null = $derived(
+		$page.url.searchParams.has('draft') ? parseInt($page.url.searchParams.get('draft')!, 10) : null
+	)
 
 	let questions = $state<AssessmentQuestion[]>([])
 	let responses = $state<number[]>([])
 	let notes = $state('')
 	let loading = $state(true)
 	let submitting = $state(false)
+	let savingDraft = $state(false)
 	let validationError = $state<unknown>(undefined)
 
 	$effect(() => {
@@ -36,6 +41,36 @@
 
 				questions = fetchedQuestions
 				responses = new Array(fetchedQuestions.length).fill(-1)
+
+				// If resuming a draft, load the saved responses and notes
+				if (draftId !== null) {
+					try {
+						const draft = await invokeWithRetry<AssessmentResponse>('get_assessment_response', {
+							id: draftId,
+						})
+
+						if (!isMounted) return
+
+						// Verify draft matches current assessment type
+						if (draft.assessment_type.code === assessmentCode) {
+							responses = draft.responses
+							notes = draft.notes || ''
+						} else {
+							const result = displayError(new Error('Draft does not match current assessment type'))
+							if (result.type === 'inline') {
+								validationError = new Error('Draft does not match current assessment type')
+							}
+						}
+					} catch (e) {
+						if (!isMounted) return
+
+						const result = displayError(e)
+						if (result.type === 'inline') {
+							validationError = e
+						}
+					}
+				}
+
 				loading = false
 			} catch (e) {
 				if (!isMounted) return
@@ -59,7 +94,7 @@
 		event.preventDefault()
 
 		// Prevent double-submission
-		if (submitting) {
+		if (submitting || savingDraft) {
 			return
 		}
 
@@ -77,6 +112,7 @@
 				assessment_type_code: assessmentCode,
 				responses: responses,
 				notes: notes || null,
+				status: 'completed',
 			}
 
 			const result = await invokeWithRetry<AssessmentResponse>('submit_assessment', { request })
@@ -91,6 +127,44 @@
 			}
 		} finally {
 			submitting = false
+		}
+	}
+
+	async function handleSaveDraft() {
+		// Prevent double-submission
+		if (submitting || savingDraft) {
+			return
+		}
+
+		// Check if at least one question is answered
+		if (responses.every((r) => r === -1)) {
+			validationError = new Error('Please answer at least one question before saving a draft')
+			return
+		}
+
+		savingDraft = true
+		validationError = undefined
+
+		try {
+			const request: SubmitAssessmentRequest = {
+				assessment_type_code: assessmentCode,
+				responses: responses,
+				notes: notes || null,
+				status: 'draft',
+			}
+
+			await invokeWithRetry<AssessmentResponse>('submit_assessment', { request })
+
+			displaySuccess('Draft saved successfully!')
+			// Navigate back to assessments page
+			await goto('/assessments')
+		} catch (e) {
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				validationError = e
+			}
+		} finally {
+			savingDraft = false
 		}
 	}
 
@@ -109,6 +183,15 @@
 			Progress: {progress}/{questions.length} ({Math.round(progressPercent)}%)
 		</div>
 	</div>
+
+	{#if draftId !== null}
+		<div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+			<p class="text-sm text-blue-800">
+				<span class="font-semibold">Resuming draft</span> - Continue where you left off or save changes
+				to update your progress.
+			</p>
+		</div>
+	{/if}
 
 	{#if loading}
 		<Card>
@@ -185,14 +268,25 @@
 				<ErrorMessage error={validationError} />
 			{/if}
 
-			<Button
-				type="submit"
-				variant="primary"
-				fullWidth
-				disabled={submitting || progress < questions.length}
-			>
-				{submitting ? 'Submitting...' : 'Submit Assessment'}
-			</Button>
+			<div class="flex gap-3">
+				<Button
+					type="button"
+					variant="secondary"
+					fullWidth
+					disabled={submitting || savingDraft || progress === 0}
+					onclick={handleSaveDraft}
+				>
+					{savingDraft ? 'Saving Draft...' : 'Save Draft'}
+				</Button>
+				<Button
+					type="submit"
+					variant="primary"
+					fullWidth
+					disabled={submitting || savingDraft || progress < questions.length}
+				>
+					{submitting ? 'Submitting...' : 'Submit Assessment'}
+				</Button>
+			</div>
 		</form>
 	{/if}
 </div>
