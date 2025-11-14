@@ -1,7 +1,7 @@
 # Revised Development Plan 2025 - Task Checklist
 
 **Created**: 2025-11-07
-**Updated**: 2025-11-10
+**Updated**: 2025-11-13
 **Total Releases**: 5 (v0.1, v0.2, v0.3, v0.4, v1.0)
 **Estimated Duration**: 10 weeks
 **Approach**: Ship value every 1-2 weeks, tests integrated with features
@@ -405,6 +405,13 @@ The following were in the original plan but are already 100% complete:
 - [X] 6.8 Implement "Resume Draft" functionality (load saved responses into form)
 - [X] 6.9 Write repository tests for draft functionality
 - [X] 6.10 Write command tests for save_draft_assessment
+
+**PR #46 Review Fixes (Completed 2025-11-13)**:
+- [X] 6.10a Fix draft overwrites: Update `save_assessment()` to UPDATE existing draft instead of INSERT (prevents duplicates)
+- [X] 6.10b Add tests: `test_draft_updates_instead_of_creating_duplicate` and `test_completed_assessments_always_create_new_records`
+- [X] 6.10c Fix type mismatch URL: Clear draft param from URL when draft doesn't match assessment type
+- [X] 6.10d Add delete draft functionality: Delete button with confirmation dialog in drafts list UI
+- [X] 6.10e All 52 assessment tests passing
 
 #### FR-009b: Weekly Assessment Limit (6-8 hours)
 

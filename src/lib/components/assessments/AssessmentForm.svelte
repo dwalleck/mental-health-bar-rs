@@ -56,6 +56,8 @@
 							responses = draft.responses
 							notes = draft.notes || ''
 						} else {
+							// Clear invalid draft param from URL
+							await goto(`/assessments/${assessmentCode}`, { replaceState: true })
 							const result = displayError(new Error('Draft does not match current assessment type'))
 							if (result.type === 'inline') {
 								validationError = new Error('Draft does not match current assessment type')

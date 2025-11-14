@@ -3,6 +3,7 @@ use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
 use crate::utils::sanitize_optional_text;
 use crate::MAX_QUERY_LIMIT;
+use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -19,6 +20,10 @@ impl AssessmentRepository {
     }
 
     /// Save an assessment (completed or draft)
+    ///
+    /// Behavior:
+    /// - **Drafts**: Updates existing draft for this assessment type if found, otherwise creates new
+    /// - **Completed**: Always creates new record (historical data)
     pub fn save_assessment(
         &self,
         assessment_type_id: i32,
@@ -43,20 +48,73 @@ impl AssessmentRepository {
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(AssessmentError::Database)?;
 
-        let id = tx.query_row(
-            "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
-             VALUES (?, ?, ?, ?, ?, ?)
-             RETURNING id",
-            [
-                &assessment_type_id as &dyn rusqlite::ToSql,
-                &responses_json as &dyn rusqlite::ToSql,
-                &total_score as &dyn rusqlite::ToSql,
-                &severity_level as &dyn rusqlite::ToSql,
-                &notes as &dyn rusqlite::ToSql,
-                &status as &dyn rusqlite::ToSql,
-            ],
-            |row| row.get(0),
-        )?;
+        let id = if status == "draft" {
+            // For drafts: check if existing draft exists for this assessment type
+            let existing_draft_id: Option<i32> = tx
+                .query_row(
+                    "SELECT id FROM assessment_responses
+                     WHERE assessment_type_id = ? AND status = 'draft'
+                     ORDER BY completed_at DESC
+                     LIMIT 1",
+                    [&assessment_type_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+
+            if let Some(draft_id) = existing_draft_id {
+                // Update existing draft
+                tx.execute(
+                    "UPDATE assessment_responses
+                     SET responses = ?, total_score = ?, severity_level = ?, notes = ?, completed_at = datetime('now')
+                     WHERE id = ?",
+                    [
+                        &responses_json as &dyn rusqlite::ToSql,
+                        &total_score as &dyn rusqlite::ToSql,
+                        &severity_level as &dyn rusqlite::ToSql,
+                        &notes as &dyn rusqlite::ToSql,
+                        &draft_id as &dyn rusqlite::ToSql,
+                    ],
+                )?;
+                info!(
+                    assessment_id = draft_id,
+                    assessment_type_id = assessment_type_id,
+                    "Updated existing draft"
+                );
+                draft_id
+            } else {
+                // Insert new draft
+                tx.query_row(
+                    "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     RETURNING id",
+                    [
+                        &assessment_type_id as &dyn rusqlite::ToSql,
+                        &responses_json as &dyn rusqlite::ToSql,
+                        &total_score as &dyn rusqlite::ToSql,
+                        &severity_level as &dyn rusqlite::ToSql,
+                        &notes as &dyn rusqlite::ToSql,
+                        &status as &dyn rusqlite::ToSql,
+                    ],
+                    |row| row.get(0),
+                )?
+            }
+        } else {
+            // For completed: always insert new record (historical data)
+            tx.query_row(
+                "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 RETURNING id",
+                [
+                    &assessment_type_id as &dyn rusqlite::ToSql,
+                    &responses_json as &dyn rusqlite::ToSql,
+                    &total_score as &dyn rusqlite::ToSql,
+                    &severity_level as &dyn rusqlite::ToSql,
+                    &notes as &dyn rusqlite::ToSql,
+                    &status as &dyn rusqlite::ToSql,
+                ],
+                |row| row.get(0),
+            )?
+        };
 
         // Commit transaction - automatic rollback via Drop on error/panic
         tx.commit().map_err(AssessmentError::Database)?;
@@ -690,13 +748,13 @@ mod tests {
         )
         .expect("Failed to save completed 2");
 
-        // Draft 3
+        // Draft 3 for PHQ9 - should UPDATE Draft 1 (same assessment type)
         repo.save_assessment(
             phq9.id,
             &vec![0, 0, 1, 1, 0, 1, 0, 0, 1],
             4,
             "minimal",
-            Some("Draft 3".to_string()),
+            Some("Draft 3 (updated PHQ9)".to_string()),
             STATUS_DRAFT,
         )
         .expect("Failed to save draft 3");
@@ -704,8 +762,12 @@ mod tests {
         // Get only drafts
         let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
 
-        // Should only return 3 draft assessments
-        assert_eq!(drafts.len(), 3, "Should return exactly 3 drafts");
+        // Should have 2 drafts (PHQ9 was updated, not duplicated)
+        assert_eq!(
+            drafts.len(),
+            2,
+            "Should return exactly 2 drafts (PHQ9 updated, GAD7 separate)"
+        );
 
         // Verify all returned assessments are drafts
         for draft in &drafts {
@@ -715,11 +777,20 @@ mod tests {
             );
         }
 
-        // Verify notes to ensure we got the right ones
+        // Verify notes - Draft 3 should have replaced Draft 1 for PHQ9
         let notes: Vec<Option<String>> = drafts.iter().map(|d| d.notes.clone()).collect();
-        assert!(notes.contains(&Some("Draft 1".to_string())));
-        assert!(notes.contains(&Some("Draft 2".to_string())));
-        assert!(notes.contains(&Some("Draft 3".to_string())));
+        assert!(
+            notes.contains(&Some("Draft 3 (updated PHQ9)".to_string())),
+            "Should have updated PHQ9 draft"
+        );
+        assert!(
+            notes.contains(&Some("Draft 2".to_string())),
+            "Should have GAD7 draft"
+        );
+        assert!(
+            !notes.contains(&Some("Draft 1".to_string())),
+            "Original PHQ9 draft should be replaced"
+        );
         assert!(!notes.contains(&Some("Completed 1".to_string())));
         assert!(!notes.contains(&Some("Completed 2".to_string())));
     }
@@ -846,6 +917,117 @@ mod tests {
             saved.responses.iter().filter(|&&r| r != -1).count(),
             4,
             "Should have 4 answered questions"
+        );
+    }
+
+    #[test]
+    fn test_draft_updates_instead_of_creating_duplicate() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+
+        // Save first draft
+        let id1 = repo
+            .save_assessment(
+                phq9.id,
+                &vec![1, 1, 1, 0, 0, 0, 0, 0, 0],
+                3,
+                "minimal",
+                Some("First save".to_string()),
+                STATUS_DRAFT,
+            )
+            .expect("Failed to save first draft");
+
+        // Save second draft for same assessment type - should UPDATE, not INSERT
+        let id2 = repo
+            .save_assessment(
+                phq9.id,
+                &vec![2, 2, 2, 1, 1, 1, 0, 0, 0],
+                9,
+                "mild",
+                Some("Second save".to_string()),
+                STATUS_DRAFT,
+            )
+            .expect("Failed to save second draft");
+
+        // Should be same ID (updated existing draft)
+        assert_eq!(id1, id2, "Draft should be updated, not duplicated");
+
+        // Verify updated values
+        let saved = repo
+            .get_assessment_response(id1)
+            .expect("Failed to get assessment");
+        assert_eq!(saved.total_score, 9);
+        assert_eq!(saved.notes, Some("Second save".to_string()));
+        assert_eq!(saved.responses, vec![2, 2, 2, 1, 1, 1, 0, 0, 0]);
+
+        // Verify only one draft exists
+        let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
+        assert_eq!(
+            drafts.len(),
+            1,
+            "Should have exactly 1 draft (updated, not duplicated)"
+        );
+    }
+
+    #[test]
+    fn test_completed_assessments_always_create_new_records() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let gad7 = assessment_types
+            .iter()
+            .find(|at| at.code == "GAD7")
+            .expect("GAD7 not found");
+
+        // Save first completed assessment
+        let id1 = repo
+            .save_assessment(
+                gad7.id,
+                &vec![1, 1, 1, 1, 1, 1, 1],
+                7,
+                "mild",
+                Some("First assessment".to_string()),
+                STATUS_COMPLETED,
+            )
+            .expect("Failed to save first completed");
+
+        // Save second completed assessment for same type - should INSERT new record
+        let id2 = repo
+            .save_assessment(
+                gad7.id,
+                &vec![2, 2, 2, 2, 2, 2, 2],
+                14,
+                "moderate",
+                Some("Second assessment".to_string()),
+                STATUS_COMPLETED,
+            )
+            .expect("Failed to save second completed");
+
+        // Should be different IDs (new records for historical data)
+        assert_ne!(
+            id1, id2,
+            "Completed assessments should create separate records"
+        );
+
+        // Verify both exist in history
+        let history = repo
+            .get_assessment_history(Some("GAD7".to_string()), None, None, None)
+            .expect("Failed to get history");
+        assert_eq!(
+            history.len(),
+            2,
+            "Should have 2 separate completed assessments"
         );
     }
 }
