@@ -393,18 +393,18 @@ The following were in the original plan but are already 100% complete:
 
 ### Week 6: Spec Gap Implementation
 
-#### FR-009a: Draft Assessments (8-10 hours)
+#### FR-009a: Draft Assessments (8-10 hours) ✅ COMPLETE
 
-- [ ] 6.1 Add `status` column to `assessment_responses` table (TEXT CHECK IN ('draft', 'completed'), DEFAULT 'completed')
-- [ ] 6.2 Add migration to create column with default value
-- [ ] 6.3 Update `submit_assessment` repository method to accept status parameter
-- [ ] 6.4 Create `save_draft_assessment` Tauri command
-- [ ] 6.5 Create `get_draft_assessments` Tauri query
-- [ ] 6.6 Update frontend `AssessmentForm.svelte` to add "Save Draft" button (secondary button)
-- [ ] 6.7 Create draft assessment list UI (`/assessments/drafts` route)
-- [ ] 6.8 Implement "Resume Draft" functionality (load saved responses into form)
-- [ ] 6.9 Write repository tests for draft functionality
-- [ ] 6.10 Write command tests for save_draft_assessment
+- [X] 6.1 Add `status` column to `assessment_responses` table (TEXT CHECK IN ('draft', 'completed'), DEFAULT 'completed')
+- [X] 6.2 Add migration to create column with default value
+- [X] 6.3 Update `submit_assessment` repository method to accept status parameter
+- [X] 6.4 Create `save_draft_assessment` Tauri command
+- [X] 6.5 Create `get_draft_assessments` Tauri query
+- [X] 6.6 Update frontend `AssessmentForm.svelte` to add "Save Draft" button (secondary button)
+- [X] 6.7 Create draft assessment list UI (`/assessments/drafts` route)
+- [X] 6.8 Implement "Resume Draft" functionality (load saved responses into form)
+- [X] 6.9 Write repository tests for draft functionality
+- [X] 6.10 Write command tests for save_draft_assessment
 
 #### FR-009b: Weekly Assessment Limit (6-8 hours)
 
@@ -832,7 +832,7 @@ The following were in the original plan but are already 100% complete:
   - Week 3: ✅ 24/24 tasks complete (Frontend UI Components)
   - Week 4: 🟡 14/22 tasks complete (Reporting Components ✅ Integration Testing ✅ - Performance Testing & Documentation pending)
 - [ ] **v0.2**: Check-In v2.0 Shipped (0/28 tasks) - End of Week 5
-- [ ] **v0.3**: Spec Gaps Shipped (0/27 tasks) - End of Week 6
+- [ ] **v0.3**: Spec Gaps Shipped (10/27 tasks) - End of Week 6 [FR-009a ✅]
 - [ ] **v0.4**: Catalyst UI Shipped (0/26 tasks) - End of Week 8
 - [ ] **v1.0**: Production Shipped (0/41 tasks) - End of Week 10
 
