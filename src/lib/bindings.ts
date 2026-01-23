@@ -119,6 +119,17 @@ export const commands = {
 			else return { status: 'error', error: e as any }
 		}
 	},
+	/**
+	 * Get all draft assessments (not completed)
+	 */
+	async getDraftAssessments(): Promise<Result<AssessmentResponse[], CommandError>> {
+		try {
+			return { status: 'ok', data: await TAURI_INVOKE('get_draft_assessments') }
+		} catch (e) {
+			if (e instanceof Error) throw e
+			else return { status: 'error', error: e as any }
+		}
+	},
 	async logMood(request: LogMoodRequest): Promise<Result<MoodCheckin, CommandError>> {
 		try {
 			return { status: 'ok', data: await TAURI_INVOKE('log_mood', { request }) }
@@ -679,6 +690,7 @@ export type AssessmentResponse = {
 	severity_level: string
 	completed_at: string
 	notes: string | null
+	status: string
 }
 /**
  * Assessment schedule configuration

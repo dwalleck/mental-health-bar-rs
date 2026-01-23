@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation'
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import type { AssessmentResponse } from '$lib/bindings'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
@@ -16,6 +17,7 @@
 			try {
 				drafts = await invokeWithRetry('get_draft_assessments', {})
 			} catch (e) {
+				console.error('Failed to load draft assessments:', e)
 				const result = displayError(e)
 				if (result.type === 'inline') {
 					error = result.message || 'Failed to load drafts'
@@ -52,12 +54,26 @@
 			// Remove from list
 			drafts = drafts.filter((d) => d.id !== draftId)
 		} catch (e) {
+			console.error('Failed to delete draft:', e)
 			const result = displayError(e)
 			if (result.type === 'inline') {
 				error = result.message || 'Failed to delete draft'
 			}
 		} finally {
 			deletingId = null
+		}
+	}
+
+	async function handleResumeDraft(draft: AssessmentResponse) {
+		try {
+			// Use SvelteKit navigation instead of window.location.href for client-side routing
+			await goto(`/assessments/${draft.assessment_type.code.toLowerCase()}?draft=${draft.id}`)
+		} catch (e) {
+			console.error('Navigation error when resuming draft:', e)
+			const result = displayError(e)
+			if (result.type === 'inline') {
+				error = result.message || 'Failed to navigate to draft'
+			}
 		}
 	}
 </script>
@@ -116,8 +132,7 @@
 								<Button
 									variant="primary"
 									disabled={deletingId === draft.id}
-									onclick={() =>
-										(window.location.href = `/assessments/${draft.assessment_type.code.toLowerCase()}?draft=${draft.id}`)}
+									onclick={() => handleResumeDraft(draft)}
 								>
 									Resume Draft
 								</Button>

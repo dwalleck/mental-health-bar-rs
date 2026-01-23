@@ -81,6 +81,7 @@ fn test_save_and_retrieve_assessment() {
             total_score,
             severity_level,
             notes.clone(),
+            "completed",
         )
         .expect("Failed to save assessment");
 
@@ -111,11 +112,11 @@ fn test_get_assessment_history() {
         .expect("Failed to get GAD7");
 
     // Save multiple assessments
-    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None)
+    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
         .expect("Failed to save PHQ9 assessment");
-    repo.save_assessment(gad7.id, &vec![2; 7], 14, "moderate", None)
+    repo.save_assessment(gad7.id, &vec![2; 7], 14, "moderate", None, "completed")
         .expect("Failed to save GAD7 assessment");
-    repo.save_assessment(phq9.id, &vec![2; 9], 18, "moderate", None)
+    repo.save_assessment(phq9.id, &vec![2; 9], 18, "moderate", None, "completed")
         .expect("Failed to save second PHQ9 assessment");
 
     // Get all history
@@ -156,6 +157,7 @@ fn test_save_assessment_without_notes() {
             9,
             "mild",
             None,
+            "completed",
         )
         .expect("Failed to save assessment");
 
@@ -193,6 +195,7 @@ fn test_delete_assessment_type_blocked_when_responses_exist() {
         9,
         "mild",
         None,
+        "completed",
     )
     .expect("Failed to save assessment");
 

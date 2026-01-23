@@ -85,6 +85,7 @@ describe('AssessmentForm', () => {
 		severity_level: 'minimal',
 		completed_at: '2024-01-15T10:30:00Z',
 		notes: null,
+		status: 'completed',
 	}
 
 	describe('Props', () => {

@@ -3,12 +3,66 @@ use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
 use crate::utils::sanitize_optional_text;
 use crate::MAX_QUERY_LIMIT;
-use rusqlite::OptionalExtension;
+use rusqlite::{OptionalExtension, Row};
 use std::sync::Arc;
 use tracing::{error, info};
 
 /// Minimum limit for query results
 const MIN_QUERY_LIMIT: i32 = 1;
+
+// ============================================================================
+// Row Mapping Helpers - Reduce code duplication across query methods
+// ============================================================================
+
+/// Maps a database row to AssessmentType.
+///
+/// Expected column order: id, code, name, description, question_count, min_score, max_score, thresholds
+/// Offset parameter allows using this helper when AssessmentType columns start at a different index
+/// (e.g., in JOINed queries where response columns come first).
+fn map_assessment_type_row(row: &Row, offset: usize) -> rusqlite::Result<AssessmentType> {
+    Ok(AssessmentType {
+        id: row.get(offset)?,
+        code: row.get(offset + 1)?,
+        name: row.get(offset + 2)?,
+        description: row.get(offset + 3)?,
+        question_count: row.get(offset + 4)?,
+        min_score: row.get(offset + 5)?,
+        max_score: row.get(offset + 6)?,
+        thresholds: serde_json::from_str(&row.get::<_, String>(offset + 7)?).map_err(|e| {
+            error!("Failed to deserialize assessment type thresholds: {}", e);
+            rusqlite::Error::InvalidColumnType(
+                offset + 7,
+                "thresholds".to_string(),
+                rusqlite::types::Type::Text,
+            )
+        })?,
+    })
+}
+
+/// Maps a database row to AssessmentResponse with embedded AssessmentType.
+///
+/// Expected column order:
+/// - Response fields (0-7): id, assessment_type_id, responses, total_score, severity_level, completed_at, notes, status
+/// - Assessment type fields (8-15): id, code, name, description, question_count, min_score, max_score, thresholds
+fn map_assessment_response_row(row: &Row) -> rusqlite::Result<AssessmentResponse> {
+    // Parse responses JSON
+    let responses_json: String = row.get(2)?;
+    let responses: Vec<i32> = serde_json::from_str(&responses_json).map_err(|e| {
+        error!("Failed to deserialize assessment responses: {}", e);
+        rusqlite::Error::InvalidColumnType(2, "responses".to_string(), rusqlite::types::Type::Text)
+    })?;
+
+    Ok(AssessmentResponse {
+        id: row.get(0)?,
+        assessment_type: map_assessment_type_row(row, 8)?,
+        responses,
+        total_score: row.get(3)?,
+        severity_level: row.get(4)?,
+        completed_at: row.get(5)?,
+        notes: row.get(6)?,
+        status: row.get(7)?,
+    })
+}
 
 pub struct AssessmentRepository {
     db: Arc<Database>,
@@ -144,25 +198,7 @@ impl AssessmentRepository {
         )?;
 
         let types = stmt
-            .query_map([], |row| {
-                Ok(AssessmentType {
-                    id: row.get(0)?,
-                    code: row.get(1)?,
-                    name: row.get(2)?,
-                    description: row.get(3)?,
-                    question_count: row.get(4)?,
-                    min_score: row.get(5)?,
-                    max_score: row.get(6)?,
-                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).map_err(|e| {
-                        error!("Failed to deserialize assessment type thresholds: {}", e);
-                        rusqlite::Error::InvalidColumnType(
-                            7,
-                            "thresholds".to_string(),
-                            rusqlite::types::Type::Text,
-                        )
-                    })?,
-                })
-            })?
+            .query_map([], |row| map_assessment_type_row(row, 0))?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(types)
@@ -181,25 +217,7 @@ impl AssessmentRepository {
              FROM assessment_types
              WHERE code = ?",
             [code],
-            |row| {
-                Ok(AssessmentType {
-                    id: row.get(0)?,
-                    code: row.get(1)?,
-                    name: row.get(2)?,
-                    description: row.get(3)?,
-                    question_count: row.get(4)?,
-                    min_score: row.get(5)?,
-                    max_score: row.get(6)?,
-                    thresholds: serde_json::from_str(&row.get::<_, String>(7)?).map_err(|e| {
-                        error!("Failed to deserialize assessment type thresholds: {}", e);
-                        rusqlite::Error::InvalidColumnType(
-                            7,
-                            "thresholds".to_string(),
-                            rusqlite::types::Type::Text,
-                        )
-                    })?,
-                })
-            },
+            |row| map_assessment_type_row(row, 0),
         );
 
         match result {
@@ -270,49 +288,7 @@ impl AssessmentRepository {
         let mut stmt = conn.prepare(&query)?;
 
         let responses = stmt
-            .query_map(params.as_slice(), |row| {
-                let responses_json: String = row.get(2)?;
-                let responses: Vec<i32> = serde_json::from_str(&responses_json).map_err(|e| {
-                    error!("Failed to deserialize assessment responses: {}", e);
-                    rusqlite::Error::InvalidColumnType(
-                        2,
-                        "responses".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
-                })?;
-
-                Ok(AssessmentResponse {
-                    id: row.get(0)?,
-                    assessment_type: AssessmentType {
-                        id: row.get(8)?,
-                        code: row.get(9)?,
-                        name: row.get(10)?,
-                        description: row.get(11)?,
-                        question_count: row.get(12)?,
-                        min_score: row.get(13)?,
-                        max_score: row.get(14)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(15)?).map_err(
-                            |e| {
-                                error!(
-                                    "Failed to deserialize thresholds in assessment history: {}",
-                                    e
-                                );
-                                rusqlite::Error::InvalidColumnType(
-                                    15,
-                                    "thresholds".to_string(),
-                                    rusqlite::types::Type::Text,
-                                )
-                            },
-                        )?,
-                    },
-                    responses,
-                    total_score: row.get(3)?,
-                    severity_level: row.get(4)?,
-                    completed_at: row.get(5)?,
-                    notes: row.get(6)?,
-                    status: row.get(7)?,
-                })
-            })?
+            .query_map(params.as_slice(), map_assessment_response_row)?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(responses)
@@ -334,49 +310,7 @@ impl AssessmentRepository {
         )?;
 
         let responses = stmt
-            .query_map([], |row| {
-                let responses_json: String = row.get(2)?;
-                let responses: Vec<i32> = serde_json::from_str(&responses_json).map_err(|e| {
-                    error!("Failed to deserialize assessment responses: {}", e);
-                    rusqlite::Error::InvalidColumnType(
-                        2,
-                        "responses".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
-                })?;
-
-                Ok(AssessmentResponse {
-                    id: row.get(0)?,
-                    assessment_type: AssessmentType {
-                        id: row.get(8)?,
-                        code: row.get(9)?,
-                        name: row.get(10)?,
-                        description: row.get(11)?,
-                        question_count: row.get(12)?,
-                        min_score: row.get(13)?,
-                        max_score: row.get(14)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(15)?).map_err(
-                            |e| {
-                                error!(
-                                    "Failed to deserialize thresholds in draft assessments: {}",
-                                    e
-                                );
-                                rusqlite::Error::InvalidColumnType(
-                                    15,
-                                    "thresholds".to_string(),
-                                    rusqlite::types::Type::Text,
-                                )
-                            },
-                        )?,
-                    },
-                    responses,
-                    total_score: row.get(3)?,
-                    severity_level: row.get(4)?,
-                    completed_at: row.get(5)?,
-                    notes: row.get(6)?,
-                    status: row.get(7)?,
-                })
-            })?
+            .query_map([], map_assessment_response_row)?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(responses)
@@ -395,46 +329,7 @@ impl AssessmentRepository {
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
              WHERE resp.id = ?",
             [id],
-            |row| {
-                let responses_json: String = row.get(2)?;
-                let responses: Vec<i32> = serde_json::from_str(&responses_json)
-                    .map_err(|e| {
-                        error!("Failed to deserialize assessment responses: {}", e);
-                        rusqlite::Error::InvalidColumnType(
-                            2,
-                            "responses".to_string(),
-                            rusqlite::types::Type::Text
-                        )
-                    })?;
-
-                Ok(AssessmentResponse {
-                    id: row.get(0)?,
-                    assessment_type: AssessmentType {
-                        id: row.get(8)?,
-                        code: row.get(9)?,
-                        name: row.get(10)?,
-                        description: row.get(11)?,
-                        question_count: row.get(12)?,
-                        min_score: row.get(13)?,
-                        max_score: row.get(14)?,
-                        thresholds: serde_json::from_str(&row.get::<_, String>(15)?)
-                            .map_err(|e| {
-                                error!("Failed to deserialize thresholds in assessment history: {}", e);
-                                rusqlite::Error::InvalidColumnType(
-                                    15,
-                                    "thresholds".to_string(),
-                                    rusqlite::types::Type::Text
-                                )
-                            })?,
-                    },
-                    responses,
-                    total_score: row.get(3)?,
-                    severity_level: row.get(4)?,
-                    completed_at: row.get(5)?,
-                    notes: row.get(6)?,
-                    status: row.get(7)?,
-                })
-            },
+            map_assessment_response_row,
         );
 
         match result {

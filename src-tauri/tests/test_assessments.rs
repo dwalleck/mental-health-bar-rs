@@ -43,6 +43,7 @@ fn test_submit_assessment_phq9_end_to_end() {
             total_score,
             severity_level,
             Some("Integration test notes".to_string()),
+            "completed",
         )
         .expect("Failed to save assessment");
 
@@ -77,6 +78,7 @@ fn test_submit_all_assessment_types_end_to_end() {
             phq9_score,
             get_phq9_severity(phq9_score),
             None,
+            "completed",
         )
         .expect("Failed to save PHQ9");
 
@@ -94,6 +96,7 @@ fn test_submit_all_assessment_types_end_to_end() {
             gad7_score,
             get_gad7_severity(gad7_score),
             None,
+            "completed",
         )
         .expect("Failed to save GAD7");
 
@@ -111,6 +114,7 @@ fn test_submit_all_assessment_types_end_to_end() {
             cesd_score,
             get_cesd_severity(cesd_score),
             None,
+            "completed",
         )
         .expect("Failed to save CESD");
 
@@ -128,6 +132,7 @@ fn test_submit_all_assessment_types_end_to_end() {
             oasis_score,
             get_oasis_severity(oasis_score),
             None,
+            "completed",
         )
         .expect("Failed to save OASIS");
 
@@ -153,14 +158,21 @@ fn test_get_assessment_history_query_end_to_end() {
     let gad7 = repo.get_assessment_type_by_code("GAD7").unwrap();
 
     // Submit multiple assessments
-    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None)
+    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
         .expect("Failed to save first PHQ9");
 
-    repo.save_assessment(gad7.id, &vec![2; 7], 14, "moderate", None)
+    repo.save_assessment(gad7.id, &vec![2; 7], 14, "moderate", None, "completed")
         .expect("Failed to save GAD7");
 
-    repo.save_assessment(phq9.id, &vec![2; 9], 18, "moderately_severe", None)
-        .expect("Failed to save second PHQ9");
+    repo.save_assessment(
+        phq9.id,
+        &vec![2; 9],
+        18,
+        "moderately_severe",
+        None,
+        "completed",
+    )
+    .expect("Failed to save second PHQ9");
 
     // Get all history
     let all_history = repo
@@ -204,7 +216,7 @@ fn test_get_assessment_history_with_date_filtering() {
 
     // Submit an assessment
     let phq9 = repo.get_assessment_type_by_code("PHQ9").unwrap();
-    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None)
+    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
         .expect("Failed to submit assessment");
 
     // Get dates for filtering - using wider margins to avoid timezone issues
@@ -261,7 +273,7 @@ fn test_delete_assessment_end_to_end() {
     // Submit an assessment
     let phq9 = repo.get_assessment_type_by_code("PHQ9").unwrap();
     let id = repo
-        .save_assessment(phq9.id, &vec![1; 9], 9, "mild", None)
+        .save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
         .expect("Failed to save assessment");
 
     // Verify it exists
@@ -321,11 +333,11 @@ fn test_get_assessment_history_reversed_date_range() {
 
     // Create some assessments
     let responses1 = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
-    repo.save_assessment(phq9_type.id, &responses1, 9, "minimal", None)
+    repo.save_assessment(phq9_type.id, &responses1, 9, "minimal", None, "completed")
         .expect("Failed to save assessment 1");
 
     let responses2 = vec![2, 2, 2, 2, 2, 2, 2, 2, 2];
-    repo.save_assessment(phq9_type.id, &responses2, 18, "mild", None)
+    repo.save_assessment(phq9_type.id, &responses2, 18, "mild", None, "completed")
         .expect("Failed to save assessment 2");
 
     // Query with from_date > to_date (reversed range)
@@ -414,6 +426,7 @@ fn test_sql_injection_protection() {
         9,
         "minimal",
         Some(malicious_notes.to_string()),
+        "completed",
     );
 
     // Should succeed (parameterized queries should sanitize)
@@ -450,6 +463,7 @@ fn test_save_assessment_trims_notes() {
             18,
             "moderate",
             Some("  Feeling much better today!  ".to_string()),
+            "completed",
         )
         .expect("Failed to save assessment with trimmed notes");
 
@@ -477,6 +491,7 @@ fn test_save_assessment_whitespace_only_notes_becomes_none() {
             9,
             "mild",
             Some("     ".to_string()),
+            "completed",
         )
         .expect("Failed to save assessment");
 
@@ -488,5 +503,229 @@ fn test_save_assessment_whitespace_only_notes_becomes_none() {
     assert_eq!(
         assessment.notes, None,
         "Whitespace-only notes should become None"
+    );
+}
+
+// ============================================================================
+// DRAFT ASSESSMENTS INTEGRATION TESTS (PR Review Critical Gaps)
+// ============================================================================
+
+/// Test the get_draft_assessments endpoint returns drafts for all assessment types
+#[test]
+fn test_get_draft_assessments_returns_all_draft_types() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    // Get multiple assessment types
+    let phq9 = repo
+        .get_assessment_type_by_code("PHQ9")
+        .expect("PHQ9 not found");
+    let gad7 = repo
+        .get_assessment_type_by_code("GAD7")
+        .expect("GAD7 not found");
+    let cesd = repo
+        .get_assessment_type_by_code("CESD")
+        .expect("CESD not found");
+
+    // Create drafts for different assessment types
+    repo.save_assessment(
+        phq9.id,
+        &vec![1; 9],
+        9,
+        "mild",
+        Some("PHQ9 draft".to_string()),
+        "draft",
+    )
+    .expect("Failed to save PHQ9 draft");
+
+    repo.save_assessment(
+        gad7.id,
+        &vec![1; 7],
+        7,
+        "mild",
+        Some("GAD7 draft".to_string()),
+        "draft",
+    )
+    .expect("Failed to save GAD7 draft");
+
+    repo.save_assessment(
+        cesd.id,
+        &vec![1; 20],
+        20,
+        "mild",
+        Some("CESD draft".to_string()),
+        "draft",
+    )
+    .expect("Failed to save CESD draft");
+
+    // Also save some completed assessments to verify filtering
+    repo.save_assessment(phq9.id, &vec![2; 9], 18, "moderate", None, "completed")
+        .expect("Failed to save completed PHQ9");
+
+    // Get drafts
+    let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
+
+    // Should return exactly 3 drafts
+    assert_eq!(
+        drafts.len(),
+        3,
+        "Should return 3 drafts (one per assessment type)"
+    );
+
+    // Verify all are drafts
+    for draft in &drafts {
+        assert_eq!(
+            draft.status, "draft",
+            "All returned assessments should be drafts"
+        );
+    }
+
+    // Verify we have all assessment types represented
+    let codes: Vec<&str> = drafts
+        .iter()
+        .map(|d| d.assessment_type.code.as_str())
+        .collect();
+    assert!(codes.contains(&"PHQ9"), "Should include PHQ9 draft");
+    assert!(codes.contains(&"GAD7"), "Should include GAD7 draft");
+    assert!(codes.contains(&"CESD"), "Should include CESD draft");
+}
+
+/// Test that draft-to-completed transition creates new historical record
+#[test]
+fn test_draft_to_completed_transition_creates_new_record() {
+    let (repo, _temp_dir) = setup_test_repo();
+
+    let phq9 = repo
+        .get_assessment_type_by_code("PHQ9")
+        .expect("PHQ9 not found");
+
+    // Step 1: Create a draft
+    let draft_id = repo
+        .save_assessment(
+            phq9.id,
+            &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
+            9,
+            "mild",
+            Some("Initial draft".to_string()),
+            "draft",
+        )
+        .expect("Failed to create draft");
+
+    // Verify draft exists
+    let draft = repo
+        .get_assessment_response(draft_id)
+        .expect("Failed to get draft");
+    assert_eq!(draft.status, "draft");
+
+    // Step 2: Complete the assessment (simulate user finishing and submitting)
+    // This should create a NEW record, not update the draft
+    let completed_id = repo
+        .save_assessment(
+            phq9.id,
+            &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
+            18,
+            "moderately_severe",
+            Some("Final submission".to_string()),
+            "completed",
+        )
+        .expect("Failed to complete assessment");
+
+    // Verify: completed assessment has different ID (new record)
+    assert_ne!(
+        draft_id, completed_id,
+        "Completed assessment should be a new record, not an update to draft"
+    );
+
+    // Verify: both records exist
+    let draft_still_exists = repo.get_assessment_response(draft_id);
+    let completed_exists = repo.get_assessment_response(completed_id);
+
+    assert!(
+        draft_still_exists.is_ok(),
+        "Draft should still exist after completing"
+    );
+    assert!(
+        completed_exists.is_ok(),
+        "Completed assessment should exist"
+    );
+
+    // Verify: draft still has draft status
+    assert_eq!(draft_still_exists.unwrap().status, "draft");
+    assert_eq!(completed_exists.unwrap().status, "completed");
+
+    // Verify: history shows both
+    let history = repo
+        .get_assessment_history(Some("PHQ9".to_string()), None, None, None)
+        .expect("Failed to get history");
+    assert_eq!(
+        history.len(),
+        2,
+        "History should show both draft and completed"
+    );
+}
+
+/// Test serde default for status field (backward compatibility)
+#[test]
+fn test_serde_default_status_is_completed() {
+    use tauri_sveltekit_modern_lib::features::assessments::models::SubmitAssessmentRequest;
+
+    // JSON without status field (simulates old frontend)
+    let json_without_status = r#"{
+        "assessment_type_code": "PHQ9",
+        "responses": [1, 2, 1, 0, 1, 2, 1, 0, 1],
+        "notes": "Test notes"
+    }"#;
+
+    let request: SubmitAssessmentRequest =
+        serde_json::from_str(json_without_status).expect("Failed to deserialize request");
+
+    assert_eq!(
+        request.status, "completed",
+        "Status should default to 'completed' when not provided (backward compatibility)"
+    );
+    assert_eq!(request.assessment_type_code, "PHQ9");
+    assert_eq!(request.responses, vec![1, 2, 1, 0, 1, 2, 1, 0, 1]);
+    assert_eq!(request.notes, Some("Test notes".to_string()));
+}
+
+/// Test serde explicitly provided status
+#[test]
+fn test_serde_explicit_status_draft() {
+    use tauri_sveltekit_modern_lib::features::assessments::models::SubmitAssessmentRequest;
+
+    // JSON with explicit draft status
+    let json_with_draft = r#"{
+        "assessment_type_code": "GAD7",
+        "responses": [1, 1, 1, 1, 1, 1, 1],
+        "notes": null,
+        "status": "draft"
+    }"#;
+
+    let request: SubmitAssessmentRequest =
+        serde_json::from_str(json_with_draft).expect("Failed to deserialize request");
+
+    assert_eq!(
+        request.status, "draft",
+        "Explicit draft status should be preserved"
+    );
+}
+
+/// Test serde explicitly provided completed status
+#[test]
+fn test_serde_explicit_status_completed() {
+    use tauri_sveltekit_modern_lib::features::assessments::models::SubmitAssessmentRequest;
+
+    // JSON with explicit completed status
+    let json_with_completed = r#"{
+        "assessment_type_code": "PHQ9",
+        "responses": [2, 2, 2, 2, 2, 2, 2, 2, 2],
+        "status": "completed"
+    }"#;
+
+    let request: SubmitAssessmentRequest =
+        serde_json::from_str(json_with_completed).expect("Failed to deserialize request");
+
+    assert_eq!(
+        request.status, "completed",
+        "Explicit completed status should be preserved"
     );
 }

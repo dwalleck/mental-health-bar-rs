@@ -13,9 +13,14 @@
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 
 	let { assessmentCode }: { assessmentCode: string } = $props()
-	let draftId: number | null = $derived(
-		$page.url.searchParams.has('draft') ? parseInt($page.url.searchParams.get('draft')!, 10) : null
-	)
+
+	// Parse draftId from URL with NaN validation to handle malformed URLs (e.g., ?draft=abc)
+	function parseDraftId(): number | null {
+		if (!$page.url.searchParams.has('draft')) return null
+		const parsed = parseInt($page.url.searchParams.get('draft')!, 10)
+		return Number.isNaN(parsed) ? null : parsed
+	}
+	let draftId: number | null = $derived(parseDraftId())
 
 	let questions = $state<AssessmentQuestion[]>([])
 	let responses = $state<number[]>([])
@@ -51,21 +56,43 @@
 
 						if (!isMounted) return
 
-						// Verify draft matches current assessment type
-						if (draft.assessment_type.code === assessmentCode) {
+						// Verify draft matches current assessment type (case-insensitive comparison)
+						// Also verify this is actually a draft, not a completed assessment
+						const typeMatches =
+							draft.assessment_type.code.toLowerCase() === assessmentCode.toLowerCase()
+						const isDraft = draft.status === 'draft'
+
+						if (typeMatches && isDraft) {
 							responses = draft.responses
 							notes = draft.notes || ''
-						} else {
+						} else if (!typeMatches) {
 							// Clear invalid draft param from URL
+							console.warn('Draft assessment type mismatch:', {
+								draftType: draft.assessment_type.code,
+								expectedType: assessmentCode,
+							})
 							await goto(`/assessments/${assessmentCode}`, { replaceState: true })
 							const result = displayError(new Error('Draft does not match current assessment type'))
 							if (result.type === 'inline') {
 								validationError = new Error('Draft does not match current assessment type')
 							}
+						} else {
+							// Assessment exists but is already completed - don't resume
+							console.warn('Attempted to resume a completed assessment:', draftId)
+							await goto(`/assessments/${assessmentCode}`, { replaceState: true })
+							const result = displayError(
+								new Error('This assessment has already been completed and cannot be resumed')
+							)
+							if (result.type === 'inline') {
+								validationError = new Error(
+									'This assessment has already been completed and cannot be resumed'
+								)
+							}
 						}
 					} catch (e) {
 						if (!isMounted) return
 
+						console.error('Failed to load draft assessment:', e)
 						const result = displayError(e)
 						if (result.type === 'inline') {
 							validationError = e
@@ -77,6 +104,7 @@
 			} catch (e) {
 				if (!isMounted) return
 
+				console.error('Failed to fetch assessment questions:', e)
 				const result = displayError(e)
 				if (result.type === 'inline') {
 					validationError = e
@@ -123,6 +151,7 @@
 			// Navigate to results
 			await goto(`/assessments/${assessmentCode}/result/${result.id}`)
 		} catch (e) {
+			console.error('Failed to submit assessment:', e)
 			const result = displayError(e)
 			if (result.type === 'inline') {
 				validationError = e
@@ -161,6 +190,7 @@
 			// Navigate back to assessments page
 			await goto('/assessments')
 		} catch (e) {
+			console.error('Failed to save draft:', e)
 			const result = displayError(e)
 			if (result.type === 'inline') {
 				validationError = e

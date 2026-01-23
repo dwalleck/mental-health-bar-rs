@@ -59,7 +59,7 @@ fn test_get_assessment_chart_data_with_week_range() {
         let total_score = score as i32;
         let severity = "mild"; // Simplified for test
         assessment_repo
-            .save_assessment(1, &responses, total_score, severity, None)
+            .save_assessment(1, &responses, total_score, severity, None, "completed")
             .expect(&format!("Failed to create assessment {}", i));
     }
 
@@ -90,7 +90,7 @@ fn test_get_assessment_chart_data_with_custom_range() {
         let total_score = (i as i32 + 1) * 9; // Score increases each time
         let severity = "mild";
         assessment_repo
-            .save_assessment(1, &responses, total_score, severity, None)
+            .save_assessment(1, &responses, total_score, severity, None, "completed")
             .expect(&format!("Failed to create assessment {}", i));
     }
 
@@ -151,7 +151,7 @@ fn test_assessment_chart_statistics_calculation() {
         };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(1, &responses, score, severity, None, "completed")
             .expect("Failed to create assessment");
     }
 
@@ -179,7 +179,7 @@ fn test_assessment_chart_trend_improving() {
         let severity = if score >= 15 { "moderate" } else { "mild" };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(1, &responses, score, severity, None, "completed")
             .expect("Failed to create assessment");
     }
 
@@ -205,7 +205,7 @@ fn test_assessment_chart_trend_worsening() {
         let severity = if score >= 10 { "moderate" } else { "minimal" };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(1, &responses, score, severity, None, "completed")
             .expect("Failed to create assessment");
     }
 
@@ -231,7 +231,7 @@ fn test_assessment_chart_trend_stable() {
         let severity = "mild";
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(1, &responses, score, severity, None, "completed")
             .expect("Failed to create assessment");
     }
 
@@ -255,7 +255,7 @@ fn test_assessment_chart_thresholds_included() {
     let total_score = 9;
     let severity = "mild";
     assessment_repo
-        .save_assessment(1, &responses, total_score, severity, None)
+        .save_assessment(1, &responses, total_score, severity, None, "completed")
         .expect("Failed to create assessment");
 
     let chart_data = viz_repo
@@ -293,7 +293,7 @@ fn test_chart_data_aggregation_large_dataset() {
         };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(1, &responses, score, severity, None, "completed")
             .expect(&format!("Failed to create assessment {}", i));
     }
 
@@ -314,7 +314,7 @@ fn test_chart_data_aggregation_large_dataset() {
 // T136: Integration test - get_mood_chart_data query
 #[test]
 fn test_get_mood_chart_data_basic() {
-    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Create mood check-ins
     for rating in [3, 4, 5, 2, 4] {
@@ -339,7 +339,7 @@ fn test_get_mood_chart_data_basic() {
 
 #[test]
 fn test_get_mood_chart_data_with_time_range() {
-    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Create mood check-ins
     for rating in [3, 4, 5, 2, 4] {
@@ -377,7 +377,7 @@ fn test_get_mood_chart_data_no_data() {
 
 #[test]
 fn test_mood_statistics_calculation() {
-    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Create mood check-ins: 1, 2, 3, 3, 3, 4, 5
     // Mode should be 3 (appears 3 times)

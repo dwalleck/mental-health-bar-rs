@@ -87,7 +87,7 @@ fn test_log_mood_without_activities() {
 
 #[test]
 fn test_log_mood_invalid_rating() {
-    let (repo, _temp_dir, _group_id) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to log mood with invalid rating
     let result = repo.create_mood_checkin(0, vec![], None);
@@ -358,7 +358,7 @@ fn test_log_mood_notes_at_exact_limit() {
 // T150j: Test log_mood with boundary ratings (0, 8, -1, 100) for 1-7 scale
 #[test]
 fn test_log_mood_with_invalid_boundary_ratings() {
-    let (repo, _temp_dir, _group_id) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Test rating 0 (below minimum of 1)
     let result = repo.create_mood_checkin(0, vec![], None);
@@ -384,7 +384,7 @@ fn test_log_mood_with_invalid_boundary_ratings() {
 // T150j continued: Test valid boundary ratings (1 and 7) for 1-7 scale
 #[test]
 fn test_log_mood_with_valid_boundary_ratings() {
-    let (repo, _temp_dir, _group_id) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Test rating 1 (minimum valid - Terrible)
     let result = repo.create_mood_checkin(1, vec![], None);
