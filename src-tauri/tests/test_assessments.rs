@@ -42,9 +42,9 @@ fn test_submit_assessment_phq9_end_to_end() {
             assessment_type.id,
             &responses,
             total_score,
-            severity_level.as_str(),
+            severity_level,
             Some("Integration test notes".to_string()),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save assessment");
 
@@ -77,9 +77,9 @@ fn test_submit_all_assessment_types_end_to_end() {
             phq9.id,
             &phq9_responses,
             phq9_score,
-            get_phq9_severity(phq9_score).as_str(),
+            get_phq9_severity(phq9_score),
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save PHQ9");
 
@@ -95,9 +95,9 @@ fn test_submit_all_assessment_types_end_to_end() {
             gad7.id,
             &gad7_responses,
             gad7_score,
-            get_gad7_severity(gad7_score).as_str(),
+            get_gad7_severity(gad7_score),
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save GAD7");
 
@@ -113,9 +113,9 @@ fn test_submit_all_assessment_types_end_to_end() {
             cesd.id,
             &cesd_responses,
             cesd_score,
-            get_cesd_severity(cesd_score).as_str(),
+            get_cesd_severity(cesd_score),
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save CESD");
 
@@ -131,9 +131,9 @@ fn test_submit_all_assessment_types_end_to_end() {
             oasis.id,
             &oasis_responses,
             oasis_score,
-            get_oasis_severity(oasis_score).as_str(),
+            get_oasis_severity(oasis_score),
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save OASIS");
 
@@ -163,9 +163,9 @@ fn test_get_assessment_history_query_end_to_end() {
         phq9.id,
         &vec![1; 9],
         9,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save first PHQ9");
 
@@ -173,9 +173,9 @@ fn test_get_assessment_history_query_end_to_end() {
         gad7.id,
         &vec![2; 7],
         14,
-        SeverityLevel::Moderate.as_str(),
+        SeverityLevel::Moderate,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save GAD7");
 
@@ -183,9 +183,9 @@ fn test_get_assessment_history_query_end_to_end() {
         phq9.id,
         &vec![2; 9],
         18,
-        SeverityLevel::ModeratelySevere.as_str(),
+        SeverityLevel::ModeratelySevere,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save second PHQ9");
 
@@ -235,9 +235,9 @@ fn test_get_assessment_history_with_date_filtering() {
         phq9.id,
         &vec![1; 9],
         9,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to submit assessment");
 
@@ -299,9 +299,9 @@ fn test_delete_assessment_end_to_end() {
             phq9.id,
             &vec![1; 9],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save assessment");
 
@@ -366,9 +366,9 @@ fn test_get_assessment_history_reversed_date_range() {
         phq9_type.id,
         &responses1,
         9,
-        SeverityLevel::Minimal.as_str(),
+        SeverityLevel::Minimal,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save assessment 1");
 
@@ -377,9 +377,9 @@ fn test_get_assessment_history_reversed_date_range() {
         phq9_type.id,
         &responses2,
         18,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save assessment 2");
 
@@ -467,9 +467,9 @@ fn test_sql_injection_protection() {
         phq9_type.id,
         &responses,
         9,
-        SeverityLevel::Minimal.as_str(),
+        SeverityLevel::Minimal,
         Some(malicious_notes.to_string()),
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     );
 
     // Should succeed (parameterized queries should sanitize)
@@ -504,9 +504,9 @@ fn test_save_assessment_trims_notes() {
             1, // PHQ9
             &[2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            SeverityLevel::Moderate.as_str(),
+            SeverityLevel::Moderate,
             Some("  Feeling much better today!  ".to_string()),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save assessment with trimmed notes");
 
@@ -532,9 +532,9 @@ fn test_save_assessment_whitespace_only_notes_becomes_none() {
             1, // PHQ9
             &[1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             Some("     ".to_string()),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save assessment");
 
@@ -574,9 +574,9 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         phq9.id,
         &vec![1; 9],
         9,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         Some("PHQ9 draft".to_string()),
-        AssessmentStatus::Draft.as_str(),
+        AssessmentStatus::Draft,
     )
     .expect("Failed to save PHQ9 draft");
 
@@ -584,9 +584,9 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         gad7.id,
         &vec![1; 7],
         7,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         Some("GAD7 draft".to_string()),
-        AssessmentStatus::Draft.as_str(),
+        AssessmentStatus::Draft,
     )
     .expect("Failed to save GAD7 draft");
 
@@ -594,9 +594,9 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         cesd.id,
         &vec![1; 20],
         20,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         Some("CESD draft".to_string()),
-        AssessmentStatus::Draft.as_str(),
+        AssessmentStatus::Draft,
     )
     .expect("Failed to save CESD draft");
 
@@ -605,9 +605,9 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         phq9.id,
         &vec![2; 9],
         18,
-        SeverityLevel::Moderate.as_str(),
+        SeverityLevel::Moderate,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save completed PHQ9");
 
@@ -655,9 +655,9 @@ fn test_draft_to_completed_transition_creates_new_record() {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             Some("Initial draft".to_string()),
-            AssessmentStatus::Draft.as_str(),
+            AssessmentStatus::Draft,
         )
         .expect("Failed to create draft");
 
@@ -674,9 +674,9 @@ fn test_draft_to_completed_transition_creates_new_record() {
             phq9.id,
             &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            SeverityLevel::ModeratelySevere.as_str(),
+            SeverityLevel::ModeratelySevere,
             Some("Final submission".to_string()),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to complete assessment");
 

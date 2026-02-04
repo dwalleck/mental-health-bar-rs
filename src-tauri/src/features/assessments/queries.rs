@@ -57,6 +57,13 @@ pub async fn get_assessment_history(
 }
 
 /// Get a single assessment response by ID
+///
+/// # Security Note
+///
+/// This endpoint allows fetching any assessment by ID without user authentication.
+/// This is a known limitation acceptable for a single-user desktop application.
+/// If multi-user support is added, this endpoint should be protected with user
+/// authentication and ownership verification.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_assessment_response(

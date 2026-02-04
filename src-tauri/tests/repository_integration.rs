@@ -80,9 +80,9 @@ fn test_save_and_retrieve_assessment() {
             assessment_type.id,
             &responses,
             total_score,
-            severity_level.as_str(),
+            severity_level,
             notes.clone(),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save assessment");
 
@@ -117,27 +117,27 @@ fn test_get_assessment_history() {
         phq9.id,
         &vec![1; 9],
         9,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save PHQ9 assessment");
     repo.save_assessment(
         gad7.id,
         &vec![2; 7],
         14,
-        SeverityLevel::Moderate.as_str(),
+        SeverityLevel::Moderate,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save GAD7 assessment");
     repo.save_assessment(
         phq9.id,
         &vec![2; 9],
         18,
-        SeverityLevel::Moderate.as_str(),
+        SeverityLevel::Moderate,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save second PHQ9 assessment");
 
@@ -177,9 +177,9 @@ fn test_save_assessment_without_notes() {
             assessment_type.id,
             &vec![1, 1, 2, 1, 2, 1, 1],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save assessment");
 
@@ -215,9 +215,9 @@ fn test_delete_assessment_type_blocked_when_responses_exist() {
         assessment_type.id,
         &vec![1, 2, 1, 0, 1, 2, 1, 0, 1],
         9,
-        SeverityLevel::Mild.as_str(),
+        SeverityLevel::Mild,
         None,
-        AssessmentStatus::Completed.as_str(),
+        AssessmentStatus::Completed,
     )
     .expect("Failed to save assessment");
 

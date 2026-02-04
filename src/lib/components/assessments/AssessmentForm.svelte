@@ -12,6 +12,9 @@
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 
+	/** Sentinel value indicating a question has not been answered yet */
+	const UNANSWERED = -1
+
 	let { assessmentCode }: { assessmentCode: string } = $props()
 
 	// Parse draftId from URL with NaN validation to handle malformed URLs (e.g., ?draft=abc)
@@ -45,7 +48,7 @@
 				if (!isMounted) return
 
 				questions = fetchedQuestions
-				responses = new Array(fetchedQuestions.length).fill(-1)
+				responses = new Array(fetchedQuestions.length).fill(UNANSWERED)
 
 				// If resuming a draft, load the saved responses and notes
 				if (draftId !== null) {
@@ -129,7 +132,7 @@
 		}
 
 		// Validate all questions answered
-		if (responses.some((r) => r === -1)) {
+		if (responses.some((r) => r === UNANSWERED)) {
 			validationError = new Error('Please answer all questions')
 			return
 		}
@@ -168,7 +171,7 @@
 		}
 
 		// Check if at least one question is answered
-		if (responses.every((r) => r === -1)) {
+		if (responses.every((r) => r === UNANSWERED)) {
 			validationError = new Error('Please answer at least one question before saving a draft')
 			return
 		}
@@ -204,7 +207,7 @@
 		responses[questionIndex] = optionIndex
 	}
 
-	const progress = $derived(responses.filter((r) => r !== -1).length)
+	const progress = $derived(responses.filter((r) => r !== UNANSWERED).length)
 	const progressPercent = $derived((progress / questions.length) * 100)
 </script>
 

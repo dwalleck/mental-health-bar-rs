@@ -64,14 +64,14 @@ fn submit_assessment_impl(
         _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
     };
 
-    // Save to database (convert enums to strings for repository layer)
+    // Save to database
     let id = repo.save_assessment(
         assessment_type.id,
         request.responses.clone(),
         total_score,
-        severity_level.to_string(),
+        severity_level,
         request.notes.clone(),
-        request.status.as_str(),
+        request.status,
     )?;
 
     // Return the complete response
@@ -207,7 +207,7 @@ mod tests {
 
         // Calculate score (simplified for testing)
         let total_score = request.responses.iter().sum();
-        let severity_level = "moderate".to_string();
+        let severity_level = SeverityLevel::Moderate;
 
         // Save assessment
         let id = repo
@@ -215,9 +215,9 @@ mod tests {
                 assessment_type.id,
                 request.responses.clone(),
                 total_score,
-                severity_level.clone(),
+                severity_level,
                 request.notes.clone(),
-                request.status.as_str(),
+                request.status,
             )
             .map_err(|e| format!("Failed to save assessment: {}", e))?;
 
@@ -527,7 +527,7 @@ mod tests {
         mock_repo
             .expect_save_assessment()
             .returning(|_, _, _, _, _, status| {
-                assert_eq!(status, "draft", "Status should be 'draft'");
+                assert_eq!(status, AssessmentStatus::Draft, "Status should be Draft");
                 Ok(1) // Return mock ID
             });
 
@@ -591,7 +591,11 @@ mod tests {
         mock_repo
             .expect_save_assessment()
             .returning(|_, _, _, _, _, status| {
-                assert_eq!(status, "completed", "Status should be 'completed'");
+                assert_eq!(
+                    status,
+                    AssessmentStatus::Completed,
+                    "Status should be Completed"
+                );
                 Ok(2) // Return mock ID
             });
 
@@ -654,7 +658,7 @@ mod tests {
         mock_repo
             .expect_save_assessment()
             .returning(|_, responses, _, _, _, status| {
-                assert_eq!(status, "draft");
+                assert_eq!(status, AssessmentStatus::Draft);
                 // Verify partial responses (some -1 values for unanswered)
                 assert_eq!(responses.len(), 9);
                 assert!(responses.contains(&-1), "Should have unanswered questions");

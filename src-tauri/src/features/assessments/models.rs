@@ -494,4 +494,50 @@ mod tests {
         assert!(calculate_gad7_score(&vec![0, 1, 2, 3, -1, 0, 0]).is_err());
         assert!(calculate_oasis_score(&vec![0, 1, 2, 3, 5]).is_err());
     }
+
+    // T027: Deserialization validation tests
+    #[test]
+    fn test_submit_assessment_request_invalid_status_deserialization() {
+        let json =
+            r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1],"status":"invalid"}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json);
+        assert!(
+            result.is_err(),
+            "Deserialization should fail for invalid status value"
+        );
+    }
+
+    #[test]
+    fn test_submit_assessment_request_valid_status_deserialization() {
+        // Test valid draft status
+        let json_draft =
+            r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1],"status":"draft"}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json_draft);
+        assert!(
+            result.is_ok(),
+            "Deserialization should succeed for valid draft status"
+        );
+        assert_eq!(result.unwrap().status, AssessmentStatus::Draft);
+
+        // Test valid completed status
+        let json_completed = r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1],"status":"completed"}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json_completed);
+        assert!(
+            result.is_ok(),
+            "Deserialization should succeed for valid completed status"
+        );
+        assert_eq!(result.unwrap().status, AssessmentStatus::Completed);
+    }
+
+    #[test]
+    fn test_submit_assessment_request_default_status() {
+        // Test that missing status defaults to Completed
+        let json = r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1]}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json);
+        assert!(
+            result.is_ok(),
+            "Deserialization should succeed when status is missing"
+        );
+        assert_eq!(result.unwrap().status, AssessmentStatus::Completed);
+    }
 }

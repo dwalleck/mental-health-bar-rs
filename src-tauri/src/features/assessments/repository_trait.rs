@@ -1,6 +1,7 @@
 // Assessment repository trait - Interface for assessment data operations
 
 use super::models::*;
+use crate::types::{AssessmentStatus, SeverityLevel};
 
 #[cfg(test)]
 use mockall::automock;
@@ -18,9 +19,9 @@ pub trait AssessmentRepositoryTrait {
         assessment_type_id: i32,
         responses: Vec<i32>,
         total_score: i32,
-        severity_level: String,
+        severity_level: SeverityLevel,
         notes: Option<String>,
-        status: &str,
+        status: AssessmentStatus,
     ) -> Result<i32, AssessmentError>;
 
     /// Get assessment type by code (PHQ9, GAD7, etc.)

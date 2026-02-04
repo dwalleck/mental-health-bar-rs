@@ -1,6 +1,7 @@
 // Assessment repository - database access layer
 use super::models::{AssessmentError, AssessmentResponse, AssessmentType};
 use crate::db::Database;
+use crate::types::{AssessmentStatus, SeverityLevel};
 use crate::utils::sanitize_optional_text;
 use crate::MAX_QUERY_LIMIT;
 use rusqlite::{OptionalExtension, Row};
@@ -83,9 +84,9 @@ impl AssessmentRepository {
         assessment_type_id: i32,
         responses: &[i32],
         total_score: i32,
-        severity_level: &str,
+        severity_level: SeverityLevel,
         notes: Option<String>,
-        status: &str,
+        status: AssessmentStatus,
     ) -> Result<i32, AssessmentError> {
         // Sanitize notes (trim and convert empty string to None)
         let notes = sanitize_optional_text(notes);
@@ -102,7 +103,10 @@ impl AssessmentRepository {
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(AssessmentError::Database)?;
 
-        let id = if status == "draft" {
+        let status_str = status.as_str();
+        let severity_str = severity_level.as_str();
+
+        let id = if status == AssessmentStatus::Draft {
             // For drafts: check if existing draft exists for this assessment type
             let existing_draft_id: Option<i32> = tx
                 .query_row(
@@ -124,7 +128,7 @@ impl AssessmentRepository {
                     [
                         &responses_json as &dyn rusqlite::ToSql,
                         &total_score as &dyn rusqlite::ToSql,
-                        &severity_level as &dyn rusqlite::ToSql,
+                        &severity_str as &dyn rusqlite::ToSql,
                         &notes as &dyn rusqlite::ToSql,
                         &draft_id as &dyn rusqlite::ToSql,
                     ],
@@ -145,9 +149,9 @@ impl AssessmentRepository {
                         &assessment_type_id as &dyn rusqlite::ToSql,
                         &responses_json as &dyn rusqlite::ToSql,
                         &total_score as &dyn rusqlite::ToSql,
-                        &severity_level as &dyn rusqlite::ToSql,
+                        &severity_str as &dyn rusqlite::ToSql,
                         &notes as &dyn rusqlite::ToSql,
-                        &status as &dyn rusqlite::ToSql,
+                        &status_str as &dyn rusqlite::ToSql,
                     ],
                     |row| row.get(0),
                 )?
@@ -162,9 +166,9 @@ impl AssessmentRepository {
                     &assessment_type_id as &dyn rusqlite::ToSql,
                     &responses_json as &dyn rusqlite::ToSql,
                     &total_score as &dyn rusqlite::ToSql,
-                    &severity_level as &dyn rusqlite::ToSql,
+                    &severity_str as &dyn rusqlite::ToSql,
                     &notes as &dyn rusqlite::ToSql,
-                    &status as &dyn rusqlite::ToSql,
+                    &status_str as &dyn rusqlite::ToSql,
                 ],
                 |row| row.get(0),
             )?
@@ -177,9 +181,9 @@ impl AssessmentRepository {
             assessment_id = id,
             assessment_type_id = assessment_type_id,
             total_score = total_score,
-            severity_level = severity_level,
+            severity_level = severity_str,
             has_notes = notes.is_some(),
-            status = status,
+            status = status_str,
             "Saved assessment"
         );
 
@@ -453,15 +457,15 @@ impl AssessmentRepositoryTrait for AssessmentRepository {
         assessment_type_id: i32,
         responses: Vec<i32>,
         total_score: i32,
-        severity_level: String,
+        severity_level: SeverityLevel,
         notes: Option<String>,
-        status: &str,
+        status: AssessmentStatus,
     ) -> Result<i32, AssessmentError> {
         self.save_assessment(
             assessment_type_id,
             &responses,
             total_score,
-            &severity_level,
+            severity_level,
             notes,
             status,
         )
@@ -514,7 +518,7 @@ mod tests {
         // Save a draft assessment
         let responses = vec![1, 2, 1, 0, 1, 2, 1, 0, 1];
         let total_score = 10;
-        let severity_level = SeverityLevel::Mild.as_str();
+        let severity_level = SeverityLevel::Mild;
         let notes = Some("Test draft notes".to_string());
 
         let id = repo
@@ -524,7 +528,7 @@ mod tests {
                 total_score,
                 severity_level,
                 notes,
-                AssessmentStatus::Draft.as_str(),
+                AssessmentStatus::Draft,
             )
             .expect("Failed to save draft assessment");
 
@@ -556,7 +560,7 @@ mod tests {
         // Save a completed assessment
         let responses = vec![2, 2, 3, 2, 1, 2, 3];
         let total_score = 15;
-        let severity_level = SeverityLevel::Moderate.as_str();
+        let severity_level = SeverityLevel::Moderate;
 
         let id = repo
             .save_assessment(
@@ -565,7 +569,7 @@ mod tests {
                 total_score,
                 severity_level,
                 None,
-                AssessmentStatus::Completed.as_str(),
+                AssessmentStatus::Completed,
             )
             .expect("Failed to save completed assessment");
 
@@ -604,9 +608,9 @@ mod tests {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             Some("Draft 1".to_string()),
-            AssessmentStatus::Draft.as_str(),
+            AssessmentStatus::Draft,
         )
         .expect("Failed to save draft 1");
 
@@ -615,9 +619,9 @@ mod tests {
             phq9.id,
             &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            SeverityLevel::ModeratelySevere.as_str(),
+            SeverityLevel::ModeratelySevere,
             Some("Completed 1".to_string()),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save completed 1");
 
@@ -626,9 +630,9 @@ mod tests {
             gad7.id,
             &vec![1, 1, 1, 1, 1, 1, 1],
             7,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             Some("Draft 2".to_string()),
-            AssessmentStatus::Draft.as_str(),
+            AssessmentStatus::Draft,
         )
         .expect("Failed to save draft 2");
 
@@ -637,9 +641,9 @@ mod tests {
             gad7.id,
             &vec![3, 3, 3, 3, 3, 3, 3],
             21,
-            SeverityLevel::Severe.as_str(),
+            SeverityLevel::Severe,
             Some("Completed 2".to_string()),
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save completed 2");
 
@@ -648,9 +652,9 @@ mod tests {
             phq9.id,
             &vec![0, 0, 1, 1, 0, 1, 0, 0, 1],
             4,
-            SeverityLevel::Minimal.as_str(),
+            SeverityLevel::Minimal,
             Some("Draft 3 (updated PHQ9)".to_string()),
-            AssessmentStatus::Draft.as_str(),
+            AssessmentStatus::Draft,
         )
         .expect("Failed to save draft 3");
 
@@ -709,9 +713,9 @@ mod tests {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save completed assessment");
 
@@ -739,9 +743,9 @@ mod tests {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            SeverityLevel::Mild.as_str(),
+            SeverityLevel::Mild,
             None,
-            AssessmentStatus::Draft.as_str(),
+            AssessmentStatus::Draft,
         )
         .expect("Failed to save draft");
 
@@ -749,9 +753,9 @@ mod tests {
             phq9.id,
             &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            SeverityLevel::ModeratelySevere.as_str(),
+            SeverityLevel::ModeratelySevere,
             None,
-            AssessmentStatus::Completed.as_str(),
+            AssessmentStatus::Completed,
         )
         .expect("Failed to save completed");
 
@@ -784,7 +788,7 @@ mod tests {
         // Save a draft with some unanswered questions (-1 indicates not answered)
         let responses = vec![1, 2, -1, -1, 1, -1, 1, -1, -1];
         let total_score = 5; // Only count answered questions
-        let severity_level = SeverityLevel::Minimal.as_str();
+        let severity_level = SeverityLevel::Minimal;
 
         let id = repo
             .save_assessment(
@@ -793,7 +797,7 @@ mod tests {
                 total_score,
                 severity_level,
                 Some("Partially completed".to_string()),
-                AssessmentStatus::Draft.as_str(),
+                AssessmentStatus::Draft,
             )
             .expect("Failed to save partial draft");
 
@@ -835,9 +839,9 @@ mod tests {
                 phq9.id,
                 &vec![1, 1, 1, 0, 0, 0, 0, 0, 0],
                 3,
-                SeverityLevel::Minimal.as_str(),
+                SeverityLevel::Minimal,
                 Some("First save".to_string()),
-                AssessmentStatus::Draft.as_str(),
+                AssessmentStatus::Draft,
             )
             .expect("Failed to save first draft");
 
@@ -847,9 +851,9 @@ mod tests {
                 phq9.id,
                 &vec![2, 2, 2, 1, 1, 1, 0, 0, 0],
                 9,
-                SeverityLevel::Mild.as_str(),
+                SeverityLevel::Mild,
                 Some("Second save".to_string()),
-                AssessmentStatus::Draft.as_str(),
+                AssessmentStatus::Draft,
             )
             .expect("Failed to save second draft");
 
@@ -892,9 +896,9 @@ mod tests {
                 gad7.id,
                 &vec![1, 1, 1, 1, 1, 1, 1],
                 7,
-                SeverityLevel::Mild.as_str(),
+                SeverityLevel::Mild,
                 Some("First assessment".to_string()),
-                AssessmentStatus::Completed.as_str(),
+                AssessmentStatus::Completed,
             )
             .expect("Failed to save first completed");
 
@@ -904,9 +908,9 @@ mod tests {
                 gad7.id,
                 &vec![2, 2, 2, 2, 2, 2, 2],
                 14,
-                SeverityLevel::Moderate.as_str(),
+                SeverityLevel::Moderate,
                 Some("Second assessment".to_string()),
-                AssessmentStatus::Completed.as_str(),
+                AssessmentStatus::Completed,
             )
             .expect("Failed to save second completed");
 
