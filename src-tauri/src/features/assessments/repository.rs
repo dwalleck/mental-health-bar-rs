@@ -111,10 +111,10 @@ impl AssessmentRepository {
             let existing_draft_id: Option<i32> = tx
                 .query_row(
                     "SELECT id FROM assessment_responses
-                     WHERE assessment_type_id = ? AND status = 'draft'
+                     WHERE assessment_type_id = ? AND status = ?
                      ORDER BY completed_at DESC
                      LIMIT 1",
-                    [&assessment_type_id],
+                    rusqlite::params![&assessment_type_id, &AssessmentStatus::Draft],
                     |row| row.get(0),
                 )
                 .optional()?;
@@ -583,6 +583,62 @@ mod tests {
         assert_eq!(saved.severity_level, SeverityLevel::Moderate);
         assert_eq!(saved.responses, responses);
         assert_eq!(saved.notes, None);
+    }
+
+    #[test]
+    fn test_save_draft_twice_updates_same_record() {
+        let (repo, _temp_dir) = setup_test_repo();
+
+        // Get an assessment type
+        let assessment_types = repo
+            .get_assessment_types()
+            .expect("Failed to get assessment types");
+        let phq9 = assessment_types
+            .iter()
+            .find(|at| at.code == "PHQ9")
+            .expect("PHQ9 not found");
+
+        // Save first draft
+        let id1 = repo
+            .save_assessment(
+                phq9.id,
+                &vec![1, 2, 1, 2, 1, 2, 1, 2, 1],
+                13,
+                SeverityLevel::Mild,
+                Some("First draft".to_string()),
+                AssessmentStatus::Draft,
+            )
+            .expect("Failed to save first draft");
+
+        // Save second draft for same assessment type (should update, not create new)
+        let id2 = repo
+            .save_assessment(
+                phq9.id,
+                &vec![3, 3, 3, 3, 3, 3, 3, 3, 3],
+                27,
+                SeverityLevel::Severe,
+                Some("Updated draft".to_string()),
+                AssessmentStatus::Draft,
+            )
+            .expect("Failed to save second draft");
+
+        // IDs should match - same record was updated
+        assert_eq!(
+            id1, id2,
+            "Draft should update existing record, not create new"
+        );
+
+        // Verify only one draft exists for this assessment type
+        let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
+        assert_eq!(drafts.len(), 1, "Should have exactly one draft");
+
+        // Verify the draft has the updated values
+        let draft = &drafts[0];
+        assert_eq!(draft.id, id1);
+        assert_eq!(draft.responses, vec![3, 3, 3, 3, 3, 3, 3, 3, 3]);
+        assert_eq!(draft.total_score, 27);
+        assert_eq!(draft.severity_level, SeverityLevel::Severe);
+        assert_eq!(draft.notes, Some("Updated draft".to_string()));
     }
 
     #[test]

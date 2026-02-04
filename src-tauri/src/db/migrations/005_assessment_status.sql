@@ -16,4 +16,5 @@ ALTER TABLE assessment_responses ADD COLUMN status TEXT NOT NULL DEFAULT 'comple
 CREATE INDEX idx_assessment_responses_status ON assessment_responses(status);
 
 -- Create composite index for finding user's drafts by type
+-- Supports: SELECT * FROM assessment_responses WHERE assessment_type_id = ? AND status = ?
 CREATE INDEX idx_assessment_responses_type_status ON assessment_responses(assessment_type_id, status);

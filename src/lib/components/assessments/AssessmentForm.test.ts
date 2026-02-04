@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AssessmentForm from './AssessmentForm.svelte'
 import type { AssessmentQuestion, AssessmentResponse } from '$lib/bindings'
+import { ASSESSMENT_STATUS } from '$lib/constants/assessments'
 
 // Mock retry utility
 vi.mock('$lib/utils/retry', () => ({
@@ -98,7 +99,7 @@ describe('AssessmentForm', () => {
 		severity_level: 'minimal',
 		completed_at: '2024-01-15T10:30:00Z',
 		notes: null,
-		status: 'completed',
+		status: ASSESSMENT_STATUS.COMPLETED,
 	}
 
 	describe('Props', () => {
@@ -397,7 +398,7 @@ describe('AssessmentForm', () => {
 						assessment_type_code: 'PHQ9',
 						responses: [0, 1],
 						notes: null,
-						status: 'completed',
+						status: ASSESSMENT_STATUS.COMPLETED,
 					},
 				})
 			})
@@ -432,7 +433,7 @@ describe('AssessmentForm', () => {
 						assessment_type_code: 'PHQ9',
 						responses: [0, 0],
 						notes: 'Test notes',
-						status: 'completed',
+						status: ASSESSMENT_STATUS.COMPLETED,
 					},
 				})
 			})
@@ -578,7 +579,7 @@ describe('AssessmentForm', () => {
 			severity_level: 'minimal',
 			completed_at: '2024-01-15T10:30:00Z',
 			notes: 'Draft notes',
-			status: 'draft',
+			status: ASSESSMENT_STATUS.DRAFT,
 		}
 
 		describe('Save Draft Button', () => {
@@ -653,7 +654,7 @@ describe('AssessmentForm', () => {
 							assessment_type_code: 'PHQ9',
 							responses: [0, -1],
 							notes: null,
-							status: 'draft',
+							status: ASSESSMENT_STATUS.DRAFT,
 						},
 					})
 				})
@@ -744,7 +745,7 @@ describe('AssessmentForm', () => {
 				await waitFor(() => {
 					expect(invokeWithRetryMock).toHaveBeenCalledWith('submit_assessment', {
 						request: expect.objectContaining({
-							status: 'completed',
+							status: ASSESSMENT_STATUS.COMPLETED,
 						}),
 					})
 				})

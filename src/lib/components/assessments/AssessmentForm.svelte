@@ -9,6 +9,7 @@
 	import Card from '$lib/components/ui/Card.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte'
+	import { ASSESSMENT_STATUS } from '$lib/constants/assessments'
 	import { invokeWithRetry } from '$lib/utils/retry'
 	import { displayError, displaySuccess } from '$lib/utils/errors'
 
@@ -63,7 +64,7 @@
 						// Also verify this is actually a draft, not a completed assessment
 						const typeMatches =
 							draft.assessment_type.code.toLowerCase() === assessmentCode.toLowerCase()
-						const isDraft = draft.status === 'draft'
+						const isDraft = draft.status === ASSESSMENT_STATUS.DRAFT
 
 						if (typeMatches && isDraft) {
 							responses = draft.responses
@@ -145,7 +146,7 @@
 				assessment_type_code: assessmentCode,
 				responses: responses,
 				notes: notes || null,
-				status: 'completed',
+				status: ASSESSMENT_STATUS.COMPLETED,
 			}
 
 			const result = await invokeWithRetry<AssessmentResponse>('submit_assessment', { request })
@@ -184,7 +185,7 @@
 				assessment_type_code: assessmentCode,
 				responses: responses,
 				notes: notes || null,
-				status: 'draft',
+				status: ASSESSMENT_STATUS.DRAFT,
 			}
 
 			await invokeWithRetry<AssessmentResponse>('submit_assessment', { request })

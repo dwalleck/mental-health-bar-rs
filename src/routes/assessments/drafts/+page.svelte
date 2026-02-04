@@ -54,7 +54,7 @@
 			// Remove from list
 			drafts = drafts.filter((d) => d.id !== draftId)
 		} catch (e) {
-			console.error('Failed to delete draft:', e)
+			console.error('Failed to delete draft:', { draftId, error: e })
 			const result = displayError(e)
 			if (result.type === 'inline') {
 				error = result.message || 'Failed to delete draft'
@@ -69,7 +69,7 @@
 			// Use SvelteKit navigation instead of window.location.href for client-side routing
 			await goto(`/assessments/${draft.assessment_type.code.toLowerCase()}?draft=${draft.id}`)
 		} catch (e) {
-			console.error('Navigation error when resuming draft:', e)
+			console.error('Navigation error when resuming draft:', { draftId: draft.id, error: e })
 			const result = displayError(e)
 			if (result.type === 'inline') {
 				error = result.message || 'Failed to navigate to draft'
@@ -126,6 +126,7 @@
 									variant="secondary"
 									disabled={deletingId === draft.id}
 									onclick={() => handleDeleteDraft(draft.id)}
+									aria-label="Delete draft for {draft.assessment_type.name}"
 								>
 									{deletingId === draft.id ? 'Deleting...' : 'Delete'}
 								</Button>
@@ -133,6 +134,7 @@
 									variant="primary"
 									disabled={deletingId === draft.id}
 									onclick={() => handleResumeDraft(draft)}
+									aria-label="Resume draft for {draft.assessment_type.name}"
 								>
 									Resume Draft
 								</Button>
