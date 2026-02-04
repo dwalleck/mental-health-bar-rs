@@ -76,9 +76,30 @@ impl AssessmentRepository {
 
     /// Save an assessment (completed or draft)
     ///
-    /// Behavior:
-    /// - **Drafts**: Updates existing draft for this assessment type if found, otherwise creates new
-    /// - **Completed**: Always creates new record (historical data)
+    /// # Draft Behavior (One-Draft-Per-Type Constraint)
+    ///
+    /// Only one draft can exist per assessment type at a time. When saving a draft:
+    /// - If a draft already exists for this assessment type, it is **updated** (not duplicated)
+    /// - If no draft exists, a new draft record is created
+    /// - This allows users to resume their most recent draft for each assessment type
+    ///
+    /// # Completed Behavior
+    ///
+    /// Completed assessments always create a **new record** to preserve historical data.
+    /// Multiple completed assessments can exist for the same assessment type.
+    ///
+    /// # Arguments
+    ///
+    /// * `assessment_type_id` - The ID of the assessment type (PHQ-9, GAD-7, etc.)
+    /// * `responses` - Array of response values (may contain `UNANSWERED` (-1) for drafts)
+    /// * `total_score` - Calculated score (partial for drafts, full for completed)
+    /// * `severity_level` - Calculated severity (Unknown for drafts with partial data)
+    /// * `notes` - Optional user notes
+    /// * `status` - Draft or Completed
+    ///
+    /// # Returns
+    ///
+    /// The ID of the saved assessment (same ID if updating existing draft, new ID otherwise)
     pub fn save_assessment(
         &self,
         assessment_type_id: i32,

@@ -1,5 +1,5 @@
 // Assessment commands (mutations)
-use super::models::*;
+use super::models::{UNANSWERED, *};
 use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
 use crate::{
@@ -43,23 +43,81 @@ fn submit_assessment_impl(
     // Get assessment type
     let assessment_type = repo.get_assessment_type_by_code(request.assessment_type_code.clone())?;
 
+    // For completed assessments, validate no unanswered questions
+    // Drafts are allowed to have UNANSWERED (-1) values
+    if request.status == AssessmentStatus::Completed {
+        let unanswered_count = request
+            .responses
+            .iter()
+            .filter(|&&r| r == UNANSWERED)
+            .count();
+        if unanswered_count > 0 {
+            return Err(AssessmentError::UnansweredQuestions {
+                count: unanswered_count,
+                total: request.responses.len(),
+            });
+        }
+    }
+
     // Calculate score based on type
+    // For drafts: filter out UNANSWERED values before scoring
+    // For completed: all values are valid (validated above)
+    let valid_responses: Vec<i32> = if request.status == AssessmentStatus::Draft {
+        request
+            .responses
+            .iter()
+            .copied()
+            .filter(|&r| r != UNANSWERED)
+            .collect()
+    } else {
+        request.responses.clone()
+    };
+
     let (total_score, severity_level) = match assessment_type.code.as_str() {
         "PHQ9" => {
-            let score = calculate_phq9_score(&request.responses)?;
-            (score, get_phq9_severity(score))
+            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
+                (0, SeverityLevel::Unknown)
+            } else if request.status == AssessmentStatus::Draft {
+                // For drafts, calculate partial score from answered questions only
+                let partial_score: i32 = valid_responses.iter().sum();
+                (partial_score, SeverityLevel::Unknown) // Unknown severity for incomplete
+            } else {
+                let score = calculate_phq9_score(&request.responses)?;
+                (score, get_phq9_severity(score))
+            }
         }
         "GAD7" => {
-            let score = calculate_gad7_score(&request.responses)?;
-            (score, get_gad7_severity(score))
+            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
+                (0, SeverityLevel::Unknown)
+            } else if request.status == AssessmentStatus::Draft {
+                let partial_score: i32 = valid_responses.iter().sum();
+                (partial_score, SeverityLevel::Unknown)
+            } else {
+                let score = calculate_gad7_score(&request.responses)?;
+                (score, get_gad7_severity(score))
+            }
         }
         "CESD" => {
-            let score = calculate_cesd_score(&request.responses)?;
-            (score, get_cesd_severity(score))
+            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
+                (0, SeverityLevel::Unknown)
+            } else if request.status == AssessmentStatus::Draft {
+                let partial_score: i32 = valid_responses.iter().sum();
+                (partial_score, SeverityLevel::Unknown)
+            } else {
+                let score = calculate_cesd_score(&request.responses)?;
+                (score, get_cesd_severity(score))
+            }
         }
         "OASIS" => {
-            let score = calculate_oasis_score(&request.responses)?;
-            (score, get_oasis_severity(score))
+            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
+                (0, SeverityLevel::Unknown)
+            } else if request.status == AssessmentStatus::Draft {
+                let partial_score: i32 = valid_responses.iter().sum();
+                (partial_score, SeverityLevel::Unknown)
+            } else {
+                let score = calculate_oasis_score(&request.responses)?;
+                (score, get_oasis_severity(score))
+            }
         }
         _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
     };
@@ -703,6 +761,110 @@ mod tests {
             response.responses.iter().filter(|&&r| r == -1).count(),
             5,
             "Should have 5 unanswered questions"
+        );
+    }
+
+    #[test]
+    fn test_submit_completed_assessment_rejects_unanswered_questions() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        // Note: save_assessment should NOT be called because validation fails first
+        // No expectation set means test fails if it's called
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 2, -1, 0, 1, -1, 1, 0, 1], // Has unanswered (-1) values
+            notes: None,
+            status: AssessmentStatus::Completed, // Completed should reject -1
+        };
+
+        let result = submit_assessment_impl(&mock_repo, &request);
+
+        assert!(
+            result.is_err(),
+            "Should reject completed assessment with unanswered questions"
+        );
+        match result.unwrap_err() {
+            AssessmentError::UnansweredQuestions { count, total } => {
+                assert_eq!(count, 2, "Should have 2 unanswered questions");
+                assert_eq!(total, 9, "Should have 9 total questions");
+            }
+            other => panic!("Expected UnansweredQuestions error, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_submit_completed_assessment_accepts_all_answered() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, _, _, _, _, _| Ok(1));
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 1,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: "PHQ9".to_string(),
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![1, 2, 0, 0, 1, 0, 1, 0, 1],
+                total_score: 6,
+                severity_level: SeverityLevel::Mild,
+                completed_at: "2024-01-01 12:00:00".to_string(),
+                notes: None,
+                status: AssessmentStatus::Completed,
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 2, 0, 0, 1, 0, 1, 0, 1], // All answered (no -1)
+            notes: None,
+            status: AssessmentStatus::Completed,
+        };
+
+        let result = submit_assessment_impl(&mock_repo, &request);
+
+        assert!(
+            result.is_ok(),
+            "Should accept completed assessment with all questions answered"
         );
     }
 }

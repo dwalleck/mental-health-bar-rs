@@ -112,10 +112,17 @@
 							{/if}
 						</div>
 						<div class="text-right flex flex-col items-end gap-2">
-							<div class="text-sm text-gray-600">
+							<div id="draft-progress-{draft.id}" class="text-sm text-gray-600">
 								Progress: {progress.answered}/{progress.total} questions
 							</div>
-							<div class="w-32 bg-gray-200 rounded-full h-2">
+							<div
+								class="w-32 bg-gray-200 rounded-full h-2"
+								role="progressbar"
+								aria-valuenow={progress.answered}
+								aria-valuemin={0}
+								aria-valuemax={progress.total}
+								aria-label="Draft completion progress"
+							>
 								<div
 									class="bg-blue-600 h-2 rounded-full transition-all"
 									style="width: {(progress.answered / progress.total) * 100}%"
@@ -127,6 +134,7 @@
 									disabled={deletingId === draft.id}
 									onclick={() => handleDeleteDraft(draft.id)}
 									aria-label="Delete draft for {draft.assessment_type.name}"
+									aria-describedby="draft-progress-{draft.id}"
 								>
 									{deletingId === draft.id ? 'Deleting...' : 'Delete'}
 								</Button>
@@ -135,6 +143,7 @@
 									disabled={deletingId === draft.id}
 									onclick={() => handleResumeDraft(draft)}
 									aria-label="Resume draft for {draft.assessment_type.name}"
+									aria-describedby="draft-progress-{draft.id}"
 								>
 									Resume Draft
 								</Button>

@@ -7,6 +7,11 @@ use validator::Validate;
 // Re-export types for backward compatibility and convenience
 pub use crate::types::assessment::{AssessmentCode, AssessmentStatus, SeverityLevel};
 
+/// Sentinel value indicating a question has not been answered yet.
+/// Used in draft assessments to track partial progress.
+/// Completed assessments must not contain this value.
+pub const UNANSWERED: i32 = -1;
+
 /// Severity level constants (deprecated - use SeverityLevel enum instead)
 #[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_MINIMAL: &str = "minimal";
@@ -44,6 +49,9 @@ pub enum AssessmentError {
 
     #[error("Invalid response value: {0}")]
     InvalidResponse(String),
+
+    #[error("Completed assessment has unanswered questions: {count} of {total}")]
+    UnansweredQuestions { count: usize, total: usize },
 
     #[error("Assessment not found: {0}")]
     NotFound(i32),
@@ -103,6 +111,15 @@ impl ToCommandError for AssessmentError {
                     serde_json::json!({
                         "field": "responses",
                         "details": msg
+                    }),
+                )
+            }
+            AssessmentError::UnansweredQuestions { count, total } => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "responses",
+                        "unanswered_count": count,
+                        "total_questions": total
                     }),
                 )
             }
