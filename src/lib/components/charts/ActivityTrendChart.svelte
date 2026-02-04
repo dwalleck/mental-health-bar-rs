@@ -2,7 +2,7 @@
 	// T4.2: Activity Trend Chart - % change visualization with arrow indicators
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { Activity, ActivityTrend } from '$lib/bindings'
-	import { defaultChartOptions } from '$lib/utils/chart-config'
+	import { defaultBarChartOptions } from '$lib/utils/chart-config'
 	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
 	interface Props {
@@ -104,9 +104,9 @@
 				],
 			},
 			options: {
-				...defaultChartOptions,
+				...defaultBarChartOptions,
 				plugins: {
-					...defaultChartOptions.plugins,
+					...defaultBarChartOptions.plugins,
 					title: {
 						display: false,
 					},
@@ -114,7 +114,7 @@
 						display: false,
 					},
 					tooltip: {
-						...defaultChartOptions.plugins?.tooltip,
+						...defaultBarChartOptions.plugins?.tooltip,
 						callbacks: {
 							label: function (context) {
 								return `${context.parsed.y} days`
@@ -174,7 +174,7 @@
 	</div>
 
 	{#if loading}
-		<SkeletonLoader height="250px" />
+		<SkeletonLoader type="chart" />
 	{:else if !hasData}
 		<!-- Empty State -->
 		<div class="text-center py-12">
