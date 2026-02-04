@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::assessments::models::*;
 use tauri_sveltekit_modern_lib::features::assessments::repository::AssessmentRepository;
+use tauri_sveltekit_modern_lib::types::assessment::{AssessmentStatus, SeverityLevel};
 use tempfile::TempDir;
 
 fn setup_test_repo() -> (AssessmentRepository, TempDir) {
@@ -33,7 +34,7 @@ fn test_submit_assessment_phq9_end_to_end() {
     let severity_level = get_phq9_severity(total_score);
 
     assert_eq!(total_score, 9);
-    assert_eq!(severity_level, "mild");
+    assert_eq!(severity_level, SeverityLevel::Mild);
 
     // Save to database
     let id = repo
@@ -41,9 +42,9 @@ fn test_submit_assessment_phq9_end_to_end() {
             assessment_type.id,
             &responses,
             total_score,
-            severity_level,
+            severity_level.as_str(),
             Some("Integration test notes".to_string()),
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save assessment");
 
@@ -56,7 +57,7 @@ fn test_submit_assessment_phq9_end_to_end() {
     assert_eq!(retrieved.assessment_type.code, "PHQ9");
     assert_eq!(retrieved.responses, responses);
     assert_eq!(retrieved.total_score, 9);
-    assert_eq!(retrieved.severity_level, "mild");
+    assert_eq!(retrieved.severity_level, SeverityLevel::Mild);
     assert_eq!(retrieved.notes, Some("Integration test notes".to_string()));
 }
 
@@ -69,16 +70,16 @@ fn test_submit_all_assessment_types_end_to_end() {
     let phq9_responses = vec![3, 3, 3, 3, 3, 3, 3, 3, 3]; // Score = 27
     let phq9_score = calculate_phq9_score(&phq9_responses).unwrap();
     assert_eq!(phq9_score, 27);
-    assert_eq!(get_phq9_severity(phq9_score), "severe");
+    assert_eq!(get_phq9_severity(phq9_score), SeverityLevel::Severe);
 
     let phq9_id = repo
         .save_assessment(
             phq9.id,
             &phq9_responses,
             phq9_score,
-            get_phq9_severity(phq9_score),
+            get_phq9_severity(phq9_score).as_str(),
             None,
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save PHQ9");
 
@@ -87,16 +88,16 @@ fn test_submit_all_assessment_types_end_to_end() {
     let gad7_responses = vec![2, 2, 2, 2, 2, 2, 2]; // Score = 14
     let gad7_score = calculate_gad7_score(&gad7_responses).unwrap();
     assert_eq!(gad7_score, 14);
-    assert_eq!(get_gad7_severity(gad7_score), "moderate");
+    assert_eq!(get_gad7_severity(gad7_score), SeverityLevel::Moderate);
 
     let gad7_id = repo
         .save_assessment(
             gad7.id,
             &gad7_responses,
             gad7_score,
-            get_gad7_severity(gad7_score),
+            get_gad7_severity(gad7_score).as_str(),
             None,
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save GAD7");
 
@@ -105,16 +106,16 @@ fn test_submit_all_assessment_types_end_to_end() {
     let cesd_responses = vec![1; 20]; // Score = 20
     let cesd_score = calculate_cesd_score(&cesd_responses).unwrap();
     assert_eq!(cesd_score, 20);
-    assert_eq!(get_cesd_severity(cesd_score), "mild");
+    assert_eq!(get_cesd_severity(cesd_score), SeverityLevel::Mild);
 
     let cesd_id = repo
         .save_assessment(
             cesd.id,
             &cesd_responses,
             cesd_score,
-            get_cesd_severity(cesd_score),
+            get_cesd_severity(cesd_score).as_str(),
             None,
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save CESD");
 
@@ -123,16 +124,16 @@ fn test_submit_all_assessment_types_end_to_end() {
     let oasis_responses = vec![2, 2, 2, 2, 2]; // Score = 10
     let oasis_score = calculate_oasis_score(&oasis_responses).unwrap();
     assert_eq!(oasis_score, 10);
-    assert_eq!(get_oasis_severity(oasis_score), "moderate");
+    assert_eq!(get_oasis_severity(oasis_score), SeverityLevel::Moderate);
 
     let oasis_id = repo
         .save_assessment(
             oasis.id,
             &oasis_responses,
             oasis_score,
-            get_oasis_severity(oasis_score),
+            get_oasis_severity(oasis_score).as_str(),
             None,
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save OASIS");
 
@@ -158,19 +159,33 @@ fn test_get_assessment_history_query_end_to_end() {
     let gad7 = repo.get_assessment_type_by_code("GAD7").unwrap();
 
     // Submit multiple assessments
-    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
-        .expect("Failed to save first PHQ9");
+    repo.save_assessment(
+        phq9.id,
+        &vec![1; 9],
+        9,
+        SeverityLevel::Mild.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save first PHQ9");
 
-    repo.save_assessment(gad7.id, &vec![2; 7], 14, "moderate", None, "completed")
-        .expect("Failed to save GAD7");
+    repo.save_assessment(
+        gad7.id,
+        &vec![2; 7],
+        14,
+        SeverityLevel::Moderate.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save GAD7");
 
     repo.save_assessment(
         phq9.id,
         &vec![2; 9],
         18,
-        "moderately_severe",
+        SeverityLevel::ModeratelySevere.as_str(),
         None,
-        "completed",
+        AssessmentStatus::Completed.as_str(),
     )
     .expect("Failed to save second PHQ9");
 
@@ -216,8 +231,15 @@ fn test_get_assessment_history_with_date_filtering() {
 
     // Submit an assessment
     let phq9 = repo.get_assessment_type_by_code("PHQ9").unwrap();
-    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
-        .expect("Failed to submit assessment");
+    repo.save_assessment(
+        phq9.id,
+        &vec![1; 9],
+        9,
+        SeverityLevel::Mild.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to submit assessment");
 
     // Get dates for filtering - using wider margins to avoid timezone issues
     let yesterday = (chrono::Local::now() - chrono::Duration::days(1))
@@ -273,7 +295,14 @@ fn test_delete_assessment_end_to_end() {
     // Submit an assessment
     let phq9 = repo.get_assessment_type_by_code("PHQ9").unwrap();
     let id = repo
-        .save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
+        .save_assessment(
+            phq9.id,
+            &vec![1; 9],
+            9,
+            SeverityLevel::Mild.as_str(),
+            None,
+            AssessmentStatus::Completed.as_str(),
+        )
         .expect("Failed to save assessment");
 
     // Verify it exists
@@ -333,12 +362,26 @@ fn test_get_assessment_history_reversed_date_range() {
 
     // Create some assessments
     let responses1 = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
-    repo.save_assessment(phq9_type.id, &responses1, 9, "minimal", None, "completed")
-        .expect("Failed to save assessment 1");
+    repo.save_assessment(
+        phq9_type.id,
+        &responses1,
+        9,
+        SeverityLevel::Minimal.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save assessment 1");
 
     let responses2 = vec![2, 2, 2, 2, 2, 2, 2, 2, 2];
-    repo.save_assessment(phq9_type.id, &responses2, 18, "mild", None, "completed")
-        .expect("Failed to save assessment 2");
+    repo.save_assessment(
+        phq9_type.id,
+        &responses2,
+        18,
+        SeverityLevel::Mild.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save assessment 2");
 
     // Query with from_date > to_date (reversed range)
     let from_date = chrono::Utc::now()
@@ -424,9 +467,9 @@ fn test_sql_injection_protection() {
         phq9_type.id,
         &responses,
         9,
-        "minimal",
+        SeverityLevel::Minimal.as_str(),
         Some(malicious_notes.to_string()),
-        "completed",
+        AssessmentStatus::Completed.as_str(),
     );
 
     // Should succeed (parameterized queries should sanitize)
@@ -461,9 +504,9 @@ fn test_save_assessment_trims_notes() {
             1, // PHQ9
             &[2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            "moderate",
+            SeverityLevel::Moderate.as_str(),
             Some("  Feeling much better today!  ".to_string()),
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save assessment with trimmed notes");
 
@@ -489,9 +532,9 @@ fn test_save_assessment_whitespace_only_notes_becomes_none() {
             1, // PHQ9
             &[1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             Some("     ".to_string()),
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save assessment");
 
@@ -531,9 +574,9 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         phq9.id,
         &vec![1; 9],
         9,
-        "mild",
+        SeverityLevel::Mild.as_str(),
         Some("PHQ9 draft".to_string()),
-        "draft",
+        AssessmentStatus::Draft.as_str(),
     )
     .expect("Failed to save PHQ9 draft");
 
@@ -541,9 +584,9 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         gad7.id,
         &vec![1; 7],
         7,
-        "mild",
+        SeverityLevel::Mild.as_str(),
         Some("GAD7 draft".to_string()),
-        "draft",
+        AssessmentStatus::Draft.as_str(),
     )
     .expect("Failed to save GAD7 draft");
 
@@ -551,15 +594,22 @@ fn test_get_draft_assessments_returns_all_draft_types() {
         cesd.id,
         &vec![1; 20],
         20,
-        "mild",
+        SeverityLevel::Mild.as_str(),
         Some("CESD draft".to_string()),
-        "draft",
+        AssessmentStatus::Draft.as_str(),
     )
     .expect("Failed to save CESD draft");
 
     // Also save some completed assessments to verify filtering
-    repo.save_assessment(phq9.id, &vec![2; 9], 18, "moderate", None, "completed")
-        .expect("Failed to save completed PHQ9");
+    repo.save_assessment(
+        phq9.id,
+        &vec![2; 9],
+        18,
+        SeverityLevel::Moderate.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save completed PHQ9");
 
     // Get drafts
     let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
@@ -574,7 +624,8 @@ fn test_get_draft_assessments_returns_all_draft_types() {
     // Verify all are drafts
     for draft in &drafts {
         assert_eq!(
-            draft.status, "draft",
+            draft.status,
+            AssessmentStatus::Draft,
             "All returned assessments should be drafts"
         );
     }
@@ -604,9 +655,9 @@ fn test_draft_to_completed_transition_creates_new_record() {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             Some("Initial draft".to_string()),
-            "draft",
+            AssessmentStatus::Draft.as_str(),
         )
         .expect("Failed to create draft");
 
@@ -614,7 +665,7 @@ fn test_draft_to_completed_transition_creates_new_record() {
     let draft = repo
         .get_assessment_response(draft_id)
         .expect("Failed to get draft");
-    assert_eq!(draft.status, "draft");
+    assert_eq!(draft.status, AssessmentStatus::Draft);
 
     // Step 2: Complete the assessment (simulate user finishing and submitting)
     // This should create a NEW record, not update the draft
@@ -623,9 +674,9 @@ fn test_draft_to_completed_transition_creates_new_record() {
             phq9.id,
             &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            "moderately_severe",
+            SeverityLevel::ModeratelySevere.as_str(),
             Some("Final submission".to_string()),
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to complete assessment");
 
@@ -649,8 +700,11 @@ fn test_draft_to_completed_transition_creates_new_record() {
     );
 
     // Verify: draft still has draft status
-    assert_eq!(draft_still_exists.unwrap().status, "draft");
-    assert_eq!(completed_exists.unwrap().status, "completed");
+    assert_eq!(draft_still_exists.unwrap().status, AssessmentStatus::Draft);
+    assert_eq!(
+        completed_exists.unwrap().status,
+        AssessmentStatus::Completed
+    );
 
     // Verify: history shows both
     let history = repo
@@ -679,7 +733,8 @@ fn test_serde_default_status_is_completed() {
         serde_json::from_str(json_without_status).expect("Failed to deserialize request");
 
     assert_eq!(
-        request.status, "completed",
+        request.status,
+        AssessmentStatus::Completed,
         "Status should default to 'completed' when not provided (backward compatibility)"
     );
     assert_eq!(request.assessment_type_code, "PHQ9");
@@ -704,7 +759,8 @@ fn test_serde_explicit_status_draft() {
         serde_json::from_str(json_with_draft).expect("Failed to deserialize request");
 
     assert_eq!(
-        request.status, "draft",
+        request.status,
+        AssessmentStatus::Draft,
         "Explicit draft status should be preserved"
     );
 }
@@ -725,7 +781,8 @@ fn test_serde_explicit_status_completed() {
         serde_json::from_str(json_with_completed).expect("Failed to deserialize request");
 
     assert_eq!(
-        request.status, "completed",
+        request.status,
+        AssessmentStatus::Completed,
         "Explicit completed status should be preserved"
     );
 }

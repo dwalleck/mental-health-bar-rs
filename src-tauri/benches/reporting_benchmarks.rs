@@ -12,6 +12,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::activities::repository::ActivityRepository;
+use tauri_sveltekit_modern_lib::types::activity::GoalType;
 use tempfile::TempDir;
 
 fn setup_repo() -> (ActivityRepository, TempDir) {
@@ -100,7 +101,7 @@ fn bench_check_goal_progress_scaling(c: &mut Criterion) {
 
         // Set a goal for the activity
         let goal = repo
-            .set_activity_goal(Some(activity_id), None, "days_per_period", 20, 30)
+            .set_activity_goal(Some(activity_id), None, GoalType::DaysPerPeriod, 20, 30)
             .expect("Failed to set goal");
 
         let end_date = chrono::Utc::now().to_rfc3339();
@@ -175,7 +176,7 @@ fn bench_goal_progress_both_types(c: &mut Criterion) {
 
     // Benchmark days_per_period goal type
     let goal_days = repo
-        .set_activity_goal(Some(activity_id), None, "days_per_period", 20, 30)
+        .set_activity_goal(Some(activity_id), None, GoalType::DaysPerPeriod, 20, 30)
         .expect("Failed to set days goal");
 
     group.bench_function("days_per_period", |b| {
@@ -192,7 +193,13 @@ fn bench_goal_progress_both_types(c: &mut Criterion) {
         .expect("Failed to delete goal");
 
     let goal_percent = repo
-        .set_activity_goal(Some(activity_id), None, "percent_improvement", 25, 30)
+        .set_activity_goal(
+            Some(activity_id),
+            None,
+            GoalType::PercentImprovement,
+            25,
+            30,
+        )
         .expect("Failed to set percent goal");
 
     group.bench_function("percent_improvement", |b| {
@@ -284,7 +291,7 @@ fn bench_group_level_goals(c: &mut Criterion) {
 
     // Set a group-level goal
     let goal = repo
-        .set_activity_goal(None, Some(test_group.id), "days_per_period", 50, 30)
+        .set_activity_goal(None, Some(test_group.id), GoalType::DaysPerPeriod, 50, 30)
         .expect("Failed to set group goal");
 
     let end_date = chrono::Utc::now().to_rfc3339();

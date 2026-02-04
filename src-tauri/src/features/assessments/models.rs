@@ -4,16 +4,27 @@ use specta::Type;
 use thiserror::Error;
 use validator::Validate;
 
-/// Severity level constants
+// Re-export types for backward compatibility and convenience
+pub use crate::types::assessment::{AssessmentCode, AssessmentStatus, SeverityLevel};
+
+/// Severity level constants (deprecated - use SeverityLevel enum instead)
+#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_MINIMAL: &str = "minimal";
+#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_MILD: &str = "mild";
+#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_MODERATE: &str = "moderate";
+#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_MODERATELY_SEVERE: &str = "moderately_severe";
+#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_SEVERE: &str = "severe";
+#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
 pub const SEVERITY_UNKNOWN: &str = "unknown";
 
-/// Assessment status constants
+/// Assessment status constants (deprecated - use AssessmentStatus enum instead)
+#[deprecated(since = "0.2.0", note = "Use AssessmentStatus enum instead")]
 pub const STATUS_DRAFT: &str = "draft";
+#[deprecated(since = "0.2.0", note = "Use AssessmentStatus enum instead")]
 pub const STATUS_COMPLETED: &str = "completed";
 
 /// Assessment error types
@@ -21,6 +32,12 @@ pub const STATUS_COMPLETED: &str = "completed";
 pub enum AssessmentError {
     #[error("Invalid assessment type: {0}")]
     InvalidType(String),
+
+    #[error("Invalid assessment status: {0}")]
+    InvalidStatus(String),
+
+    #[error("Invalid severity level: {0}")]
+    InvalidSeverity(String),
 
     #[error("Incomplete responses: expected {expected}, got {actual}")]
     IncompleteResponses { expected: usize, actual: usize },
@@ -53,6 +70,22 @@ impl ToCommandError for AssessmentError {
                     serde_json::json!({
                         "field": "assessment_type_code",
                         "value": code
+                    }),
+                )
+            }
+            AssessmentError::InvalidStatus(status) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "status",
+                        "value": status
+                    }),
+                )
+            }
+            AssessmentError::InvalidSeverity(severity) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "severity_level",
+                        "value": severity
                     }),
                 )
             }
@@ -157,19 +190,6 @@ fn validate_notes_control_chars(notes: &str) -> Result<(), validator::Validation
     Ok(())
 }
 
-/// Custom validator for assessment status
-fn validate_status(status: &str) -> Result<(), validator::ValidationError> {
-    if status != STATUS_DRAFT && status != STATUS_COMPLETED {
-        let mut error = validator::ValidationError::new("invalid_status");
-        error.message = Some(std::borrow::Cow::from(format!(
-            "Assessment status must be either 'draft' or 'completed', got '{}'",
-            status
-        )));
-        return Err(error);
-    }
-    Ok(())
-}
-
 /// Request to submit assessment
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Validate)]
 pub struct SubmitAssessmentRequest {
@@ -178,14 +198,8 @@ pub struct SubmitAssessmentRequest {
     pub responses: Vec<i32>,
     #[validate(length(max = 10000), custom(function = "validate_notes_control_chars"))]
     pub notes: Option<String>,
-    #[validate(custom(function = "validate_status"))]
-    #[serde(default = "default_status")]
-    pub status: String,
-}
-
-/// Default status is "completed" for backward compatibility
-fn default_status() -> String {
-    STATUS_COMPLETED.to_string()
+    #[serde(default)]
+    pub status: AssessmentStatus,
 }
 
 /// Assessment response with calculated score
@@ -195,10 +209,10 @@ pub struct AssessmentResponse {
     pub assessment_type: AssessmentType,
     pub responses: Vec<i32>,
     pub total_score: i32,
-    pub severity_level: String,
+    pub severity_level: SeverityLevel,
     pub completed_at: String,
     pub notes: Option<String>,
-    pub status: String,
+    pub status: AssessmentStatus,
 }
 
 /// Calculate PHQ-9 score (0-27)
@@ -225,14 +239,14 @@ pub fn calculate_phq9_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 }
 
 /// Get PHQ-9 severity level
-pub fn get_phq9_severity(score: i32) -> &'static str {
+pub fn get_phq9_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=4 => SEVERITY_MINIMAL,
-        5..=9 => SEVERITY_MILD,
-        10..=14 => SEVERITY_MODERATE,
-        15..=19 => SEVERITY_MODERATELY_SEVERE,
-        20..=27 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=4 => SeverityLevel::Minimal,
+        5..=9 => SeverityLevel::Mild,
+        10..=14 => SeverityLevel::Moderate,
+        15..=19 => SeverityLevel::ModeratelySevere,
+        20..=27 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -259,13 +273,13 @@ pub fn calculate_gad7_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 }
 
 /// Get GAD-7 severity level
-pub fn get_gad7_severity(score: i32) -> &'static str {
+pub fn get_gad7_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=4 => SEVERITY_MINIMAL,
-        5..=9 => SEVERITY_MILD,
-        10..=14 => SEVERITY_MODERATE,
-        15..=21 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=4 => SeverityLevel::Minimal,
+        5..=9 => SeverityLevel::Mild,
+        10..=14 => SeverityLevel::Moderate,
+        15..=21 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -292,13 +306,13 @@ pub fn calculate_cesd_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 }
 
 /// Get CES-D severity level
-pub fn get_cesd_severity(score: i32) -> &'static str {
+pub fn get_cesd_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=15 => SEVERITY_MINIMAL,
-        16..=21 => SEVERITY_MILD,
-        22..=36 => SEVERITY_MODERATE,
-        37..=60 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=15 => SeverityLevel::Minimal,
+        16..=21 => SeverityLevel::Mild,
+        22..=36 => SeverityLevel::Moderate,
+        37..=60 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -325,12 +339,12 @@ pub fn calculate_oasis_score(responses: &[i32]) -> Result<i32, AssessmentError> 
 }
 
 /// Get OASIS severity level
-pub fn get_oasis_severity(score: i32) -> &'static str {
+pub fn get_oasis_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=7 => SEVERITY_MINIMAL,
-        8..=14 => SEVERITY_MODERATE,
-        15..=20 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=7 => SeverityLevel::Minimal,
+        8..=14 => SeverityLevel::Moderate,
+        15..=20 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -344,7 +358,7 @@ mod tests {
         let responses = vec![0, 0, 0, 0, 0, 0, 0, 0, 0];
         let score = calculate_phq9_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_phq9_severity(score), "minimal");
+        assert_eq!(get_phq9_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -352,7 +366,7 @@ mod tests {
         let responses = vec![3, 3, 3, 3, 3, 3, 3, 3, 3];
         let score = calculate_phq9_score(&responses).unwrap();
         assert_eq!(score, 27);
-        assert_eq!(get_phq9_severity(score), "severe");
+        assert_eq!(get_phq9_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -360,7 +374,7 @@ mod tests {
         let responses = vec![1, 1, 0, 2, 1, 0, 1, 0, 1];
         let score = calculate_phq9_score(&responses).unwrap();
         assert_eq!(score, 7);
-        assert_eq!(get_phq9_severity(score), "mild");
+        assert_eq!(get_phq9_severity(score), SeverityLevel::Mild);
     }
 
     #[test]
@@ -383,7 +397,7 @@ mod tests {
         let responses = vec![0, 0, 0, 0, 0, 0, 0];
         let score = calculate_gad7_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_gad7_severity(score), "minimal");
+        assert_eq!(get_gad7_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -391,7 +405,7 @@ mod tests {
         let responses = vec![3, 3, 3, 3, 3, 3, 3];
         let score = calculate_gad7_score(&responses).unwrap();
         assert_eq!(score, 21);
-        assert_eq!(get_gad7_severity(score), "severe");
+        assert_eq!(get_gad7_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -399,7 +413,7 @@ mod tests {
         let responses = vec![2, 2, 1, 2, 1, 2, 1];
         let score = calculate_gad7_score(&responses).unwrap();
         assert_eq!(score, 11);
-        assert_eq!(get_gad7_severity(score), "moderate");
+        assert_eq!(get_gad7_severity(score), SeverityLevel::Moderate);
     }
 
     // T023: CES-D scoring algorithm tests
@@ -408,7 +422,7 @@ mod tests {
         let responses = vec![0; 20];
         let score = calculate_cesd_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_cesd_severity(score), "minimal");
+        assert_eq!(get_cesd_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -416,7 +430,7 @@ mod tests {
         let responses = vec![3; 20];
         let score = calculate_cesd_score(&responses).unwrap();
         assert_eq!(score, 60);
-        assert_eq!(get_cesd_severity(score), "severe");
+        assert_eq!(get_cesd_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -424,7 +438,7 @@ mod tests {
         let responses = vec![1; 20];
         let score = calculate_cesd_score(&responses).unwrap();
         assert_eq!(score, 20);
-        assert_eq!(get_cesd_severity(score), "mild");
+        assert_eq!(get_cesd_severity(score), SeverityLevel::Mild);
     }
 
     // T024: OASIS scoring algorithm tests
@@ -433,7 +447,7 @@ mod tests {
         let responses = vec![0, 0, 0, 0, 0];
         let score = calculate_oasis_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_oasis_severity(score), "minimal");
+        assert_eq!(get_oasis_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -441,7 +455,7 @@ mod tests {
         let responses = vec![4, 4, 4, 4, 4];
         let score = calculate_oasis_score(&responses).unwrap();
         assert_eq!(score, 20);
-        assert_eq!(get_oasis_severity(score), "severe");
+        assert_eq!(get_oasis_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -449,20 +463,20 @@ mod tests {
         let responses = vec![2, 2, 2, 2, 2];
         let score = calculate_oasis_score(&responses).unwrap();
         assert_eq!(score, 10);
-        assert_eq!(get_oasis_severity(score), "moderate");
+        assert_eq!(get_oasis_severity(score), SeverityLevel::Moderate);
     }
 
     // T025: Severity level calculation tests
     #[test]
     fn test_severity_boundaries_phq9() {
-        assert_eq!(get_phq9_severity(4), "minimal");
-        assert_eq!(get_phq9_severity(5), "mild");
-        assert_eq!(get_phq9_severity(9), "mild");
-        assert_eq!(get_phq9_severity(10), "moderate");
-        assert_eq!(get_phq9_severity(14), "moderate");
-        assert_eq!(get_phq9_severity(15), "moderately_severe");
-        assert_eq!(get_phq9_severity(19), "moderately_severe");
-        assert_eq!(get_phq9_severity(20), "severe");
+        assert_eq!(get_phq9_severity(4), SeverityLevel::Minimal);
+        assert_eq!(get_phq9_severity(5), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(9), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(10), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(14), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(15), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(19), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(20), SeverityLevel::Severe);
     }
 
     // T026: Response validation tests

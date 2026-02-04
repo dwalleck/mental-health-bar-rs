@@ -162,7 +162,7 @@ pub async fn set_activity_goal(
     repo.set_activity_goal(
         request.activity_id,
         request.group_id,
-        &request.goal_type,
+        request.goal_type,
         request.target_value,
         request.period_days,
     )

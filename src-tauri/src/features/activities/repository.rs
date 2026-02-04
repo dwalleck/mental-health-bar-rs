@@ -15,6 +15,7 @@
 
 use super::models::*;
 use crate::db::Database;
+use crate::types::activity::GoalType;
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use tracing::info;
@@ -645,7 +646,7 @@ impl ActivityRepository {
     /// # Arguments
     /// * `activity_id` - Optional activity ID (mutually exclusive with group_id)
     /// * `group_id` - Optional group ID (mutually exclusive with activity_id)
-    /// * `goal_type` - "days_per_period" or "percent_improvement"
+    /// * `goal_type` - GoalType::DaysPerPeriod or GoalType::PercentImprovement
     /// * `target_value` - Target days or percentage (must be positive)
     /// * `period_days` - Time period in days (must be positive)
     ///
@@ -656,14 +657,13 @@ impl ActivityRepository {
     /// # Errors
     /// * `InvalidGoalTarget` - If both activity_id and group_id are provided
     /// * `MissingGoalTarget` - If neither activity_id nor group_id are provided
-    /// * `InvalidGoalType` - If goal_type is not valid
     /// * `InvalidTargetValue` - If target_value <= 0
     /// * `InvalidPeriodDays` - If period_days <= 0
     pub fn set_activity_goal(
         &self,
         activity_id: Option<i32>,
         group_id: Option<i32>,
-        goal_type: &str,
+        goal_type: GoalType,
         target_value: i32,
         period_days: i32,
     ) -> Result<ActivityGoal, ActivityError> {
@@ -672,11 +672,6 @@ impl ActivityRepository {
             (Some(_), Some(_)) => return Err(ActivityError::InvalidGoalTarget),
             (None, None) => return Err(ActivityError::MissingGoalTarget),
             _ => {} // Valid: exactly one is Some
-        }
-
-        // Validate goal_type
-        if goal_type != "days_per_period" && goal_type != "percent_improvement" {
-            return Err(ActivityError::InvalidGoalType(goal_type.to_string()));
         }
 
         // Validate target_value
@@ -697,7 +692,7 @@ impl ActivityRepository {
             "INSERT INTO activity_goals (activity_id, group_id, goal_type, target_value, period_days)
              VALUES (?, ?, ?, ?, ?)
              RETURNING id, CAST(created_at AS VARCHAR)",
-            rusqlite::params![activity_id, group_id, goal_type, target_value, period_days],
+            rusqlite::params![activity_id, group_id, goal_type.as_str(), target_value, period_days],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
 
@@ -705,7 +700,7 @@ impl ActivityRepository {
             goal_id = id,
             ?activity_id,
             ?group_id,
-            goal_type,
+            goal_type = goal_type.as_str(),
             target_value,
             period_days,
             "Created activity goal"
@@ -715,7 +710,7 @@ impl ActivityRepository {
             id,
             activity_id,
             group_id,
-            goal_type: goal_type.to_string(),
+            goal_type,
             target_value,
             period_days,
             created_at,
@@ -1084,49 +1079,48 @@ impl ActivityRepository {
         };
 
         // Calculate current_value based on goal_type
-        let current_value = if goal.goal_type == "days_per_period" {
-            self.calculate_unique_days_for_activities_with_conn(
+        let current_value = match goal.goal_type {
+            GoalType::DaysPerPeriod => self.calculate_unique_days_for_activities_with_conn(
                 &conn,
                 &activity_ids,
                 &period_start,
                 current_time,
-            )?
-        } else if goal.goal_type == "percent_improvement" {
-            // Calculate previous period boundaries
-            let previous_period_start: String = conn.query_row(
-                "SELECT datetime(?, '-' || (? * 2) || ' days')",
-                rusqlite::params![current_time, goal.period_days],
-                |row| row.get(0),
-            )?;
+            )?,
+            GoalType::PercentImprovement => {
+                // Calculate previous period boundaries
+                let previous_period_start: String = conn.query_row(
+                    "SELECT datetime(?, '-' || (? * 2) || ' days')",
+                    rusqlite::params![current_time, goal.period_days],
+                    |row| row.get(0),
+                )?;
 
-            // Get unique days for previous and current periods
-            let previous_days = self.calculate_unique_days_for_activities_with_conn(
-                &conn,
-                &activity_ids,
-                &previous_period_start,
-                &period_start,
-            )?;
-            let current_days = self.calculate_unique_days_for_activities_with_conn(
-                &conn,
-                &activity_ids,
-                &period_start,
-                current_time,
-            )?;
+                // Get unique days for previous and current periods
+                let previous_days = self.calculate_unique_days_for_activities_with_conn(
+                    &conn,
+                    &activity_ids,
+                    &previous_period_start,
+                    &period_start,
+                )?;
+                let current_days = self.calculate_unique_days_for_activities_with_conn(
+                    &conn,
+                    &activity_ids,
+                    &period_start,
+                    current_time,
+                )?;
 
-            // Calculate improvement percentage
-            if previous_days == 0 {
-                if current_days > 0 {
-                    100 // 100% improvement from zero
+                // Calculate improvement percentage
+                if previous_days == 0 {
+                    if current_days > 0 {
+                        100 // 100% improvement from zero
+                    } else {
+                        0 // No improvement
+                    }
                 } else {
-                    0 // No improvement
+                    let improvement =
+                        ((current_days - previous_days) as f64 / previous_days as f64) * 100.0;
+                    improvement.round() as i32
                 }
-            } else {
-                let improvement =
-                    ((current_days - previous_days) as f64 / previous_days as f64) * 100.0;
-                improvement.round() as i32
             }
-        } else {
-            return Err(ActivityError::InvalidGoalType(goal.goal_type));
         };
 
         // Calculate progress percentage
@@ -1884,12 +1878,12 @@ mod tests {
 
         // Set activity-level goal: 3 days per week
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
             .expect("Failed to set activity goal");
 
         assert_eq!(goal.activity_id, Some(activity.id));
         assert_eq!(goal.group_id, None);
-        assert_eq!(goal.goal_type, "days_per_period");
+        assert_eq!(goal.goal_type, GoalType::DaysPerPeriod);
         assert_eq!(goal.target_value, 3);
         assert_eq!(goal.period_days, 7);
         assert!(goal.id > 0);
@@ -1906,12 +1900,12 @@ mod tests {
 
         // Set group-level goal: 5 days per 14-day period
         let goal = repo
-            .set_activity_goal(None, Some(group.id), "days_per_period", 5, 14)
+            .set_activity_goal(None, Some(group.id), GoalType::DaysPerPeriod, 5, 14)
             .expect("Failed to set group goal");
 
         assert_eq!(goal.activity_id, None);
         assert_eq!(goal.group_id, Some(group.id));
-        assert_eq!(goal.goal_type, "days_per_period");
+        assert_eq!(goal.goal_type, GoalType::DaysPerPeriod);
         assert_eq!(goal.target_value, 5);
         assert_eq!(goal.period_days, 14);
     }
@@ -1929,28 +1923,18 @@ mod tests {
 
         // Set percent improvement goal: 20% improvement over 30 days
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "percent_improvement", 20, 30)
+            .set_activity_goal(
+                Some(activity.id),
+                None,
+                GoalType::PercentImprovement,
+                20,
+                30,
+            )
             .expect("Failed to set percent improvement goal");
 
-        assert_eq!(goal.goal_type, "percent_improvement");
+        assert_eq!(goal.goal_type, GoalType::PercentImprovement);
         assert_eq!(goal.target_value, 20);
         assert_eq!(goal.period_days, 30);
-    }
-
-    #[test]
-    fn test_set_activity_goal_invalid_type() {
-        let (repo, _temp_dir) = setup_test_repo();
-
-        let group = repo
-            .create_activity_group("Exercise", None)
-            .expect("Failed to create group");
-        let activity = repo
-            .create_activity(group.id, "Running", None, None)
-            .expect("Failed to create activity");
-
-        let result = repo.set_activity_goal(Some(activity.id), None, "invalid_type", 3, 7);
-
-        assert!(matches!(result, Err(ActivityError::InvalidGoalType(_))));
     }
 
     #[test]
@@ -1965,8 +1949,13 @@ mod tests {
             .expect("Failed to create activity");
 
         // Cannot set goal for both activity AND group
-        let result =
-            repo.set_activity_goal(Some(activity.id), Some(group.id), "days_per_period", 3, 7);
+        let result = repo.set_activity_goal(
+            Some(activity.id),
+            Some(group.id),
+            GoalType::DaysPerPeriod,
+            3,
+            7,
+        );
 
         assert!(matches!(result, Err(ActivityError::InvalidGoalTarget)));
     }
@@ -1976,7 +1965,7 @@ mod tests {
         let (repo, _temp_dir) = setup_test_repo();
 
         // Must set goal for either activity OR group
-        let result = repo.set_activity_goal(None, None, "days_per_period", 3, 7);
+        let result = repo.set_activity_goal(None, None, GoalType::DaysPerPeriod, 3, 7);
 
         assert!(matches!(result, Err(ActivityError::MissingGoalTarget)));
     }
@@ -1992,7 +1981,8 @@ mod tests {
             .create_activity(group.id, "Running", None, None)
             .expect("Failed to create activity");
 
-        let result = repo.set_activity_goal(Some(activity.id), None, "days_per_period", -5, 7);
+        let result =
+            repo.set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, -5, 7);
 
         assert!(matches!(result, Err(ActivityError::InvalidTargetValue(-5))));
     }
@@ -2008,7 +1998,7 @@ mod tests {
             .create_activity(group.id, "Running", None, None)
             .expect("Failed to create activity");
 
-        let result = repo.set_activity_goal(Some(activity.id), None, "days_per_period", 3, 0);
+        let result = repo.set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 0);
 
         assert!(matches!(result, Err(ActivityError::InvalidPeriodDays(0))));
     }
@@ -2025,10 +2015,16 @@ mod tests {
             .expect("Failed to create activity");
 
         let goal1 = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
             .expect("Failed to set goal 1");
         let goal2 = repo
-            .set_activity_goal(Some(activity.id), None, "percent_improvement", 20, 30)
+            .set_activity_goal(
+                Some(activity.id),
+                None,
+                GoalType::PercentImprovement,
+                20,
+                30,
+            )
             .expect("Failed to set goal 2");
 
         let goals = repo
@@ -2049,7 +2045,7 @@ mod tests {
             .expect("Failed to create group");
 
         let goal = repo
-            .set_activity_goal(None, Some(group.id), "days_per_period", 5, 14)
+            .set_activity_goal(None, Some(group.id), GoalType::DaysPerPeriod, 5, 14)
             .expect("Failed to set group goal");
 
         let goals = repo
@@ -2073,7 +2069,7 @@ mod tests {
             .expect("Failed to create activity");
 
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
             .expect("Failed to set goal");
 
         // Delete the goal
@@ -2100,7 +2096,7 @@ mod tests {
             .expect("Failed to create activity");
 
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
             .expect("Failed to set goal");
 
         // Update target to 5 days per 14-day period
@@ -2111,7 +2107,7 @@ mod tests {
         assert_eq!(updated.id, goal.id);
         assert_eq!(updated.target_value, 5);
         assert_eq!(updated.period_days, 14);
-        assert_eq!(updated.goal_type, "days_per_period"); // Unchanged
+        assert_eq!(updated.goal_type, GoalType::DaysPerPeriod); // Unchanged
     }
 
     #[test]
@@ -2135,7 +2131,7 @@ mod tests {
             .expect("Failed to create activity");
 
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
             .expect("Failed to set goal");
 
         repo.delete_activity_goal(goal.id)
@@ -2422,7 +2418,7 @@ mod tests {
 
         // Set goal: 5 days per 7-day period
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 5, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 5, 7)
             .expect("Failed to set goal");
 
         // Log activity on 4 unique days in last 7 days
@@ -2460,7 +2456,7 @@ mod tests {
             .expect("Failed to create activity");
 
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
             .expect("Failed to set goal");
 
         // Log activity on 3 days - exactly meets goal
@@ -2494,7 +2490,7 @@ mod tests {
 
         // Goal: 20% improvement over 7-day baseline
         let goal = repo
-            .set_activity_goal(Some(activity.id), None, "percent_improvement", 20, 7)
+            .set_activity_goal(Some(activity.id), None, GoalType::PercentImprovement, 20, 7)
             .expect("Failed to set goal");
 
         // Previous period (Jan 1-7): 3 unique days
@@ -2544,7 +2540,7 @@ mod tests {
 
         // Group goal: any social activity 4 days per week
         let goal = repo
-            .set_activity_goal(None, Some(group.id), "days_per_period", 4, 7)
+            .set_activity_goal(None, Some(group.id), GoalType::DaysPerPeriod, 4, 7)
             .expect("Failed to set group goal");
 
         // Log different activities in the group

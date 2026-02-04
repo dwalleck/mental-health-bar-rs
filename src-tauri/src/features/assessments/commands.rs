@@ -47,29 +47,29 @@ fn submit_assessment_impl(
     let (total_score, severity_level) = match assessment_type.code.as_str() {
         "PHQ9" => {
             let score = calculate_phq9_score(&request.responses)?;
-            (score, get_phq9_severity(score).to_string())
+            (score, get_phq9_severity(score))
         }
         "GAD7" => {
             let score = calculate_gad7_score(&request.responses)?;
-            (score, get_gad7_severity(score).to_string())
+            (score, get_gad7_severity(score))
         }
         "CESD" => {
             let score = calculate_cesd_score(&request.responses)?;
-            (score, get_cesd_severity(score).to_string())
+            (score, get_cesd_severity(score))
         }
         "OASIS" => {
             let score = calculate_oasis_score(&request.responses)?;
-            (score, get_oasis_severity(score).to_string())
+            (score, get_oasis_severity(score))
         }
         _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
     };
 
-    // Save to database
+    // Save to database (convert enums to strings for repository layer)
     let id = repo.save_assessment(
         assessment_type.id,
         request.responses.clone(),
         total_score,
-        severity_level.clone(),
+        severity_level.to_string(),
         request.notes.clone(),
         request.status.as_str(),
     )?;
@@ -137,7 +137,7 @@ mod tests {
             assessment_type_code: "A".repeat(11),
             responses: vec![0, 1, 2],
             notes: None,
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -149,7 +149,7 @@ mod tests {
             assessment_type_code: "PHQ-9".to_string(), // Has hyphen
             responses: vec![0, 1, 2],
             notes: None,
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -161,7 +161,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2],
             notes: Some("a".repeat(10001)),
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -173,7 +173,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2],
             notes: Some("Test\x00Invalid".to_string()), // Null byte
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -185,7 +185,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
             notes: Some("Feeling okay today\nSome notes".to_string()),
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_ok());
@@ -238,7 +238,7 @@ mod tests {
             assessment_type_code: "INVALID".to_string(),
             responses: vec![0, 1, 2],
             notes: None,
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
@@ -277,7 +277,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: None,
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
@@ -417,7 +417,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: None,
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_ok());
@@ -429,7 +429,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: Some("Line 1\nLine 2\tTabbed".to_string()),
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         // Newlines and tabs should be allowed
@@ -442,7 +442,7 @@ mod tests {
             assessment_type_code: "GAD7".to_string(),
             responses: vec![0; 7],
             notes: Some("".to_string()),
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         // Empty notes should be valid
@@ -452,28 +452,28 @@ mod tests {
     #[test]
     fn test_severity_level_calculation_phq9() {
         // Test severity boundaries
-        assert_eq!(get_phq9_severity(0), SEVERITY_MINIMAL);
-        assert_eq!(get_phq9_severity(4), SEVERITY_MINIMAL);
-        assert_eq!(get_phq9_severity(5), SEVERITY_MILD);
-        assert_eq!(get_phq9_severity(9), SEVERITY_MILD);
-        assert_eq!(get_phq9_severity(10), SEVERITY_MODERATE);
-        assert_eq!(get_phq9_severity(14), SEVERITY_MODERATE);
-        assert_eq!(get_phq9_severity(15), SEVERITY_MODERATELY_SEVERE);
-        assert_eq!(get_phq9_severity(19), SEVERITY_MODERATELY_SEVERE);
-        assert_eq!(get_phq9_severity(20), SEVERITY_SEVERE);
-        assert_eq!(get_phq9_severity(27), SEVERITY_SEVERE);
+        assert_eq!(get_phq9_severity(0), SeverityLevel::Minimal);
+        assert_eq!(get_phq9_severity(4), SeverityLevel::Minimal);
+        assert_eq!(get_phq9_severity(5), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(9), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(10), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(14), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(15), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(19), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(20), SeverityLevel::Severe);
+        assert_eq!(get_phq9_severity(27), SeverityLevel::Severe);
     }
 
     #[test]
     fn test_severity_level_calculation_gad7() {
-        assert_eq!(get_gad7_severity(0), SEVERITY_MINIMAL);
-        assert_eq!(get_gad7_severity(4), SEVERITY_MINIMAL);
-        assert_eq!(get_gad7_severity(5), SEVERITY_MILD);
-        assert_eq!(get_gad7_severity(9), SEVERITY_MILD);
-        assert_eq!(get_gad7_severity(10), SEVERITY_MODERATE);
-        assert_eq!(get_gad7_severity(14), SEVERITY_MODERATE);
-        assert_eq!(get_gad7_severity(15), SEVERITY_SEVERE);
-        assert_eq!(get_gad7_severity(21), SEVERITY_SEVERE);
+        assert_eq!(get_gad7_severity(0), SeverityLevel::Minimal);
+        assert_eq!(get_gad7_severity(4), SeverityLevel::Minimal);
+        assert_eq!(get_gad7_severity(5), SeverityLevel::Mild);
+        assert_eq!(get_gad7_severity(9), SeverityLevel::Mild);
+        assert_eq!(get_gad7_severity(10), SeverityLevel::Moderate);
+        assert_eq!(get_gad7_severity(14), SeverityLevel::Moderate);
+        assert_eq!(get_gad7_severity(15), SeverityLevel::Severe);
+        assert_eq!(get_gad7_severity(21), SeverityLevel::Severe);
     }
 
     // ========================================================================
@@ -486,7 +486,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
             notes: Some("Draft notes".to_string()),
-            status: "draft".to_string(),
+            status: AssessmentStatus::Draft,
         };
 
         assert!(request.validate().is_ok());
@@ -498,34 +498,10 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
             notes: Some("Completed notes".to_string()),
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_ok());
-    }
-
-    #[test]
-    fn test_submit_assessment_request_validation_status_invalid() {
-        let request = SubmitAssessmentRequest {
-            assessment_type_code: "PHQ9".to_string(),
-            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
-            notes: None,
-            status: "in_progress".to_string(), // Invalid status
-        };
-
-        assert!(request.validate().is_err());
-    }
-
-    #[test]
-    fn test_submit_assessment_request_validation_status_empty() {
-        let request = SubmitAssessmentRequest {
-            assessment_type_code: "PHQ9".to_string(),
-            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
-            notes: None,
-            status: "".to_string(), // Empty status
-        };
-
-        assert!(request.validate().is_err());
     }
 
     #[test]
@@ -570,10 +546,10 @@ mod tests {
                 },
                 responses: vec![1, 1, 0, 1, 1, 0, 1, 0, 1],
                 total_score: 6,
-                severity_level: "mild".to_string(),
+                severity_level: SeverityLevel::Mild,
                 completed_at: "2024-01-01 12:00:00".to_string(),
                 notes: Some("Draft notes".to_string()),
-                status: "draft".to_string(),
+                status: AssessmentStatus::Draft,
             })
         });
 
@@ -581,14 +557,14 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![1, 1, 0, 1, 1, 0, 1, 0, 1],
             notes: Some("Draft notes".to_string()),
-            status: "draft".to_string(),
+            status: AssessmentStatus::Draft,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
 
         assert!(result.is_ok());
         let response = result.unwrap();
-        assert_eq!(response.status, "draft");
+        assert_eq!(response.status, AssessmentStatus::Draft);
         assert_eq!(response.notes, Some("Draft notes".to_string()));
     }
 
@@ -634,10 +610,10 @@ mod tests {
                 },
                 responses: vec![2, 2, 2, 2, 2, 2, 2],
                 total_score: 14,
-                severity_level: "moderate".to_string(),
+                severity_level: SeverityLevel::Moderate,
                 completed_at: "2024-01-01 14:00:00".to_string(),
                 notes: None,
-                status: "completed".to_string(),
+                status: AssessmentStatus::Completed,
             })
         });
 
@@ -645,14 +621,14 @@ mod tests {
             assessment_type_code: "GAD7".to_string(),
             responses: vec![2, 2, 2, 2, 2, 2, 2],
             notes: None,
-            status: "completed".to_string(),
+            status: AssessmentStatus::Completed,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
 
         assert!(result.is_ok());
         let response = result.unwrap();
-        assert_eq!(response.status, "completed");
+        assert_eq!(response.status, AssessmentStatus::Completed);
         assert_eq!(response.total_score, 14);
     }
 
@@ -700,10 +676,10 @@ mod tests {
                 },
                 responses: vec![1, 2, -1, -1, 1, -1, 1, -1, -1], // Partial responses
                 total_score: 5,
-                severity_level: "minimal".to_string(),
+                severity_level: SeverityLevel::Minimal,
                 completed_at: "2024-01-01 10:00:00".to_string(),
                 notes: Some("Partially completed".to_string()),
-                status: "draft".to_string(),
+                status: AssessmentStatus::Draft,
             })
         });
 
@@ -711,14 +687,14 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![1, 2, -1, -1, 1, -1, 1, -1, -1],
             notes: Some("Partially completed".to_string()),
-            status: "draft".to_string(),
+            status: AssessmentStatus::Draft,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
 
         assert!(result.is_ok());
         let response = result.unwrap();
-        assert_eq!(response.status, "draft");
+        assert_eq!(response.status, AssessmentStatus::Draft);
         assert_eq!(
             response.responses.iter().filter(|&&r| r == -1).count(),
             5,

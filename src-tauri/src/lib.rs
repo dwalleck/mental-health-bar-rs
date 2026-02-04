@@ -8,6 +8,7 @@ pub mod constants;
 pub mod db;
 mod errors;
 pub mod features;
+pub mod types;
 pub mod utils;
 
 // Re-export for easier access

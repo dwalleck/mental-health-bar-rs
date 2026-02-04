@@ -1,4 +1,5 @@
 use crate::errors::{CommandError, ErrorType, ToCommandError};
+use crate::types::activity::GoalType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
@@ -45,9 +46,6 @@ pub enum ActivityError {
     #[error("Notes too long: {0} characters. Maximum 500 characters allowed")]
     NotesLengthExceeded(usize),
 
-    #[error("Invalid goal type: {0}. Must be 'days_per_period' or 'percent_improvement'")]
-    InvalidGoalType(String),
-
     #[error("Goal must target either an activity OR a group, not both")]
     InvalidGoalTarget,
 
@@ -93,9 +91,6 @@ impl ToCommandError for ActivityError {
                 CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             ActivityError::NotesLengthExceeded(_) => {
-                CommandError::permanent(self.to_string(), ErrorType::Validation)
-            }
-            ActivityError::InvalidGoalType(_) => {
                 CommandError::permanent(self.to_string(), ErrorType::Validation)
             }
             ActivityError::InvalidGoalTarget => {
@@ -247,9 +242,9 @@ pub struct ActivityGoal {
     pub activity_id: Option<i32>,
     /// ID of activity group this goal targets (mutually exclusive with activity_id)
     pub group_id: Option<i32>,
-    /// Type of goal: 'days_per_period' or 'percent_improvement'
-    pub goal_type: String,
-    /// Target value: days count for 'days_per_period', percentage for 'percent_improvement'
+    /// Type of goal: DaysPerPeriod or PercentImprovement
+    pub goal_type: GoalType,
+    /// Target value: days count for DaysPerPeriod, percentage for PercentImprovement
     pub target_value: i32,
     /// Time period in days for goal measurement or baseline comparison
     pub period_days: i32,
@@ -375,26 +370,12 @@ pub struct LogActivityRequest {
 pub struct SetActivityGoalRequest {
     pub activity_id: Option<i32>,
     pub group_id: Option<i32>,
-    #[validate(custom(function = "validate_goal_type"))]
-    pub goal_type: String, // 'days_per_period' or 'percent_improvement'
+    /// Type of goal: DaysPerPeriod or PercentImprovement
+    pub goal_type: GoalType,
     #[validate(range(min = 1))]
     pub target_value: i32,
     #[validate(range(min = 1))]
     pub period_days: i32,
-}
-
-/// Custom validator for goal_type field
-fn validate_goal_type(goal_type: &str) -> Result<(), validator::ValidationError> {
-    match goal_type {
-        "days_per_period" | "percent_improvement" => Ok(()),
-        _ => {
-            let mut error = validator::ValidationError::new("invalid_goal_type");
-            error.message = Some(std::borrow::Cow::from(
-                "Goal type must be 'days_per_period' or 'percent_improvement'",
-            ));
-            Err(error)
-        }
-    }
 }
 
 /// Custom schema validator to ensure activity_id and group_id are mutually exclusive

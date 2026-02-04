@@ -487,7 +487,7 @@ impl AssessmentRepositoryTrait for AssessmentRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::assessments::models::{STATUS_COMPLETED, STATUS_DRAFT};
+    use crate::types::assessment::{AssessmentStatus, SeverityLevel};
     use tempfile::TempDir;
 
     fn setup_test_repo() -> (AssessmentRepository, TempDir) {
@@ -514,7 +514,7 @@ mod tests {
         // Save a draft assessment
         let responses = vec![1, 2, 1, 0, 1, 2, 1, 0, 1];
         let total_score = 10;
-        let severity_level = "mild";
+        let severity_level = SeverityLevel::Mild.as_str();
         let notes = Some("Test draft notes".to_string());
 
         let id = repo
@@ -524,7 +524,7 @@ mod tests {
                 total_score,
                 severity_level,
                 notes,
-                STATUS_DRAFT,
+                AssessmentStatus::Draft.as_str(),
             )
             .expect("Failed to save draft assessment");
 
@@ -533,9 +533,9 @@ mod tests {
             .get_assessment_response(id)
             .expect("Failed to get assessment");
 
-        assert_eq!(saved.status, STATUS_DRAFT);
+        assert_eq!(saved.status, AssessmentStatus::Draft);
         assert_eq!(saved.total_score, total_score);
-        assert_eq!(saved.severity_level, severity_level);
+        assert_eq!(saved.severity_level, SeverityLevel::Mild);
         assert_eq!(saved.responses, responses);
         assert_eq!(saved.notes, Some("Test draft notes".to_string()));
     }
@@ -556,7 +556,7 @@ mod tests {
         // Save a completed assessment
         let responses = vec![2, 2, 3, 2, 1, 2, 3];
         let total_score = 15;
-        let severity_level = "moderate";
+        let severity_level = SeverityLevel::Moderate.as_str();
 
         let id = repo
             .save_assessment(
@@ -565,7 +565,7 @@ mod tests {
                 total_score,
                 severity_level,
                 None,
-                STATUS_COMPLETED,
+                AssessmentStatus::Completed.as_str(),
             )
             .expect("Failed to save completed assessment");
 
@@ -574,9 +574,9 @@ mod tests {
             .get_assessment_response(id)
             .expect("Failed to get assessment");
 
-        assert_eq!(saved.status, STATUS_COMPLETED);
+        assert_eq!(saved.status, AssessmentStatus::Completed);
         assert_eq!(saved.total_score, total_score);
-        assert_eq!(saved.severity_level, severity_level);
+        assert_eq!(saved.severity_level, SeverityLevel::Moderate);
         assert_eq!(saved.responses, responses);
         assert_eq!(saved.notes, None);
     }
@@ -604,9 +604,9 @@ mod tests {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             Some("Draft 1".to_string()),
-            STATUS_DRAFT,
+            AssessmentStatus::Draft.as_str(),
         )
         .expect("Failed to save draft 1");
 
@@ -615,9 +615,9 @@ mod tests {
             phq9.id,
             &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            "moderately_severe",
+            SeverityLevel::ModeratelySevere.as_str(),
             Some("Completed 1".to_string()),
-            STATUS_COMPLETED,
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save completed 1");
 
@@ -626,9 +626,9 @@ mod tests {
             gad7.id,
             &vec![1, 1, 1, 1, 1, 1, 1],
             7,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             Some("Draft 2".to_string()),
-            STATUS_DRAFT,
+            AssessmentStatus::Draft.as_str(),
         )
         .expect("Failed to save draft 2");
 
@@ -637,9 +637,9 @@ mod tests {
             gad7.id,
             &vec![3, 3, 3, 3, 3, 3, 3],
             21,
-            "severe",
+            SeverityLevel::Severe.as_str(),
             Some("Completed 2".to_string()),
-            STATUS_COMPLETED,
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save completed 2");
 
@@ -648,9 +648,9 @@ mod tests {
             phq9.id,
             &vec![0, 0, 1, 1, 0, 1, 0, 0, 1],
             4,
-            "minimal",
+            SeverityLevel::Minimal.as_str(),
             Some("Draft 3 (updated PHQ9)".to_string()),
-            STATUS_DRAFT,
+            AssessmentStatus::Draft.as_str(),
         )
         .expect("Failed to save draft 3");
 
@@ -667,7 +667,8 @@ mod tests {
         // Verify all returned assessments are drafts
         for draft in &drafts {
             assert_eq!(
-                draft.status, STATUS_DRAFT,
+                draft.status,
+                AssessmentStatus::Draft,
                 "All returned assessments should be drafts"
             );
         }
@@ -708,9 +709,9 @@ mod tests {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             None,
-            STATUS_COMPLETED,
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save completed assessment");
 
@@ -738,9 +739,9 @@ mod tests {
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
             9,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             None,
-            STATUS_DRAFT,
+            AssessmentStatus::Draft.as_str(),
         )
         .expect("Failed to save draft");
 
@@ -748,9 +749,9 @@ mod tests {
             phq9.id,
             &vec![2, 2, 2, 2, 2, 2, 2, 2, 2],
             18,
-            "moderately_severe",
+            SeverityLevel::ModeratelySevere.as_str(),
             None,
-            STATUS_COMPLETED,
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save completed");
 
@@ -762,9 +763,9 @@ mod tests {
         assert_eq!(history.len(), 2, "History should include both assessments");
 
         // Verify both statuses are present
-        let statuses: Vec<&str> = history.iter().map(|h| h.status.as_str()).collect();
-        assert!(statuses.contains(&STATUS_DRAFT));
-        assert!(statuses.contains(&STATUS_COMPLETED));
+        let statuses: Vec<AssessmentStatus> = history.iter().map(|h| h.status).collect();
+        assert!(statuses.contains(&AssessmentStatus::Draft));
+        assert!(statuses.contains(&AssessmentStatus::Completed));
     }
 
     #[test]
@@ -783,7 +784,7 @@ mod tests {
         // Save a draft with some unanswered questions (-1 indicates not answered)
         let responses = vec![1, 2, -1, -1, 1, -1, 1, -1, -1];
         let total_score = 5; // Only count answered questions
-        let severity_level = "minimal";
+        let severity_level = SeverityLevel::Minimal.as_str();
 
         let id = repo
             .save_assessment(
@@ -792,7 +793,7 @@ mod tests {
                 total_score,
                 severity_level,
                 Some("Partially completed".to_string()),
-                STATUS_DRAFT,
+                AssessmentStatus::Draft.as_str(),
             )
             .expect("Failed to save partial draft");
 
@@ -801,7 +802,7 @@ mod tests {
             .get_assessment_response(id)
             .expect("Failed to get assessment");
 
-        assert_eq!(saved.status, STATUS_DRAFT);
+        assert_eq!(saved.status, AssessmentStatus::Draft);
         assert_eq!(saved.responses, responses);
         assert_eq!(
             saved.responses.iter().filter(|&&r| r == -1).count(),
@@ -834,9 +835,9 @@ mod tests {
                 phq9.id,
                 &vec![1, 1, 1, 0, 0, 0, 0, 0, 0],
                 3,
-                "minimal",
+                SeverityLevel::Minimal.as_str(),
                 Some("First save".to_string()),
-                STATUS_DRAFT,
+                AssessmentStatus::Draft.as_str(),
             )
             .expect("Failed to save first draft");
 
@@ -846,9 +847,9 @@ mod tests {
                 phq9.id,
                 &vec![2, 2, 2, 1, 1, 1, 0, 0, 0],
                 9,
-                "mild",
+                SeverityLevel::Mild.as_str(),
                 Some("Second save".to_string()),
-                STATUS_DRAFT,
+                AssessmentStatus::Draft.as_str(),
             )
             .expect("Failed to save second draft");
 
@@ -891,9 +892,9 @@ mod tests {
                 gad7.id,
                 &vec![1, 1, 1, 1, 1, 1, 1],
                 7,
-                "mild",
+                SeverityLevel::Mild.as_str(),
                 Some("First assessment".to_string()),
-                STATUS_COMPLETED,
+                AssessmentStatus::Completed.as_str(),
             )
             .expect("Failed to save first completed");
 
@@ -903,9 +904,9 @@ mod tests {
                 gad7.id,
                 &vec![2, 2, 2, 2, 2, 2, 2],
                 14,
-                "moderate",
+                SeverityLevel::Moderate.as_str(),
                 Some("Second assessment".to_string()),
-                STATUS_COMPLETED,
+                AssessmentStatus::Completed.as_str(),
             )
             .expect("Failed to save second completed");
 

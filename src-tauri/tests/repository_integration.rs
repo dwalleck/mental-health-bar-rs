@@ -2,6 +2,7 @@
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::assessments::repository::AssessmentRepository;
+use tauri_sveltekit_modern_lib::types::assessment::{AssessmentStatus, SeverityLevel};
 use tempfile::TempDir;
 
 fn setup_test_db() -> (Arc<Database>, TempDir) {
@@ -71,7 +72,7 @@ fn test_save_and_retrieve_assessment() {
     // Save an assessment
     let responses = vec![1, 2, 1, 0, 1, 2, 1, 0, 1];
     let total_score = 9;
-    let severity_level = "mild";
+    let severity_level = SeverityLevel::Mild;
     let notes = Some("Test notes".to_string());
 
     let id = repo
@@ -79,9 +80,9 @@ fn test_save_and_retrieve_assessment() {
             assessment_type.id,
             &responses,
             total_score,
-            severity_level,
+            severity_level.as_str(),
             notes.clone(),
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save assessment");
 
@@ -112,12 +113,33 @@ fn test_get_assessment_history() {
         .expect("Failed to get GAD7");
 
     // Save multiple assessments
-    repo.save_assessment(phq9.id, &vec![1; 9], 9, "mild", None, "completed")
-        .expect("Failed to save PHQ9 assessment");
-    repo.save_assessment(gad7.id, &vec![2; 7], 14, "moderate", None, "completed")
-        .expect("Failed to save GAD7 assessment");
-    repo.save_assessment(phq9.id, &vec![2; 9], 18, "moderate", None, "completed")
-        .expect("Failed to save second PHQ9 assessment");
+    repo.save_assessment(
+        phq9.id,
+        &vec![1; 9],
+        9,
+        SeverityLevel::Mild.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save PHQ9 assessment");
+    repo.save_assessment(
+        gad7.id,
+        &vec![2; 7],
+        14,
+        SeverityLevel::Moderate.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save GAD7 assessment");
+    repo.save_assessment(
+        phq9.id,
+        &vec![2; 9],
+        18,
+        SeverityLevel::Moderate.as_str(),
+        None,
+        AssessmentStatus::Completed.as_str(),
+    )
+    .expect("Failed to save second PHQ9 assessment");
 
     // Get all history
     let history = repo
@@ -155,9 +177,9 @@ fn test_save_assessment_without_notes() {
             assessment_type.id,
             &vec![1, 1, 2, 1, 2, 1, 1],
             9,
-            "mild",
+            SeverityLevel::Mild.as_str(),
             None,
-            "completed",
+            AssessmentStatus::Completed.as_str(),
         )
         .expect("Failed to save assessment");
 
@@ -193,9 +215,9 @@ fn test_delete_assessment_type_blocked_when_responses_exist() {
         assessment_type.id,
         &vec![1, 2, 1, 0, 1, 2, 1, 0, 1],
         9,
-        "mild",
+        SeverityLevel::Mild.as_str(),
         None,
-        "completed",
+        AssessmentStatus::Completed.as_str(),
     )
     .expect("Failed to save assessment");
 

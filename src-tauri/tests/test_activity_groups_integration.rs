@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::activities::models::*;
 use tauri_sveltekit_modern_lib::features::activities::repository::ActivityRepository;
+use tauri_sveltekit_modern_lib::types::activity::GoalType;
 use tempfile::TempDir;
 
 // ============================================================================
@@ -307,7 +308,7 @@ fn test_goal_achievement_workflow(
         .set_activity_goal(
             Some(activity.id),
             None,
-            "days_per_period",
+            GoalType::DaysPerPeriod,
             3, // target: 3 days
             7, // period: 7 days
         )
@@ -341,12 +342,12 @@ fn test_goal_achievement_workflow(
 }
 
 #[rstest]
-#[case("days_per_period", 5, 7)] // 5 days per week
-#[case("days_per_period", 3, 14)] // 3 days per 2 weeks
-#[case("percent_improvement", 20, 30)] // 20% improvement over 30 days
+#[case(GoalType::DaysPerPeriod, 5, 7)] // 5 days per week
+#[case(GoalType::DaysPerPeriod, 3, 14)] // 3 days per 2 weeks
+#[case(GoalType::PercentImprovement, 20, 30)] // 20% improvement over 30 days
 fn test_different_goal_types(
     with_group_and_activities: (TestContext, ActivityGroup, Vec<Activity>),
-    #[case] goal_type: &str,
+    #[case] goal_type: GoalType,
     #[case] target_value: i32,
     #[case] period_days: i32,
 ) {
@@ -408,7 +409,7 @@ fn test_reporting_workflow(
     // Step 3: Set a goal and view progress
     let goal = ctx
         .repo
-        .set_activity_goal(Some(activity.id), None, "days_per_period", 7, 14)
+        .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 7, 14)
         .expect("Failed to set goal");
 
     let current_time = now.to_rfc3339();
@@ -443,7 +444,7 @@ fn test_soft_delete_preserves_logs_and_goals(
     // Set a goal for the activity
     let goal = ctx
         .repo
-        .set_activity_goal(Some(activity.id), None, "days_per_period", 3, 7)
+        .set_activity_goal(Some(activity.id), None, GoalType::DaysPerPeriod, 3, 7)
         .expect("Failed to set goal");
 
     // Soft delete the activity
