@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
+use tauri_sveltekit_modern_lib::types::activity::HexColor;
 use tempfile::TempDir;
 
 /// Setup test environment with temporary database and default activity group
@@ -41,7 +42,7 @@ fn test_create_activity_success() {
         .expect("Failed to create activity");
 
     assert_eq!(activity.name, "Exercise");
-    assert_eq!(activity.color, Some("#4CAF50".to_string()));
+    assert_eq!(activity.color, Some(HexColor::new("#4CAF50").unwrap()));
     assert_eq!(activity.icon, Some("🏃".to_string()));
     assert!(activity.deleted_at.is_none());
 }
@@ -137,7 +138,7 @@ fn test_update_activity_success() {
         .expect("Failed to update activity");
 
     assert_eq!(updated.name, "Running");
-    assert_eq!(updated.color, Some("#FF5733".to_string()));
+    assert_eq!(updated.color, Some(HexColor::new("#FF5733").unwrap()));
     assert_eq!(updated.icon, Some("🏃‍♂️".to_string()));
 }
 
@@ -156,7 +157,7 @@ fn test_update_activity_partial() {
         .expect("Failed to update activity");
 
     assert_eq!(updated.name, "Workout");
-    assert_eq!(updated.color, Some("#4CAF50".to_string())); // Unchanged
+    assert_eq!(updated.color, Some(HexColor::new("#4CAF50").unwrap())); // Unchanged
     assert_eq!(updated.icon, Some("🏃".to_string())); // Unchanged
 }
 
@@ -338,7 +339,7 @@ fn test_duplicate_name_even_after_soft_delete() {
         .expect("Should allow recreating activity with same name after soft delete");
 
     assert_eq!(new_activity.name, "Exercise");
-    assert_eq!(new_activity.color, Some("#FF0000".to_string()));
+    assert_eq!(new_activity.color, Some(HexColor::new("#FF0000").unwrap()));
     assert_eq!(new_activity.icon, Some("🚴".to_string()));
     assert!(new_activity.deleted_at.is_none());
     assert_ne!(

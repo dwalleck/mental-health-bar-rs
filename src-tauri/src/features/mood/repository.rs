@@ -20,6 +20,7 @@
 use super::models::*;
 use super::repository_trait::MoodRepositoryTrait;
 use crate::db::Database;
+use crate::types::activity::HexColor;
 use crate::types::mood::MoodRating;
 use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
@@ -31,7 +32,7 @@ const MIN_CORRELATION_SAMPLE_SIZE: i32 = 3;
 /// Type alias for activity INSERT RETURNING query result
 /// Tuple: (id, name, color, icon, created_at)
 type ActivityInsertResult =
-    Result<(i32, String, Option<String>, Option<String>, String), rusqlite::Error>;
+    Result<(i32, String, Option<HexColor>, Option<String>, String), rusqlite::Error>;
 
 pub struct MoodRepository {
     db: Arc<Database>,
@@ -289,7 +290,7 @@ impl MoodRepository {
                 id: row.get(0)?,
                 group_id: row.get(1)?,
                 name: row.get(2)?,
-                color: row.get(3)?,
+                color: row.get::<_, Option<HexColor>>(3)?,
                 icon: row.get(4)?,
                 created_at: row.get(5)?,
                 deleted_at: row.get(6)?,
@@ -416,7 +417,7 @@ impl MoodRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -485,7 +486,7 @@ impl MoodRepository {
         let result: ActivityInsertResult = conn.query_row(
             "INSERT INTO activities (name, color, icon, group_id) VALUES (?, ?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
             rusqlite::params![trimmed_name, color, icon, group_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get::<_, Option<HexColor>>(2)?, row.get(3)?, row.get(4)?)),
         );
 
         // Handle constraint violation with proper error
@@ -529,7 +530,7 @@ impl MoodRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -635,7 +636,7 @@ impl MoodRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -715,7 +716,7 @@ impl MoodRepository {
                 id: row.get(0)?,
                 group_id: row.get(1)?,
                 name: row.get(2)?,
-                color: row.get(3)?,
+                color: row.get::<_, Option<HexColor>>(3)?,
                 icon: row.get(4)?,
                 created_at: row.get(5)?,
                 deleted_at: row.get(6)?,

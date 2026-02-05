@@ -164,6 +164,7 @@ fn delete_mood_checkin_impl(repo: &impl MoodRepositoryTrait, id: i32) -> Result<
 mod tests {
     use super::*;
     use crate::features::mood::{repository_trait::MockMoodRepositoryTrait, MoodRepositoryTrait};
+    use crate::types::activity::HexColor;
     use validator::Validate;
 
     // ========================================================================
@@ -458,7 +459,7 @@ mod tests {
                     id: 1,
                     group_id: 1,
                     name,
-                    color,
+                    color: color.map(|c| HexColor::new(c).unwrap()),
                     icon,
                     created_at: "2025-01-01T00:00:00Z".to_string(),
                     deleted_at: None,
@@ -477,7 +478,7 @@ mod tests {
         assert!(result.is_ok());
         let activity = result.unwrap();
         assert_eq!(activity.name, "Exercise");
-        assert_eq!(activity.color, Some("#4CAF50".to_string()));
+        assert_eq!(activity.color, Some(HexColor::new("#4CAF50").unwrap()));
     }
 
     #[test]
@@ -543,7 +544,7 @@ mod tests {
                     id,
                     group_id: 1,
                     name: name.unwrap(),
-                    color: Some("#FF0000".to_string()),
+                    color: Some(HexColor::new("#FF0000").unwrap()),
                     icon: Some("⭐".to_string()),
                     created_at: "2025-01-01T00:00:00Z".to_string(),
                     deleted_at: None,

@@ -1,5 +1,6 @@
 use crate::{
     errors::{CommandError, ErrorType, ToCommandError},
+    types::activity::HexColor,
     types::mood::MoodRating,
     MAX_NOTES_LENGTH,
 };
@@ -111,12 +112,16 @@ impl ToCommandError for MoodError {
 }
 
 /// Activity model
+///
+/// Represents an activity that can be associated with mood check-ins.
+/// The `HexColor` newtype ensures color values are always valid hex format.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Activity {
     pub id: i32,
     pub group_id: i32,
     pub name: String,
-    pub color: Option<String>,
+    /// Optional color in validated hex format (#RGB, #RRGGBB, or #RRGGBBAA)
+    pub color: Option<HexColor>,
     pub icon: Option<String>,
     pub created_at: String,
     pub deleted_at: Option<String>,
