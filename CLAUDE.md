@@ -436,6 +436,36 @@ let result = conn.query_row(...)?;  // Auto-converts via #[from]
   export const assessmentHistory = writable<AssessmentResponse[]>([]);
   ```
 
+### Svelte 5 Reactive Collections (SvelteMap/SvelteSet)
+
+**Critical**: `SvelteMap` and `SvelteSet` from `svelte/reactivity` are inherently reactive for mutations. Do NOT wrap them with `$state()`.
+
+**❌ WRONG** (ESLint error: `svelte/no-unnecessary-state-wrap`):
+```typescript
+let assessments = $state(new SvelteMap<string, Data>())
+// Later...
+assessments = newMap  // Reassignment won't trigger proper reactivity warnings
+```
+
+**✅ CORRECT** (mutate existing collection):
+```typescript
+import { SvelteMap } from 'svelte/reactivity'
+
+// No $state wrapper needed - SvelteMap is reactive for mutations
+let assessments = new SvelteMap<string, Data>()
+
+// To "reset" the map, clear and repopulate (don't reassign)
+assessments.clear()
+results.forEach(({ key, value }) => {
+    assessments.set(key, value)
+})
+```
+
+**Why this matters**:
+- `SvelteMap.set()`, `.delete()`, `.clear()` trigger reactivity automatically
+- Variable reassignment (`map = newMap`) breaks the reactive connection
+- ESLint's `svelte/no-unnecessary-state-wrap` rule enforces this pattern
+
 ### Tauri Integration
 - Use auto-generated types from `tauri-specta` (in `lib/bindings.ts`)
 - Wrap Tauri commands in utility functions for error handling
