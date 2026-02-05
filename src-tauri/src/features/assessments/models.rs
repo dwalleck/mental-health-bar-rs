@@ -142,7 +142,8 @@ impl ToCommandError for AssessmentError {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AssessmentType {
     pub id: i32,
-    pub code: String,
+    /// Assessment code using typed enum for compile-time validation
+    pub code: AssessmentCode,
     pub name: String,
     pub description: Option<String>,
     pub question_count: i32,

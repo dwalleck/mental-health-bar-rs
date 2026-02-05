@@ -4,7 +4,9 @@ use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::assessments::models::*;
 use tauri_sveltekit_modern_lib::features::assessments::repository::AssessmentRepository;
-use tauri_sveltekit_modern_lib::types::assessment::{AssessmentStatus, SeverityLevel};
+use tauri_sveltekit_modern_lib::types::assessment::{
+    AssessmentCode, AssessmentStatus, SeverityLevel,
+};
 use tempfile::TempDir;
 
 fn setup_test_repo() -> (AssessmentRepository, TempDir) {
@@ -54,7 +56,7 @@ fn test_submit_assessment_phq9_end_to_end() {
         .expect("Failed to retrieve assessment");
 
     assert_eq!(retrieved.id, id);
-    assert_eq!(retrieved.assessment_type.code, "PHQ9");
+    assert_eq!(retrieved.assessment_type.code, AssessmentCode::Phq9);
     assert_eq!(retrieved.responses, responses);
     assert_eq!(retrieved.total_score, 9);
     assert_eq!(retrieved.severity_level, SeverityLevel::Mild);
@@ -202,13 +204,13 @@ fn test_get_assessment_history_query_end_to_end() {
     assert_eq!(phq9_history.len(), 2);
     assert!(phq9_history
         .iter()
-        .all(|a| a.assessment_type.code == "PHQ9"));
+        .all(|a| a.assessment_type.code == AssessmentCode::Phq9));
 
     let gad7_history = repo
         .get_assessment_history(Some("GAD7".to_string()), None, None, None)
         .expect("Failed to get GAD7 history");
     assert_eq!(gad7_history.len(), 1);
-    assert_eq!(gad7_history[0].assessment_type.code, "GAD7");
+    assert_eq!(gad7_history[0].assessment_type.code, AssessmentCode::Gad7);
 
     // Test limit
     let limited_history = repo
@@ -706,15 +708,22 @@ fn test_draft_to_completed_transition_creates_new_record() {
         AssessmentStatus::Completed
     );
 
-    // Verify: history shows both
+    // Verify: history shows only completed assessments (drafts are excluded)
     let history = repo
         .get_assessment_history(Some("PHQ9".to_string()), None, None, None)
         .expect("Failed to get history");
     assert_eq!(
         history.len(),
-        2,
-        "History should show both draft and completed"
+        1,
+        "History should only show completed assessments, not drafts"
     );
+    assert_eq!(history[0].status, AssessmentStatus::Completed);
+    assert_eq!(history[0].id, completed_id);
+
+    // Verify: drafts can still be retrieved via get_draft_assessments()
+    let drafts = repo.get_draft_assessments().expect("Failed to get drafts");
+    assert_eq!(drafts.len(), 1, "Draft should still exist in drafts list");
+    assert_eq!(drafts[0].id, draft_id);
 }
 
 /// Test serde default for status field (backward compatibility)

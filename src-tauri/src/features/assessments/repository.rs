@@ -88,6 +88,19 @@ impl AssessmentRepository {
     /// Completed assessments always create a **new record** to preserve historical data.
     /// Multiple completed assessments can exist for the same assessment type.
     ///
+    /// # Multi-User Consideration
+    ///
+    /// This implementation assumes a **single-user desktop application**. In a multi-user
+    /// environment, the UPSERT logic would need `user_id` scoping to prevent users from
+    /// overwriting each other's drafts. The partial unique index would change from:
+    /// ```sql
+    /// CREATE UNIQUE INDEX idx_one_draft_per_type ON assessment_responses(assessment_type_id) WHERE status = 'draft';
+    /// ```
+    /// To:
+    /// ```sql
+    /// CREATE UNIQUE INDEX idx_one_draft_per_user_type ON assessment_responses(user_id, assessment_type_id) WHERE status = 'draft';
+    /// ```
+    ///
     /// # Arguments
     ///
     /// * `assessment_type_id` - The ID of the assessment type (PHQ-9, GAD-7, etc.)
@@ -258,7 +271,7 @@ impl AssessmentRepository {
                     atype.id, atype.code, atype.name, atype.description, atype.question_count, atype.min_score, atype.max_score, atype.thresholds
              FROM assessment_responses AS resp
              JOIN assessment_types AS atype ON resp.assessment_type_id = atype.id
-             WHERE 1=1{}{}
+             WHERE resp.status = 'completed'{}{}
              ORDER BY resp.completed_at DESC",
             type_filter, date_filter
         );
@@ -495,7 +508,7 @@ impl AssessmentRepositoryTrait for AssessmentRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::assessment::{AssessmentStatus, SeverityLevel};
+    use crate::types::assessment::{AssessmentCode, AssessmentStatus, SeverityLevel};
     use tempfile::TempDir;
 
     fn setup_test_repo() -> (AssessmentRepository, TempDir) {
@@ -516,7 +529,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
 
         // Save a draft assessment
@@ -558,7 +571,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let gad7 = assessment_types
             .iter()
-            .find(|at| at.code == "GAD7")
+            .find(|at| at.code == AssessmentCode::Gad7)
             .expect("GAD7 not found");
 
         // Save a completed assessment
@@ -599,7 +612,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
 
         // Save first draft
@@ -655,11 +668,11 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
         let gad7 = assessment_types
             .iter()
-            .find(|at| at.code == "GAD7")
+            .find(|at| at.code == AssessmentCode::Gad7)
             .expect("GAD7 not found");
 
         // Create a mix of draft and completed assessments
@@ -765,7 +778,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
 
         // Create only completed assessments
@@ -786,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_assessment_history_includes_status() {
+    fn test_get_assessment_history_excludes_drafts() {
         let (repo, _temp_dir) = setup_test_repo();
 
         // Get assessment type
@@ -795,10 +808,10 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
 
-        // Create both draft and completed
+        // Create both draft and completed assessments
         repo.save_assessment(
             phq9.id,
             &vec![1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -819,17 +832,20 @@ mod tests {
         )
         .expect("Failed to save completed");
 
-        // Get history (should include both)
+        // Get history - should only include completed assessments, NOT drafts
         let history = repo
             .get_assessment_history(Some("PHQ9".to_string()), None, None, None)
             .expect("Failed to get history");
 
-        assert_eq!(history.len(), 2, "History should include both assessments");
+        assert_eq!(
+            history.len(),
+            1,
+            "History should only include completed assessments"
+        );
 
-        // Verify both statuses are present
-        let statuses: Vec<AssessmentStatus> = history.iter().map(|h| h.status).collect();
-        assert!(statuses.contains(&AssessmentStatus::Draft));
-        assert!(statuses.contains(&AssessmentStatus::Completed));
+        // Verify only completed status is present
+        assert_eq!(history[0].status, AssessmentStatus::Completed);
+        assert_eq!(history[0].total_score, 18);
     }
 
     #[test]
@@ -842,7 +858,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
 
         // Save a draft with some unanswered questions (-1 indicates not answered)
@@ -890,7 +906,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let phq9 = assessment_types
             .iter()
-            .find(|at| at.code == "PHQ9")
+            .find(|at| at.code == AssessmentCode::Phq9)
             .expect("PHQ9 not found");
 
         // Save first draft
@@ -947,7 +963,7 @@ mod tests {
             .expect("Failed to get assessment types");
         let gad7 = assessment_types
             .iter()
-            .find(|at| at.code == "GAD7")
+            .find(|at| at.code == AssessmentCode::Gad7)
             .expect("GAD7 not found");
 
         // Save first completed assessment

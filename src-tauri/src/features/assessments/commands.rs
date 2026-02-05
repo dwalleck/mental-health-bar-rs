@@ -131,7 +131,11 @@ fn submit_assessment_impl(
             calculate_oasis_score,
             get_oasis_severity,
         )?,
-        _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
+        _ => {
+            return Err(AssessmentError::InvalidType(
+                assessment_type.code.to_string(),
+            ))
+        }
     };
 
     // Save to database
@@ -327,7 +331,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -584,7 +588,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -606,7 +610,7 @@ mod tests {
                 id: 1,
                 assessment_type: AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -648,7 +652,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "GAD7".to_string(),
+                    code: AssessmentCode::Gad7,
                     name: "GAD-7".to_string(),
                     description: None,
                     question_count: 7,
@@ -674,7 +678,7 @@ mod tests {
                 id: 2,
                 assessment_type: AssessmentType {
                     id: 1,
-                    code: "GAD7".to_string(),
+                    code: AssessmentCode::Gad7,
                     name: "GAD-7".to_string(),
                     description: None,
                     question_count: 7,
@@ -715,7 +719,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -740,7 +744,7 @@ mod tests {
                 id: 3,
                 assessment_type: AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -785,7 +789,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -829,7 +833,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -848,7 +852,7 @@ mod tests {
                 id: 1,
                 assessment_type: AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,

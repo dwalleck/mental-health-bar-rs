@@ -12,7 +12,9 @@ use tauri_sveltekit_modern_lib::features::visualization::models::{
     TimeRange, TrendDirection, VisualizationError,
 };
 use tauri_sveltekit_modern_lib::features::visualization::repository::VisualizationRepository;
-use tauri_sveltekit_modern_lib::types::assessment::{AssessmentStatus, SeverityLevel};
+use tauri_sveltekit_modern_lib::types::assessment::{
+    AssessmentCode, AssessmentStatus, SeverityLevel,
+};
 use tempfile::TempDir;
 
 /// Setup test environment with temporary database and default activity group
@@ -81,7 +83,7 @@ fn test_get_assessment_chart_data_with_week_range() {
 
     // Verify results
     assert_eq!(chart_data.data_points.len(), 5);
-    assert_eq!(chart_data.assessment_type.code, "PHQ9");
+    assert_eq!(chart_data.assessment_type.code, AssessmentCode::Phq9);
     assert_eq!(chart_data.statistics.total_assessments, 5);
     assert!(chart_data.statistics.min > 0.0);
     assert!(chart_data.statistics.max > chart_data.statistics.min);

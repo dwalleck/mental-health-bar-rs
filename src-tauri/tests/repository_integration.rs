@@ -2,7 +2,9 @@
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::assessments::repository::AssessmentRepository;
-use tauri_sveltekit_modern_lib::types::assessment::{AssessmentStatus, SeverityLevel};
+use tauri_sveltekit_modern_lib::types::assessment::{
+    AssessmentCode, AssessmentStatus, SeverityLevel,
+};
 use tempfile::TempDir;
 
 fn setup_test_db() -> (Arc<Database>, TempDir) {
@@ -26,11 +28,11 @@ fn test_get_all_assessment_types() {
     assert_eq!(types.len(), 4);
 
     // Verify types are present
-    let codes: Vec<String> = types.iter().map(|t| t.code.clone()).collect();
-    assert!(codes.contains(&"PHQ9".to_string()));
-    assert!(codes.contains(&"GAD7".to_string()));
-    assert!(codes.contains(&"CESD".to_string()));
-    assert!(codes.contains(&"OASIS".to_string()));
+    let codes: Vec<AssessmentCode> = types.iter().map(|t| t.code.clone()).collect();
+    assert!(codes.contains(&AssessmentCode::Phq9));
+    assert!(codes.contains(&AssessmentCode::Gad7));
+    assert!(codes.contains(&AssessmentCode::Cesd));
+    assert!(codes.contains(&AssessmentCode::Oasis));
 }
 
 #[test]
@@ -42,7 +44,7 @@ fn test_get_assessment_type_by_code() {
         .get_assessment_type_by_code("PHQ9")
         .expect("Failed to get PHQ9 assessment type");
 
-    assert_eq!(assessment_type.code, "PHQ9");
+    assert_eq!(assessment_type.code, AssessmentCode::Phq9);
     assert_eq!(assessment_type.name, "Patient Health Questionnaire-9");
     assert_eq!(assessment_type.question_count, 9);
     assert_eq!(assessment_type.min_score, 0);
@@ -96,7 +98,7 @@ fn test_save_and_retrieve_assessment() {
     assert_eq!(retrieved.total_score, total_score);
     assert_eq!(retrieved.severity_level, severity_level);
     assert_eq!(retrieved.notes, notes);
-    assert_eq!(retrieved.assessment_type.code, "PHQ9");
+    assert_eq!(retrieved.assessment_type.code, AssessmentCode::Phq9);
 }
 
 #[test]
@@ -154,7 +156,7 @@ fn test_get_assessment_history() {
     assert_eq!(phq9_history.len(), 2);
     assert!(phq9_history
         .iter()
-        .all(|a| a.assessment_type.code == "PHQ9"));
+        .all(|a| a.assessment_type.code == AssessmentCode::Phq9));
 
     // Test limit
     let limited_history = repo
