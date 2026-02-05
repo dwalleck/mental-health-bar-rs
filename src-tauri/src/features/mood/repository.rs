@@ -468,12 +468,8 @@ impl MoodRepository {
     ) -> Result<Activity, MoodError> {
         let trimmed_name = validate_activity_name(name)?;
 
-        // Validate color if provided
-        if let Some(c) = color {
-            validate_color(c)?;
-        }
-
-        // Validate icon if provided
+        // Color validation happens via HexColor newtype at deserialization time
+        // Icon validation still needed here
         if let Some(i) = icon {
             validate_icon(i)?;
         }
@@ -607,9 +603,8 @@ impl MoodRepository {
             }
         }
 
-        // Update color if provided
+        // Update color if provided (validation via HexColor newtype at deserialization)
         if let Some(c) = color {
-            validate_color(c)?;
             conn.execute(
                 "UPDATE activities SET color = ? WHERE id = ?",
                 rusqlite::params![c, id],

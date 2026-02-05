@@ -1,5 +1,5 @@
 use crate::errors::{CommandError, ErrorType, ToCommandError};
-use crate::types::activity::GoalType;
+use crate::types::activity::{GoalType, HexColor};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
@@ -334,7 +334,8 @@ pub struct CreateActivityRequest {
     pub group_id: i32,
     #[validate(length(min = 1, max = 50))]
     pub name: String,
-    pub color: Option<String>,
+    /// Color validated on deserialization via HexColor newtype
+    pub color: Option<HexColor>,
     #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }
@@ -345,7 +346,8 @@ pub struct UpdateActivityRequest {
     pub group_id: Option<i32>,
     #[validate(length(min = 1, max = 50))]
     pub name: Option<String>,
-    pub color: Option<String>,
+    /// Color validated on deserialization via HexColor newtype
+    pub color: Option<HexColor>,
     #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }

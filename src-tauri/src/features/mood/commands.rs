@@ -81,7 +81,7 @@ fn create_activity_impl(
 ) -> Result<Activity, MoodError> {
     repo.create_activity(
         request.name.clone(),
-        request.color.clone(),
+        request.color.as_ref().map(|c| c.value().to_string()),
         request.icon.clone(),
         request.group_id,
     )
@@ -123,7 +123,7 @@ fn update_activity_impl(
     repo.update_activity(
         id,
         request.name.clone(),
-        request.color.clone(),
+        request.color.as_ref().map(|c| c.value().to_string()),
         request.icon.clone(),
     )
 }
@@ -262,33 +262,8 @@ mod tests {
         assert!(validation.is_err());
     }
 
-    #[test]
-    fn test_create_activity_request_validation_invalid_color_no_hash() {
-        let request = CreateActivityRequest {
-            name: "Exercise".to_string(),
-            color: Some("FF0000".to_string()),
-            icon: None,
-            group_id: 1,
-        };
-
-        let validation = request.validate();
-        assert!(validation.is_err());
-        let errors = validation.unwrap_err();
-        assert!(errors.field_errors().contains_key("color"));
-    }
-
-    #[test]
-    fn test_create_activity_request_validation_invalid_color_wrong_length() {
-        let request = CreateActivityRequest {
-            name: "Exercise".to_string(),
-            color: Some("#FF00".to_string()), // 4 chars (not 3 or 6 or 8)
-            icon: None,
-            group_id: 1,
-        };
-
-        let validation = request.validate();
-        assert!(validation.is_err());
-    }
+    // Note: Invalid color tests moved to types/activity.rs (HexColor newtype tests)
+    // HexColor validates on construction, so invalid colors can't be part of CreateActivityRequest
 
     #[test]
     fn test_create_activity_request_validation_icon_too_long() {
@@ -307,7 +282,7 @@ mod tests {
     fn test_create_activity_request_validation_valid() {
         let request = CreateActivityRequest {
             name: "Exercise".to_string(),
-            color: Some("#4CAF50".to_string()),
+            color: Some(HexColor::new("#4CAF50").unwrap()),
             icon: Some("🏃".to_string()),
             group_id: 1,
         };
@@ -439,8 +414,13 @@ mod tests {
         repo: &dyn MoodRepositoryTrait,
         request: CreateActivityRequest,
     ) -> Result<Activity, String> {
-        repo.create_activity(request.name, request.color, request.icon, request.group_id)
-            .map_err(|e| format!("Failed to create activity: {}", e))
+        repo.create_activity(
+            request.name,
+            request.color.as_ref().map(|c| c.value().to_string()),
+            request.icon,
+            request.group_id,
+        )
+        .map_err(|e| format!("Failed to create activity: {}", e))
     }
 
     #[test]
@@ -468,7 +448,7 @@ mod tests {
 
         let request = CreateActivityRequest {
             name: "Exercise".to_string(),
-            color: Some("#4CAF50".to_string()),
+            color: Some(HexColor::new("#4CAF50").unwrap()),
             icon: Some("🏃".to_string()),
             group_id: 1,
         };
@@ -523,8 +503,13 @@ mod tests {
         id: i32,
         request: UpdateActivityRequest,
     ) -> Result<Activity, String> {
-        repo.update_activity(id, request.name, request.color, request.icon)
-            .map_err(|e| format!("Failed to update activity: {}", e))
+        repo.update_activity(
+            id,
+            request.name,
+            request.color.as_ref().map(|c| c.value().to_string()),
+            request.icon,
+        )
+        .map_err(|e| format!("Failed to update activity: {}", e))
     }
 
     #[test]
@@ -600,7 +585,7 @@ mod tests {
         // Both uppercase and lowercase should be valid
         let request1 = CreateActivityRequest {
             name: "Test".to_string(),
-            color: Some("#FF0000".to_string()),
+            color: Some(HexColor::new("#FF0000").unwrap()),
             icon: None,
             group_id: 1,
         };
@@ -608,7 +593,7 @@ mod tests {
 
         let request2 = CreateActivityRequest {
             name: "Test".to_string(),
-            color: Some("#ff0000".to_string()),
+            color: Some(HexColor::new("#ff0000").unwrap()),
             icon: None,
             group_id: 1,
         };

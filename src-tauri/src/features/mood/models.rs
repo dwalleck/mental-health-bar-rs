@@ -1,6 +1,6 @@
 use crate::{
     errors::{CommandError, ErrorType, ToCommandError},
-    types::MoodRating,
+    types::{HexColor, MoodRating},
     MAX_NOTES_LENGTH,
 };
 use serde::{Deserialize, Serialize};
@@ -146,8 +146,8 @@ pub struct LogMoodRequest {
 pub struct CreateActivityRequest {
     #[validate(custom(function = "validate_trimmed_name"))]
     pub name: String,
-    #[validate(custom(function = "validate_hex_color"))]
-    pub color: Option<String>,
+    /// Color validated on deserialization via HexColor newtype
+    pub color: Option<HexColor>,
     #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
     pub group_id: i32,
@@ -158,8 +158,8 @@ pub struct CreateActivityRequest {
 pub struct UpdateActivityRequest {
     #[validate(custom(function = "validate_trimmed_name"))]
     pub name: Option<String>,
-    #[validate(custom(function = "validate_hex_color"))]
-    pub color: Option<String>,
+    /// Color validated on deserialization via HexColor newtype
+    pub color: Option<HexColor>,
     #[validate(custom(function = "validate_optional_icon"))]
     pub icon: Option<String>,
 }
@@ -210,39 +210,6 @@ pub fn validate_notes(notes: &str) -> Result<(), MoodError> {
         return Err(MoodError::NotesLengthExceeded(char_count, MAX_NOTES_LENGTH));
     }
     Ok(())
-}
-
-/// Validate hex color format (#RGB, #RRGGBB, or #RRGGBBAA)
-pub fn validate_color(color: &str) -> Result<(), MoodError> {
-    if !color.starts_with('#') {
-        return Err(MoodError::InvalidColorFormat(color.to_string()));
-    }
-
-    // Valid lengths: 4 (#RGB), 7 (#RRGGBB), or 9 (#RRGGBBAA)
-    let hex_part_len = color.len() - 1;
-    if hex_part_len != 3 && hex_part_len != 6 && hex_part_len != 8 {
-        return Err(MoodError::InvalidColorFormat(color.to_string()));
-    }
-
-    // Check that all characters after # are valid hex digits
-    for ch in color[1..].chars() {
-        if !ch.is_ascii_hexdigit() {
-            return Err(MoodError::InvalidColorFormat(color.to_string()));
-        }
-    }
-
-    Ok(())
-}
-
-/// Custom validator function for hex color (for use with validator crate)
-fn validate_hex_color(color: &str) -> Result<(), validator::ValidationError> {
-    validate_color(color).map_err(|_| {
-        let mut error = validator::ValidationError::new("hex_color");
-        error.message = Some(std::borrow::Cow::from(
-            "Must be valid hex color format: #RGB, #RRGGBB, or #RRGGBBAA",
-        ));
-        error
-    })
 }
 
 /// Custom validator function for activity name (for use with validator crate)
@@ -344,30 +311,5 @@ mod tests {
         assert!(validate_activity_name("   ").is_err());
     }
 
-    #[test]
-    fn test_color_validation() {
-        // Valid 6-digit colors (#RRGGBB)
-        assert!(validate_color("#FF5733").is_ok());
-        assert!(validate_color("#000000").is_ok());
-        assert!(validate_color("#ffffff").is_ok());
-        assert!(validate_color("#4CAF50").is_ok());
-
-        // Valid 3-digit colors (#RGB)
-        assert!(validate_color("#FFF").is_ok());
-        assert!(validate_color("#000").is_ok());
-        assert!(validate_color("#F5A").is_ok());
-
-        // Valid 8-digit colors with alpha (#RRGGBBAA)
-        assert!(validate_color("#FF5733FF").is_ok());
-        assert!(validate_color("#00000080").is_ok());
-        assert!(validate_color("#4CAF5000").is_ok());
-
-        // Invalid colors
-        assert!(validate_color("FF5733").is_err()); // Missing #
-        assert!(validate_color("#FF57").is_err()); // Wrong length
-        assert!(validate_color("#FF57331").is_err()); // Wrong length
-        assert!(validate_color("blue").is_err()); // Not hex
-        assert!(validate_color("#GGGGGG").is_err()); // Invalid hex chars
-        assert!(validate_color("#FF").is_err()); // Too short
-    }
+    // Note: Color validation tests are in types/activity.rs (HexColor newtype tests)
 }
