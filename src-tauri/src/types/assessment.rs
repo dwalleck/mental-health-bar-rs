@@ -21,7 +21,6 @@ pub enum AssessmentTypeError {
 
 /// Assessment status (draft or completed)
 ///
-/// Replaces string constants `STATUS_DRAFT` and `STATUS_COMPLETED`.
 /// Draft assessments have incomplete responses; completed have full responses with scores.
 #[derive(
     Serialize, Deserialize, specta::Type, Clone, Copy, Debug, Default, PartialEq, Eq, Hash,

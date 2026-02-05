@@ -12,26 +12,6 @@ pub use crate::types::assessment::{AssessmentCode, AssessmentStatus, SeverityLev
 /// Completed assessments must not contain this value.
 pub const UNANSWERED: i32 = -1;
 
-/// Severity level constants (deprecated - use SeverityLevel enum instead)
-#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
-pub const SEVERITY_MINIMAL: &str = "minimal";
-#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
-pub const SEVERITY_MILD: &str = "mild";
-#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
-pub const SEVERITY_MODERATE: &str = "moderate";
-#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
-pub const SEVERITY_MODERATELY_SEVERE: &str = "moderately_severe";
-#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
-pub const SEVERITY_SEVERE: &str = "severe";
-#[deprecated(since = "0.2.0", note = "Use SeverityLevel enum instead")]
-pub const SEVERITY_UNKNOWN: &str = "unknown";
-
-/// Assessment status constants (deprecated - use AssessmentStatus enum instead)
-#[deprecated(since = "0.2.0", note = "Use AssessmentStatus enum instead")]
-pub const STATUS_DRAFT: &str = "draft";
-#[deprecated(since = "0.2.0", note = "Use AssessmentStatus enum instead")]
-pub const STATUS_COMPLETED: &str = "completed";
-
 /// Assessment error types
 #[derive(Error, Debug)]
 pub enum AssessmentError {
