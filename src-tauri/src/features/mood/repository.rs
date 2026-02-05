@@ -20,6 +20,7 @@
 use super::models::*;
 use super::repository_trait::MoodRepositoryTrait;
 use crate::db::Database;
+use crate::types::mood::MoodRating;
 use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
 use tracing::info;
@@ -146,6 +147,9 @@ impl MoodRepository {
         let activities = self.get_activities_for_checkin_with_conn(&tx, mood_checkin_id)?;
 
         // Build the created mood check-in
+        // Convert i32 to MoodRating (already validated above)
+        let mood_rating =
+            MoodRating::new(mood_rating).map_err(|_| MoodError::InvalidRating(mood_rating))?;
         let mood_checkin = MoodCheckin {
             id: mood_checkin_id,
             mood_rating,
@@ -208,7 +212,7 @@ impl MoodRepository {
         let mood_rows = stmt.query_map(params.as_slice(), |row| {
             Ok((
                 row.get::<_, i32>(0)?,            // id
-                row.get::<_, i32>(1)?,            // mood_rating
+                row.get::<_, MoodRating>(1)?,     // mood_rating (validated newtype)
                 row.get::<_, Option<String>>(2)?, // notes
                 row.get::<_, String>(3)?,         // created_at
             ))
@@ -242,7 +246,7 @@ impl MoodRepository {
             |row| {
                 Ok((
                     row.get::<_, i32>(0)?,
-                    row.get::<_, i32>(1)?,
+                    row.get::<_, MoodRating>(1)?,  // validated newtype
                     row.get::<_, Option<String>>(2)?,
                     row.get::<_, String>(3)?,
                 ))

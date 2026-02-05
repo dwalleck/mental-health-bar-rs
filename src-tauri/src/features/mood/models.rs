@@ -1,5 +1,6 @@
 use crate::{
     errors::{CommandError, ErrorType, ToCommandError},
+    types::mood::MoodRating,
     MAX_NOTES_LENGTH,
 };
 use serde::{Deserialize, Serialize};
@@ -123,19 +124,13 @@ pub struct Activity {
 
 /// Mood check-in model
 ///
-/// Tracks a mood rating on a 7-point scale with optional activities and notes:
-/// - 1 = Terrible
-/// - 2 = Very Bad
-/// - 3 = Bad
-/// - 4 = Ok
-/// - 5 = Good
-/// - 6 = Very Good
-/// - 7 = Excellent
+/// Tracks a mood rating on a 7-point scale with optional activities and notes.
+/// The `MoodRating` newtype ensures the value is always valid (1-7).
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct MoodCheckin {
     pub id: i32,
-    /// Mood rating (1-7): 1=Terrible, 2=Very Bad, 3=Bad, 4=Ok, 5=Good, 6=Very Good, 7=Excellent
-    pub mood_rating: i32,
+    /// Mood rating (1-7) with type-enforced validation
+    pub mood_rating: MoodRating,
     pub notes: Option<String>,
     pub activities: Vec<Activity>,
     pub created_at: String,
