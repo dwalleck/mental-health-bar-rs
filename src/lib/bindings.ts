@@ -94,6 +94,13 @@ export const commands = {
 	},
 	/**
 	 * Get a single assessment response by ID
+	 *
+	 * # Security Note
+	 *
+	 * This endpoint allows fetching any assessment by ID without user authentication.
+	 * This is a known limitation acceptable for a single-user desktop application.
+	 * If multi-user support is added, this endpoint should be protected with user
+	 * authentication and ownership verification.
 	 */
 	async getAssessmentResponse(id: number): Promise<Result<AssessmentResponse, CommandError>> {
 		try {
@@ -502,12 +509,21 @@ export const commands = {
 
 /**
  * Activity model
+ *
+ * Represents an activity that can be associated with mood check-ins or tracked
+ * independently via activity logging. This is the single source of truth for
+ * the Activity type across all features (mood, activities, visualization).
+ *
+ * The `HexColor` newtype ensures color values are always valid hex format.
  */
 export type Activity = {
 	id: number
 	group_id: number
 	name: string
-	color: string | null
+	/**
+	 * Optional color in validated hex format (#RGB, #RRGGBB, or #RRGGBBAA)
+	 */
+	color: HexColor | null
 	icon: string | null
 	created_at: string
 	deleted_at: string | null
@@ -591,11 +607,11 @@ export type ActivityGoal = {
 	 */
 	group_id: number | null
 	/**
-	 * Type of goal: 'days_per_period' or 'percent_improvement'
+	 * Type of goal: DaysPerPeriod or PercentImprovement
 	 */
-	goal_type: string
+	goal_type: GoalType
 	/**
-	 * Target value: days count for 'days_per_period', percentage for 'percent_improvement'
+	 * Target value: days count for DaysPerPeriod, percentage for PercentImprovement
 	 */
 	target_value: number
 	/**
@@ -676,6 +692,32 @@ export type AssessmentChartData = {
 	statistics: ChartStatistics
 }
 /**
+ * Assessment code identifying the assessment type
+ *
+ * Each assessment has a specific number of questions and scoring algorithm.
+ */
+export type AssessmentCode =
+	/**
+	 * Patient Health Questionnaire-9 (depression screening)
+	 * 9 questions, score 0-27
+	 */
+	| 'PHQ9'
+	/**
+	 * Generalized Anxiety Disorder-7 (anxiety screening)
+	 * 7 questions, score 0-21
+	 */
+	| 'GAD7'
+	/**
+	 * Center for Epidemiologic Studies Depression Scale
+	 * 20 questions, score 0-60
+	 */
+	| 'CESD'
+	/**
+	 * Overall Anxiety Severity and Impairment Scale
+	 * 5 questions, score 0-20
+	 */
+	| 'OASIS'
+/**
  * Assessment question
  */
 export type AssessmentQuestion = { number: number; text: string; options: string[] }
@@ -687,10 +729,10 @@ export type AssessmentResponse = {
 	assessment_type: AssessmentType
 	responses: number[]
 	total_score: number
-	severity_level: string
+	severity_level: SeverityLevel
 	completed_at: string
 	notes: string | null
-	status: string
+	status: AssessmentStatus
 }
 /**
  * Assessment schedule configuration
@@ -710,11 +752,20 @@ export type AssessmentSchedule = {
 	updated_at: string
 }
 /**
+ * Assessment status (draft or completed)
+ *
+ * Draft assessments have incomplete responses; completed have full responses with scores.
+ */
+export type AssessmentStatus = 'draft' | 'completed'
+/**
  * Assessment type (PHQ-9, GAD-7, CES-D, OASIS)
  */
 export type AssessmentType = {
 	id: number
-	code: string
+	/**
+	 * Assessment code using typed enum for compile-time validation
+	 */
+	code: AssessmentCode
 	name: string
 	description: string | null
 	question_count: number
@@ -772,7 +823,10 @@ export type CreateActivityGroupRequest = { name: string; description: string | n
  */
 export type CreateActivityRequest = {
 	name: string
-	color: string | null
+	/**
+	 * Color validated on deserialization via HexColor newtype
+	 */
+	color: HexColor | null
 	icon: string | null
 	group_id: number
 }
@@ -839,6 +893,31 @@ export type GoalProgress = {
 	period_end: string
 }
 /**
+ * Goal type for activity tracking
+ *
+ * Replaces string matching for `"days_per_period"` and `"percent_improvement"`.
+ */
+export type GoalType =
+	/**
+	 * Track frequency: achieve X days within a Y-day period
+	 * Example: "Exercise 3 days per 7-day period"
+	 */
+	| 'days_per_period'
+	/**
+	 * Track improvement: increase activity by X% over baseline
+	 * Example: "Increase meditation by 20% over 30-day baseline"
+	 */
+	| 'percent_improvement'
+/**
+ * Validated hex color string
+ *
+ * Newtype wrapper ensuring the color is a valid hex format:
+ * - #RGB (4 chars, e.g., #F00 for red)
+ * - #RRGGBB (7 chars, e.g., #FF0000 for red)
+ * - #RRGGBBAA (9 chars, e.g., #FF000080 for semi-transparent red)
+ */
+export type HexColor = string
+/**
  * Request to log an activity
  */
 export type LogActivityRequest = {
@@ -861,7 +940,23 @@ export type MoodChartData = {
 /**
  * Mood check-in model
  *
- * Tracks a mood rating on a 7-point scale with optional activities and notes:
+ * Tracks a mood rating on a 7-point scale with optional activities and notes.
+ * The `MoodRating` newtype ensures the value is always valid (1-7).
+ */
+export type MoodCheckin = {
+	id: number
+	/**
+	 * Mood rating (1-7) with type-enforced validation
+	 */
+	mood_rating: MoodRating
+	notes: string | null
+	activities: Activity[]
+	created_at: string
+}
+/**
+ * Mood rating on a 7-point scale
+ *
+ * Newtype wrapper ensuring the rating is always valid (1-7).
  * - 1 = Terrible
  * - 2 = Very Bad
  * - 3 = Bad
@@ -870,16 +965,7 @@ export type MoodChartData = {
  * - 6 = Very Good
  * - 7 = Excellent
  */
-export type MoodCheckin = {
-	id: number
-	/**
-	 * Mood rating (1-7): 1=Terrible, 2=Very Bad, 3=Bad, 4=Ok, 5=Good, 6=Very Good, 7=Excellent
-	 */
-	mood_rating: number
-	notes: string | null
-	activities: Activity[]
-	created_at: string
-}
+export type MoodRating = number
 /**
  * Mood statistics (min, max, average, median, mode)
  */
@@ -911,10 +997,26 @@ export type ScheduleFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly'
 export type SetActivityGoalRequest = {
 	activity_id: number | null
 	group_id: number | null
-	goal_type: string
+	/**
+	 * Type of goal: DaysPerPeriod or PercentImprovement
+	 */
+	goal_type: GoalType
 	target_value: number
 	period_days: number
 }
+/**
+ * Severity level for assessment scores
+ *
+ * Replaces string constants `SEVERITY_*`.
+ * Each assessment type has different score thresholds for these levels.
+ */
+export type SeverityLevel =
+	| 'minimal'
+	| 'mild'
+	| 'moderate'
+	| 'moderately_severe'
+	| 'severe'
+	| 'unknown'
 /**
  * Request to submit assessment
  */
@@ -922,7 +1024,7 @@ export type SubmitAssessmentRequest = {
 	assessment_type_code: string
 	responses: number[]
 	notes: string | null
-	status?: string
+	status?: AssessmentStatus
 }
 /**
  * Threshold line for severity level visualization
@@ -961,7 +1063,10 @@ export type UpdateActivityGroupRequest = { name: string | null; description: str
  */
 export type UpdateActivityRequest = {
 	name: string | null
-	color: string | null
+	/**
+	 * Color validated on deserialization via HexColor newtype
+	 */
+	color: HexColor | null
 	icon: string | null
 }
 /**

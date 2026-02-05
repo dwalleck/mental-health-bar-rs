@@ -173,7 +173,7 @@ describe('AssessmentList', () => {
 			const assessmentWithoutDescription: AssessmentType[] = [
 				{
 					id: 3,
-					code: 'TEST',
+					code: 'PHQ9' as const,
 					name: 'Test Assessment',
 					description: null,
 					question_count: 5,

@@ -35,7 +35,7 @@ import { displayError, displaySuccess } from '$lib/utils/errors'
 const mockAssessmentTypes = [
 	{
 		id: 1,
-		code: 'PHQ9',
+		code: 'PHQ9' as const,
 		name: 'PHQ-9 Depression Scale',
 		description: 'Test' as string | null,
 		question_count: 9,
@@ -44,7 +44,7 @@ const mockAssessmentTypes = [
 	},
 	{
 		id: 2,
-		code: 'GAD7',
+		code: 'GAD7' as const,
 		name: 'GAD-7 Anxiety Scale',
 		description: 'Test' as string | null,
 		question_count: 7,
@@ -53,7 +53,7 @@ const mockAssessmentTypes = [
 	},
 	{
 		id: 3,
-		code: 'CESD',
+		code: 'CESD' as const,
 		name: 'CES-D Depression Scale',
 		description: 'Test' as string | null,
 		question_count: 20,

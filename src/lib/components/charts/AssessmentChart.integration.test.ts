@@ -85,7 +85,7 @@ describe('AssessmentChart Integration Test', () => {
 
 	const mockAssessmentType: AssessmentType = {
 		id: 1,
-		code: 'PHQ9',
+		code: 'PHQ9' as const,
 		name: 'Patient Health Questionnaire-9',
 		description: 'Depression screening tool',
 		question_count: 9,
@@ -176,10 +176,10 @@ describe('AssessmentChart Integration Test', () => {
 
 		it('should handle all assessment types without errors', () => {
 			const assessmentTypes = [
-				{ code: 'PHQ9', name: 'PHQ-9', max_score: 27 },
-				{ code: 'GAD7', name: 'GAD-7', max_score: 21 },
-				{ code: 'CESD', name: 'CES-D', max_score: 60 },
-				{ code: 'OASIS', name: 'OASIS', max_score: 20 },
+				{ code: 'PHQ9' as const, name: 'PHQ-9', max_score: 27 },
+				{ code: 'GAD7' as const, name: 'GAD-7', max_score: 21 },
+				{ code: 'CESD' as const, name: 'CES-D', max_score: 60 },
+				{ code: 'OASIS' as const, name: 'OASIS', max_score: 20 },
 			]
 
 			assessmentTypes.forEach((type) => {

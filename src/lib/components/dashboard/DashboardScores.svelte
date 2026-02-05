@@ -20,6 +20,7 @@
 	}
 
 	// State management with Svelte 5 runes
+	// SvelteMap is inherently reactive for mutations, no $state needed
 	let assessments = new SvelteMap<string, AssessmentResponse | null>()
 	let loading = $state(true)
 	let error = $state<string | null>(null)
@@ -59,15 +60,15 @@
 				if (abortController.signal.aborted) return
 
 				// Populate the assessments map and track failures
-				const newAssessments = new SvelteMap<string, AssessmentResponse | null>()
+				// Clear and repopulate existing SvelteMap (it's reactive for mutations)
+				assessments.clear()
 				const failed: string[] = []
 				results.forEach(({ code, data, failed: hasFailed }) => {
-					newAssessments.set(code, data)
+					assessments.set(code, data)
 					if (hasFailed) {
 						failed.push(ASSESSMENT_METADATA[code].name)
 					}
 				})
-				assessments = newAssessments
 				failedAssessments = failed
 			} catch (err) {
 				// TODO: Replace console logging with production logging utility

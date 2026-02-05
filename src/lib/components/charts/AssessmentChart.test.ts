@@ -59,7 +59,7 @@ describe('AssessmentChart', () => {
 
 	const mockAssessmentType = {
 		id: 1,
-		code: 'PHQ9',
+		code: 'PHQ9' as const,
 		name: 'PHQ-9 (Depression)',
 		description: 'Depression screening',
 		question_count: 9,
