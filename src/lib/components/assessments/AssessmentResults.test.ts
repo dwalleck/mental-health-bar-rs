@@ -69,6 +69,7 @@ describe('AssessmentResults', () => {
 		severity_level: 'mild',
 		completed_at: '2024-01-15T10:30:00Z',
 		notes: 'Feeling better this week',
+		status: 'completed',
 	}
 
 	describe('Props', () => {

@@ -1,7 +1,7 @@
 # Revised Development Plan 2025 - Task Checklist
 
 **Created**: 2025-11-07
-**Updated**: 2025-11-10
+**Updated**: 2025-11-13
 **Total Releases**: 5 (v0.1, v0.2, v0.3, v0.4, v1.0)
 **Estimated Duration**: 10 weeks
 **Approach**: Ship value every 1-2 weeks, tests integrated with features
@@ -324,30 +324,26 @@ The following were in the original plan but are already 100% complete:
 - `component-architecture.md` - Component patterns, accessibility (keyboard navigation, ARIA labels)
 
 #### Database Migration (1-2 hours)
-**Note**: No data migration needed (no users exist yet)
+**Note**: Used table recreation pattern with data transformation (1→1, 2→3, 3→4, 4→5, 5→7)
 
-- [ ] 5.1 Create migration file `004_mood_scale_1_to_7.sql`
-- [ ] 5.2 Update CHECK constraint only:
-  ```sql
-  ALTER TABLE mood_checkins DROP CONSTRAINT mood_rating_check;
-  ALTER TABLE mood_checkins ADD CONSTRAINT mood_rating_check CHECK (mood_rating BETWEEN 1 AND 7);
-  ```
-- [ ] 5.3 Test migration runs successfully
+- [X] 5.1 Create migration file `004_mood_scale_1_to_7.sql`
+- [X] 5.2 Update CHECK constraint (implemented via table recreation with new constraint)
+- [X] 5.3 Test migration runs successfully
 
 #### Backend Updates (4-6 hours)
 
-- [ ] 5.4 Update mood rating validation to 1-7 range in repository
-- [ ] 5.5 Update `MoodCheckin` struct documentation (1=Terrible ... 7=Excellent)
-- [ ] 5.6 Update `log_mood` command validation
-- [ ] 5.7 Generate new TypeScript bindings (`cargo test`)
-- [ ] 5.8 Update existing mood tests for 1-7 scale
-- [ ] 5.9 Write new tests for 7-point scale edge cases (boundary values: 0, 1, 7, 8)
+- [X] 5.4 Update mood rating validation to 1-7 range in repository
+- [X] 5.5 Update `MoodCheckin` struct documentation (1=Terrible ... 7=Excellent)
+- [X] 5.6 Update `log_mood` command validation
+- [X] 5.7 Generate new TypeScript bindings (`cargo test`)
+- [X] 5.8 Update existing mood tests for 1-7 scale (all 179 backend tests passing)
+- [X] 5.9 Write new tests for 7-point scale edge cases (boundary values: 0, 1, 7, 8)
 
 #### Frontend: Mood Selector Update (6-8 hours)
 
-- [ ] 5.10 Update `MoodScaleInput.svelte` to 7-point scale
-- [ ] 5.11 Design visual representation (7 emoji buttons: 😢 😞 🙁 😐 🙂 😊 😄)
-- [ ] 5.12 Add accessibility labels for each level:
+- [X] 5.10 Update `MoodScaleInput.svelte` to 7-point scale
+- [X] 5.11 Design visual representation (color-coded circles: Red→Orange→Yellow→Green→Emerald with text icons ✖, !, −, ✓)
+- [X] 5.12 Add accessibility labels for each level:
   - 1 = "Terrible"
   - 2 = "Very Bad"
   - 3 = "Bad"
@@ -355,24 +351,24 @@ The following were in the original plan but are already 100% complete:
   - 5 = "Good"
   - 6 = "Very Good"
   - 7 = "Excellent"
-- [ ] 5.13 Implement keyboard navigation (Left/Right arrows to change selection)
-- [ ] 5.14 Update mood history display to show 7-point scale (change emoji set)
+- [X] 5.13 Implement keyboard navigation (Left/Right arrows to change selection)
+- [X] 5.14 Update mood history display to show 7-point scale (updated colors and labels)
 
 #### Frontend: Activity Integration (6-8 hours)
 
-- [ ] 5.15 Update `ActivitySelector.svelte` to group by Activity Group
-- [ ] 5.16 Implement collapsible sections for each group (click to expand/collapse)
-- [ ] 5.17 Display icons instead of names (use Heroicons from icon field)
-- [ ] 5.18 Add "Ungrouped Activities" section at bottom (for activities with group_id IS NULL)
-- [ ] 5.19 Test multi-select with 0 activities, 1 activity, many activities across groups
-- [ ] 5.20 Update check-in history (`MoodHistoryList.svelte`) to show grouped activities with icons
+- [X] 5.15 Update `ActivitySelector.svelte` to group by Activity Group
+- [ ] 5.16 Implement collapsible sections for each group (click to expand/collapse) - **DEFERRED** (groups always visible)
+- [X] 5.17 Display activity icons from icon field (shows icon + name, not icon instead of name)
+- [X] 5.18 Add "Ungrouped Activities" section at bottom (displays as "Other Activities")
+- [X] 5.19 Test multi-select with 0 activities, 1 activity, many activities across groups
+- [X] 5.20 Update check-in history (`MoodHistoryList.svelte`) to show activities with icons
 
 #### Integration Testing (3-4 hours)
 
-- [ ] 5.21 Test end-to-end check-in flow: Select 7-point mood → Select grouped activities → Submit
-- [ ] 5.22 Test activity selection with all combinations (0, 1, many activities; grouped/ungrouped)
-- [ ] 5.23 Write component tests for updated `MoodScaleInput` (7 levels)
-- [ ] 5.24 Write component tests for updated `ActivitySelector` (grouped view)
+- [X] 5.21 Test end-to-end check-in flow: Select 7-point mood → Select grouped activities → Submit
+- [X] 5.22 Test activity selection with all combinations (0, 1, many activities; grouped/ungrouped)
+- [X] 5.23 Write component tests for updated `MoodScaleInput` (7 levels) - all 943 frontend tests passing
+- [X] 5.24 Write component tests for updated `ActivitySelector` (grouped view) - all 27 tests passing
 
 **Week 5 Total**: ~24 tasks, ~18-22 hours
 
@@ -397,27 +393,34 @@ The following were in the original plan but are already 100% complete:
 
 ### Week 6: Spec Gap Implementation
 
-#### FR-009a: Draft Assessments (8-10 hours)
+#### FR-009a: Draft Assessments (8-10 hours) ✅ COMPLETE
 
-- [ ] 6.1 Add `status` column to `assessment_responses` table (TEXT CHECK IN ('draft', 'completed'), DEFAULT 'completed')
-- [ ] 6.2 Add migration to create column with default value
-- [ ] 6.3 Update `submit_assessment` repository method to accept status parameter
-- [ ] 6.4 Create `save_draft_assessment` Tauri command
-- [ ] 6.5 Create `get_draft_assessments` Tauri query
-- [ ] 6.6 Update frontend `AssessmentForm.svelte` to add "Save Draft" button (secondary button)
-- [ ] 6.7 Create draft assessment list UI (`/assessments/drafts` route)
-- [ ] 6.8 Implement "Resume Draft" functionality (load saved responses into form)
-- [ ] 6.9 Write repository tests for draft functionality
-- [ ] 6.10 Write command tests for save_draft_assessment
+- [X] 6.1 Add `status` column to `assessment_responses` table (TEXT CHECK IN ('draft', 'completed'), DEFAULT 'completed')
+- [X] 6.2 Add migration to create column with default value
+- [X] 6.3 Update `submit_assessment` repository method to accept status parameter
+- [X] 6.4 Create `save_draft_assessment` Tauri command
+- [X] 6.5 Create `get_draft_assessments` Tauri query
+- [X] 6.6 Update frontend `AssessmentForm.svelte` to add "Save Draft" button (secondary button)
+- [X] 6.7 Create draft assessment list UI (`/assessments/drafts` route)
+- [X] 6.8 Implement "Resume Draft" functionality (load saved responses into form)
+- [X] 6.9 Write repository tests for draft functionality
+- [X] 6.10 Write command tests for save_draft_assessment
 
-#### FR-009b: Daily Assessment Limit (6-8 hours)
+**PR #46 Review Fixes (Completed 2025-11-13)**:
+- [X] 6.10a Fix draft overwrites: Update `save_assessment()` to UPDATE existing draft instead of INSERT (prevents duplicates)
+- [X] 6.10b Add tests: `test_draft_updates_instead_of_creating_duplicate` and `test_completed_assessments_always_create_new_records`
+- [X] 6.10c Fix type mismatch URL: Clear draft param from URL when draft doesn't match assessment type
+- [X] 6.10d Add delete draft functionality: Delete button with confirmation dialog in drafts list UI
+- [X] 6.10e All 52 assessment tests passing
 
-- [ ] 6.11 Add validation function `check_assessment_already_completed_today` to repository
-- [ ] 6.12 Update `submit_assessment` command to check for existing assessment today (same type_code, DATE(submitted_at) = today)
-- [ ] 6.13 Return user-friendly errdragor: "You have already completed PHQ-9 today. Please try again tomorrow."
-- [ ] 6.14 Update UI to show "Already completed today" state (disable submit button with tooltip)
-- [ ] 6.15 Add "View Today's Result" link to redirect to existing result
-- [ ] 6.16 Write tests for daily limit validation (allow first, reject second on same day, allow next day)
+#### FR-009b: Weekly Assessment Limit (6-8 hours)
+
+- [ ] 6.11 Add validation function `check_assessment_already_completed_this_week` to repository
+- [ ] 6.12 Update `submit_assessment` command to check for existing assessment this week (same type_code, DATE(submitted_at) in current week)
+- [ ] 6.13 Return user-friendly error: "You have already completed PHQ-9 this week. Please try again next week."
+- [ ] 6.14 Update UI to show "Already completed this week" state (disable submit button with tooltip)
+- [ ] 6.15 Add "View This Week's Result" link to redirect to existing result
+- [ ] 6.16 Write tests for weekly limit validation (allow first, reject second in same week, allow next week)
 
 #### FR-009c/FR-015a: Backdating (6-8 hours)
 
@@ -643,9 +646,9 @@ The following were in the original plan but are already 100% complete:
 
 ---
 
-### Week 10: Frontend Test Expansion and Final QA (18-22 hours)
+### Week 10: Frontend Test Expansion and Final QA (28-37 hours)
 
-#### Component Tests (8-10 hours)
+#### Component Tests (18-23 hours)
 
 - [ ] 10.1 Test Activity Group components:
   - ActivityGroupList (expand/collapse, delete)
@@ -665,22 +668,116 @@ The following were in the original plan but are already 100% complete:
   - Date picker (max = now, min = now - 24h)
   - "Log for Yesterday" button
   - Validation (reject >24h)
-- [ ] 10.6 Test Catalyst UI components:
-  - Button (all variants, colors)
-  - Input (label, error, focus)
-  - Card (dark mode, responsive)
+
+**Priority 1: Foundation UI Components (8 untested) - 12-15 hours**
+
+- [ ] 10.6a Test Modal component:
+  - Open/close behavior
+  - Backdrop click to close
+  - Escape key to close
+  - Focus trap when open
+  - Accessibility (aria-modal, role="dialog")
+
+- [ ] 10.6b Test SidebarLayout component:
+  - Navigation rendering
+  - Active state highlighting
+  - Mobile menu toggle
+  - Responsive behavior
+  - User profile display
+
+- [ ] 10.6c Test DataTable component:
+  - Column rendering
+  - Sorting functionality
+  - Pagination
+  - Empty state
+  - Loading state
+
+- [ ] 10.6d Test Combobox component:
+  - Search/filter options
+  - Keyboard navigation (Arrow keys, Enter, Escape)
+  - Option selection
+  - Accessibility (aria-autocomplete, aria-expanded)
+
+- [ ] 10.6e Test FormLayout component:
+  - Field arrangement
+  - Label associations
+  - Error message display
+  - Required field indicators
+
+- [ ] 10.6f Test IconPicker component:
+  - Icon list rendering
+  - Icon selection
+  - Search/filter icons
+  - Heroicons validation
+
+- [ ] 10.6g Test AnnouncementBanner component:
+  - Display/dismiss functionality
+  - Persistence (don't show again)
+  - Multiple banners handling
+
+- [ ] 10.6h Test SkeletonLoader component:
+  - Loading animation
+  - Various shapes (text, circle, rectangle)
+  - Responsive sizing
+
+**Priority 2: Chart Components (3 untested) - 3-4 hours**
+
+- [ ] 10.7 Test ActivityReportCard component:
+  - Days/week calculation display
+  - Bar chart rendering
+  - Date range selection
+  - Empty state (no data)
+
+- [ ] 10.8 Test ActivityTrendChart component:
+  - Percentage change calculation
+  - Arrow indicators (up/down/neutral)
+  - Period comparison display
+  - Chart.js integration
+
+- [ ] 10.9 Test GoalProgressDashboard component:
+  - Multiple goals display
+  - Progress bar rendering
+  - Achievement indicators
+  - Filter by activity/group
+
+**Priority 3: Activity Feature Components (4 untested) - 3-4 hours**
+
+- [ ] 10.10 Test ActivityGroupForm component:
+  - Create group validation (name required, max 100 chars)
+  - Edit group (load existing data)
+  - Description field (max 500 chars)
+  - Form submission
+  - Error handling
+
+- [ ] 10.11 Test ActivityLogHistory component:
+  - Timeline view rendering
+  - Date filtering
+  - Notes display
+  - Pagination for long histories
+  - Empty state
+
+- [ ] 10.12 Test GoalProgressIndicator component:
+  - Progress percentage calculation
+  - Visual progress bar
+  - Achievement state
+  - Color coding (on track/behind/achieved)
+
+- [ ] 10.13 Test ErrorHandlingExample component (optional):
+  - Example code rendering
+  - Documentation purposes only
+  - Low priority - may skip
 
 #### End-to-End Testing (6-8 hours)
 
-- [ ] 10.7 Test complete Activity Group workflow:
+- [ ] 10.14 Test complete Activity Group workflow:
   - Create group → Add activities → Log activity → Set goal → View report → Achieve goal
-- [ ] 10.8 Test complete Check-In v2.0 workflow:
+- [ ] 10.15 Test complete Check-In v2.0 workflow:
   - Select 7-point mood → Select grouped activities with icons → Submit → View history
-- [ ] 10.9 Test draft assessment workflow:
+- [ ] 10.16 Test draft assessment workflow:
   - Start PHQ-9 → Save draft → Resume later → Complete → View result
-- [ ] 10.10 Test backdating workflow:
+- [ ] 10.17 Test backdating workflow:
   - Click "Log for Yesterday" → Select mood → Select activities → Submit → Verify date
-- [ ] 10.11 Cross-browser testing:
+- [ ] 10.18 Cross-browser testing:
   - Chrome (latest)
   - Firefox (latest)
   - Edge (latest)
@@ -688,22 +785,22 @@ The following were in the original plan but are already 100% complete:
 
 #### Final QA and Documentation (4-6 hours)
 
-- [ ] 10.12 Update README.md with all new features (Activity Groups, Check-In v2.0, Drafts, Backdating)
-- [ ] 10.13 Write user guide for Activity Groups (how to create, log, set goals, view reports)
-- [ ] 10.14 Write user guide for 7-point mood scale (what each level means)
-- [ ] 10.15 Update developer docs (CLAUDE.md) with new patterns:
+- [ ] 10.19 Update README.md with all new features (Activity Groups, Check-In v2.0, Drafts, Backdating)
+- [ ] 10.20 Write user guide for Activity Groups (how to create, log, set goals, view reports)
+- [ ] 10.21 Write user guide for 7-point mood scale (what each level means)
+- [ ] 10.22 Update developer docs (CLAUDE.md) with new patterns:
   - Activity Groups architecture
   - Goal calculation logic
   - Migration strategy (1-5 to 1-7)
-- [ ] 10.16 Draft release notes (list all features, breaking changes, migration notes)
-- [ ] 10.17 Final accessibility audit (Lighthouse, Axe DevTools)
-- [ ] 10.18 Final performance audit (Lighthouse, measure key metrics)
-- [ ] 10.19 Final security review:
+- [ ] 10.23 Draft release notes (list all features, breaking changes, migration notes)
+- [ ] 10.24 Final accessibility audit (Lighthouse, Axe DevTools)
+- [ ] 10.25 Final performance audit (Lighthouse, measure key metrics)
+- [ ] 10.26 Final security review:
   - SQL injection (verify all queries parameterized)
   - XSS (verify no innerHTML usage)
   - CSRF (verify Tauri's built-in protection)
 
-**Week 10 Total**: ~19 tasks, ~18-22 hours
+**Week 10 Total**: ~31 tasks, ~28-37 hours
 
 **v1.0 Shippable Criteria**:
 
@@ -727,8 +824,8 @@ The following were in the original plan but are already 100% complete:
 | **v0.2**: Check-In v2.0 | 1 week | ~28 tasks | ~22-26 hours | ✅ **SHIP IT** |
 | **v0.3**: Spec Gap Completion | 1 week | ~27 tasks | ~24-30 hours | ✅ **SHIP IT** |
 | **v0.4**: Catalyst UI Refresh | 2 weeks | ~26 tasks | ~28-36 hours | ✅ **SHIP IT** |
-| **v1.0**: Test Coverage + Production Polish | 2 weeks | ~29 tasks | ~36-44 hours | ✅ **SHIP IT** |
-| **Total** | **10 weeks** | **~217 tasks** | **~200-236 hours** | **5 releases** |
+| **v1.0**: Test Coverage + Production Polish | 2 weeks | ~41 tasks | ~46-55 hours | ✅ **SHIP IT** |
+| **Total** | **10 weeks** | **~229 tasks** | **~210-247 hours** | **5 releases** |
 
 ---
 
@@ -742,9 +839,9 @@ The following were in the original plan but are already 100% complete:
   - Week 3: ✅ 24/24 tasks complete (Frontend UI Components)
   - Week 4: 🟡 14/22 tasks complete (Reporting Components ✅ Integration Testing ✅ - Performance Testing & Documentation pending)
 - [ ] **v0.2**: Check-In v2.0 Shipped (0/28 tasks) - End of Week 5
-- [ ] **v0.3**: Spec Gaps Shipped (0/27 tasks) - End of Week 6
+- [ ] **v0.3**: Spec Gaps Shipped (10/27 tasks) - End of Week 6 [FR-009a ✅]
 - [ ] **v0.4**: Catalyst UI Shipped (0/26 tasks) - End of Week 8
-- [ ] **v1.0**: Production Shipped (0/29 tasks) - End of Week 10
+- [ ] **v1.0**: Production Shipped (0/41 tasks) - End of Week 10
 
 ### Shippable Milestone Checklist
 

@@ -8,6 +8,7 @@ pub mod constants;
 pub mod db;
 mod errors;
 pub mod features;
+pub mod types;
 pub mod utils;
 
 // Re-export for easier access
@@ -41,6 +42,7 @@ pub fn run() {
         features::assessments::queries::get_assessment_history,
         features::assessments::queries::get_assessment_response,
         features::assessments::queries::get_latest_assessment,
+        features::assessments::queries::get_draft_assessments,
         features::mood::commands::log_mood,
         features::mood::commands::create_activity,
         features::mood::commands::update_activity,
@@ -155,6 +157,7 @@ mod tests {
             features::assessments::queries::get_assessment_history,
             features::assessments::queries::get_assessment_response,
             features::assessments::queries::get_latest_assessment,
+            features::assessments::queries::get_draft_assessments,
             features::mood::commands::log_mood,
             features::mood::commands::create_activity,
             features::mood::commands::update_activity,

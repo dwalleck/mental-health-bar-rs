@@ -1,5 +1,5 @@
 // Assessment commands (mutations)
-use super::models::*;
+use super::models::{UNANSWERED, *};
 use super::repository::AssessmentRepository;
 use super::repository_trait::AssessmentRepositoryTrait;
 use crate::{
@@ -35,6 +35,35 @@ pub async fn submit_assessment(
     })
 }
 
+/// Calculate score based on assessment status (draft vs completed)
+///
+/// For drafts: returns partial score from answered questions with Unknown severity
+/// For completed: uses the full scoring function and severity calculation
+fn calculate_score_for_status<F, S>(
+    status: AssessmentStatus,
+    valid_responses: &[i32],
+    all_responses: &[i32],
+    score_fn: F,
+    severity_fn: S,
+) -> Result<(i32, SeverityLevel), AssessmentError>
+where
+    F: FnOnce(&[i32]) -> Result<i32, AssessmentError>,
+    S: FnOnce(i32) -> SeverityLevel,
+{
+    if status == AssessmentStatus::Draft {
+        if valid_responses.is_empty() {
+            Ok((0, SeverityLevel::Unknown))
+        } else {
+            // Calculate partial score from answered questions only
+            let partial_score: i32 = valid_responses.iter().sum();
+            Ok((partial_score, SeverityLevel::Unknown))
+        }
+    } else {
+        let score = score_fn(all_responses)?;
+        Ok((score, severity_fn(score)))
+    }
+}
+
 /// Business logic for submitting assessment - uses trait bound for testability
 fn submit_assessment_impl(
     repo: &impl AssessmentRepositoryTrait,
@@ -43,25 +72,70 @@ fn submit_assessment_impl(
     // Get assessment type
     let assessment_type = repo.get_assessment_type_by_code(request.assessment_type_code.clone())?;
 
+    // For completed assessments, validate no unanswered questions
+    // Drafts are allowed to have UNANSWERED (-1) values
+    if request.status == AssessmentStatus::Completed {
+        let unanswered_count = request
+            .responses
+            .iter()
+            .filter(|&&r| r == UNANSWERED)
+            .count();
+        if unanswered_count > 0 {
+            return Err(AssessmentError::UnansweredQuestions {
+                count: unanswered_count,
+                total: request.responses.len(),
+            });
+        }
+    }
+
     // Calculate score based on type
+    // For drafts: filter out UNANSWERED values before scoring
+    // For completed: all values are valid (validated above)
+    let valid_responses: Vec<i32> = if request.status == AssessmentStatus::Draft {
+        request
+            .responses
+            .iter()
+            .copied()
+            .filter(|&r| r != UNANSWERED)
+            .collect()
+    } else {
+        request.responses.clone()
+    };
+
     let (total_score, severity_level) = match assessment_type.code.as_str() {
-        "PHQ9" => {
-            let score = calculate_phq9_score(&request.responses)?;
-            (score, get_phq9_severity(score).to_string())
+        "PHQ9" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_phq9_score,
+            get_phq9_severity,
+        )?,
+        "GAD7" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_gad7_score,
+            get_gad7_severity,
+        )?,
+        "CESD" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_cesd_score,
+            get_cesd_severity,
+        )?,
+        "OASIS" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_oasis_score,
+            get_oasis_severity,
+        )?,
+        _ => {
+            return Err(AssessmentError::InvalidType(
+                assessment_type.code.to_string(),
+            ))
         }
-        "GAD7" => {
-            let score = calculate_gad7_score(&request.responses)?;
-            (score, get_gad7_severity(score).to_string())
-        }
-        "CESD" => {
-            let score = calculate_cesd_score(&request.responses)?;
-            (score, get_cesd_severity(score).to_string())
-        }
-        "OASIS" => {
-            let score = calculate_oasis_score(&request.responses)?;
-            (score, get_oasis_severity(score).to_string())
-        }
-        _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
     };
 
     // Save to database
@@ -69,8 +143,9 @@ fn submit_assessment_impl(
         assessment_type.id,
         request.responses.clone(),
         total_score,
-        severity_level.clone(),
+        severity_level,
         request.notes.clone(),
+        request.status,
     )?;
 
     // Return the complete response
@@ -136,6 +211,7 @@ mod tests {
             assessment_type_code: "A".repeat(11),
             responses: vec![0, 1, 2],
             notes: None,
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -147,6 +223,7 @@ mod tests {
             assessment_type_code: "PHQ-9".to_string(), // Has hyphen
             responses: vec![0, 1, 2],
             notes: None,
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -158,6 +235,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2],
             notes: Some("a".repeat(10001)),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -169,6 +247,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2],
             notes: Some("Test\x00Invalid".to_string()), // Null byte
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_err());
@@ -180,6 +259,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
             notes: Some("Feeling okay today\nSome notes".to_string()),
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_ok());
@@ -201,7 +281,7 @@ mod tests {
 
         // Calculate score (simplified for testing)
         let total_score = request.responses.iter().sum();
-        let severity_level = "moderate".to_string();
+        let severity_level = SeverityLevel::Moderate;
 
         // Save assessment
         let id = repo
@@ -209,8 +289,9 @@ mod tests {
                 assessment_type.id,
                 request.responses.clone(),
                 total_score,
-                severity_level.clone(),
+                severity_level,
                 request.notes.clone(),
+                request.status,
             )
             .map_err(|e| format!("Failed to save assessment: {}", e))?;
 
@@ -231,6 +312,7 @@ mod tests {
             assessment_type_code: "INVALID".to_string(),
             responses: vec![0, 1, 2],
             notes: None,
+            status: AssessmentStatus::Completed,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
@@ -249,7 +331,7 @@ mod tests {
             .returning(|_| {
                 Ok(AssessmentType {
                     id: 1,
-                    code: "PHQ9".to_string(),
+                    code: AssessmentCode::Phq9,
                     name: "PHQ-9".to_string(),
                     description: None,
                     question_count: 9,
@@ -261,7 +343,7 @@ mod tests {
 
         mock_repo
             .expect_save_assessment()
-            .returning(|_, _, _, _, _| {
+            .returning(|_, _, _, _, _, _| {
                 Err(AssessmentError::Database(rusqlite::Error::InvalidQuery))
             });
 
@@ -269,6 +351,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: None,
+            status: AssessmentStatus::Completed,
         };
 
         let result = submit_assessment_with_trait(&mock_repo, request);
@@ -408,6 +491,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: None,
+            status: AssessmentStatus::Completed,
         };
 
         assert!(request.validate().is_ok());
@@ -419,6 +503,7 @@ mod tests {
             assessment_type_code: "PHQ9".to_string(),
             responses: vec![0; 9],
             notes: Some("Line 1\nLine 2\tTabbed".to_string()),
+            status: AssessmentStatus::Completed,
         };
 
         // Newlines and tabs should be allowed
@@ -431,6 +516,7 @@ mod tests {
             assessment_type_code: "GAD7".to_string(),
             responses: vec![0; 7],
             notes: Some("".to_string()),
+            status: AssessmentStatus::Completed,
         };
 
         // Empty notes should be valid
@@ -440,27 +526,361 @@ mod tests {
     #[test]
     fn test_severity_level_calculation_phq9() {
         // Test severity boundaries
-        assert_eq!(get_phq9_severity(0), SEVERITY_MINIMAL);
-        assert_eq!(get_phq9_severity(4), SEVERITY_MINIMAL);
-        assert_eq!(get_phq9_severity(5), SEVERITY_MILD);
-        assert_eq!(get_phq9_severity(9), SEVERITY_MILD);
-        assert_eq!(get_phq9_severity(10), SEVERITY_MODERATE);
-        assert_eq!(get_phq9_severity(14), SEVERITY_MODERATE);
-        assert_eq!(get_phq9_severity(15), SEVERITY_MODERATELY_SEVERE);
-        assert_eq!(get_phq9_severity(19), SEVERITY_MODERATELY_SEVERE);
-        assert_eq!(get_phq9_severity(20), SEVERITY_SEVERE);
-        assert_eq!(get_phq9_severity(27), SEVERITY_SEVERE);
+        assert_eq!(get_phq9_severity(0), SeverityLevel::Minimal);
+        assert_eq!(get_phq9_severity(4), SeverityLevel::Minimal);
+        assert_eq!(get_phq9_severity(5), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(9), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(10), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(14), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(15), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(19), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(20), SeverityLevel::Severe);
+        assert_eq!(get_phq9_severity(27), SeverityLevel::Severe);
     }
 
     #[test]
     fn test_severity_level_calculation_gad7() {
-        assert_eq!(get_gad7_severity(0), SEVERITY_MINIMAL);
-        assert_eq!(get_gad7_severity(4), SEVERITY_MINIMAL);
-        assert_eq!(get_gad7_severity(5), SEVERITY_MILD);
-        assert_eq!(get_gad7_severity(9), SEVERITY_MILD);
-        assert_eq!(get_gad7_severity(10), SEVERITY_MODERATE);
-        assert_eq!(get_gad7_severity(14), SEVERITY_MODERATE);
-        assert_eq!(get_gad7_severity(15), SEVERITY_SEVERE);
-        assert_eq!(get_gad7_severity(21), SEVERITY_SEVERE);
+        assert_eq!(get_gad7_severity(0), SeverityLevel::Minimal);
+        assert_eq!(get_gad7_severity(4), SeverityLevel::Minimal);
+        assert_eq!(get_gad7_severity(5), SeverityLevel::Mild);
+        assert_eq!(get_gad7_severity(9), SeverityLevel::Mild);
+        assert_eq!(get_gad7_severity(10), SeverityLevel::Moderate);
+        assert_eq!(get_gad7_severity(14), SeverityLevel::Moderate);
+        assert_eq!(get_gad7_severity(15), SeverityLevel::Severe);
+        assert_eq!(get_gad7_severity(21), SeverityLevel::Severe);
+    }
+
+    // ========================================================================
+    // Unit Tests: Draft Assessment Functionality (FR-009a)
+    // ========================================================================
+
+    #[test]
+    fn test_submit_assessment_request_validation_status_draft() {
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
+            notes: Some("Draft notes".to_string()),
+            status: AssessmentStatus::Draft,
+        };
+
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_submit_assessment_request_validation_status_completed() {
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![0, 1, 2, 1, 0, 1, 2, 1, 0],
+            notes: Some("Completed notes".to_string()),
+            status: AssessmentStatus::Completed,
+        };
+
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_submit_assessment_as_draft() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        // Setup mock
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, _, _, _, _, status| {
+                assert_eq!(status, AssessmentStatus::Draft, "Status should be Draft");
+                Ok(1) // Return mock ID
+            });
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 1,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![1, 1, 0, 1, 1, 0, 1, 0, 1],
+                total_score: 6,
+                severity_level: SeverityLevel::Mild,
+                completed_at: "2024-01-01 12:00:00".to_string(),
+                notes: Some("Draft notes".to_string()),
+                status: AssessmentStatus::Draft,
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 1, 0, 1, 1, 0, 1, 0, 1],
+            notes: Some("Draft notes".to_string()),
+            status: AssessmentStatus::Draft,
+        };
+
+        let result = submit_assessment_with_trait(&mock_repo, request);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, AssessmentStatus::Draft);
+        assert_eq!(response.notes, Some("Draft notes".to_string()));
+    }
+
+    #[test]
+    fn test_submit_assessment_as_completed() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        // Setup mock
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Gad7,
+                    name: "GAD-7".to_string(),
+                    description: None,
+                    question_count: 7,
+                    min_score: 0,
+                    max_score: 21,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, _, _, _, _, status| {
+                assert_eq!(
+                    status,
+                    AssessmentStatus::Completed,
+                    "Status should be Completed"
+                );
+                Ok(2) // Return mock ID
+            });
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 2,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Gad7,
+                    name: "GAD-7".to_string(),
+                    description: None,
+                    question_count: 7,
+                    min_score: 0,
+                    max_score: 21,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![2, 2, 2, 2, 2, 2, 2],
+                total_score: 14,
+                severity_level: SeverityLevel::Moderate,
+                completed_at: "2024-01-01 14:00:00".to_string(),
+                notes: None,
+                status: AssessmentStatus::Completed,
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "GAD7".to_string(),
+            responses: vec![2, 2, 2, 2, 2, 2, 2],
+            notes: None,
+            status: AssessmentStatus::Completed,
+        };
+
+        let result = submit_assessment_with_trait(&mock_repo, request);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, AssessmentStatus::Completed);
+        assert_eq!(response.total_score, 14);
+    }
+
+    #[test]
+    fn test_submit_assessment_draft_with_partial_responses() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, responses, _, _, _, status| {
+                assert_eq!(status, AssessmentStatus::Draft);
+                // Verify partial responses (some -1 values for unanswered)
+                assert_eq!(responses.len(), 9);
+                assert!(responses.contains(&-1), "Should have unanswered questions");
+                Ok(3)
+            });
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 3,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![1, 2, -1, -1, 1, -1, 1, -1, -1], // Partial responses
+                total_score: 5,
+                severity_level: SeverityLevel::Minimal,
+                completed_at: "2024-01-01 10:00:00".to_string(),
+                notes: Some("Partially completed".to_string()),
+                status: AssessmentStatus::Draft,
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 2, -1, -1, 1, -1, 1, -1, -1],
+            notes: Some("Partially completed".to_string()),
+            status: AssessmentStatus::Draft,
+        };
+
+        let result = submit_assessment_with_trait(&mock_repo, request);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, AssessmentStatus::Draft);
+        assert_eq!(
+            response.responses.iter().filter(|&&r| r == -1).count(),
+            5,
+            "Should have 5 unanswered questions"
+        );
+    }
+
+    #[test]
+    fn test_submit_completed_assessment_rejects_unanswered_questions() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        // Note: save_assessment should NOT be called because validation fails first
+        // No expectation set means test fails if it's called
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 2, -1, 0, 1, -1, 1, 0, 1], // Has unanswered (-1) values
+            notes: None,
+            status: AssessmentStatus::Completed, // Completed should reject -1
+        };
+
+        let result = submit_assessment_impl(&mock_repo, &request);
+
+        assert!(
+            result.is_err(),
+            "Should reject completed assessment with unanswered questions"
+        );
+        match result.unwrap_err() {
+            AssessmentError::UnansweredQuestions { count, total } => {
+                assert_eq!(count, 2, "Should have 2 unanswered questions");
+                assert_eq!(total, 9, "Should have 9 total questions");
+            }
+            other => panic!("Expected UnansweredQuestions error, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_submit_completed_assessment_accepts_all_answered() {
+        let mut mock_repo = MockAssessmentRepositoryTrait::new();
+
+        mock_repo
+            .expect_get_assessment_type_by_code()
+            .returning(|_| {
+                Ok(AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                })
+            });
+
+        mock_repo
+            .expect_save_assessment()
+            .returning(|_, _, _, _, _, _| Ok(1));
+
+        mock_repo.expect_get_assessment_response().returning(|_| {
+            Ok(AssessmentResponse {
+                id: 1,
+                assessment_type: AssessmentType {
+                    id: 1,
+                    code: AssessmentCode::Phq9,
+                    name: "PHQ-9".to_string(),
+                    description: None,
+                    question_count: 9,
+                    min_score: 0,
+                    max_score: 27,
+                    thresholds: serde_json::json!({}),
+                },
+                responses: vec![1, 2, 0, 0, 1, 0, 1, 0, 1],
+                total_score: 6,
+                severity_level: SeverityLevel::Mild,
+                completed_at: "2024-01-01 12:00:00".to_string(),
+                notes: None,
+                status: AssessmentStatus::Completed,
+            })
+        });
+
+        let request = SubmitAssessmentRequest {
+            assessment_type_code: "PHQ9".to_string(),
+            responses: vec![1, 2, 0, 0, 1, 0, 1, 0, 1], // All answered (no -1)
+            notes: None,
+            status: AssessmentStatus::Completed,
+        };
+
+        let result = submit_assessment_impl(&mock_repo, &request);
+
+        assert!(
+            result.is_ok(),
+            "Should accept completed assessment with all questions answered"
+        );
     }
 }

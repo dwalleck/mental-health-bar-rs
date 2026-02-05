@@ -367,7 +367,7 @@ describe('MoodScaleInput', () => {
 
 		it('should default to rating 4 (Ok) when no value provided', () => {
 			const onChange = vi.fn()
-			const { container } = render(MoodScaleInput, { props: { onChange } })
+			const { container } = render(MoodScaleInput, { props: { value: 4, onChange } })
 
 			const buttons = container.querySelectorAll('button')
 			expect(buttons[3]).toHaveAttribute('aria-pressed', 'true')

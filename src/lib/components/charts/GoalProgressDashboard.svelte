@@ -47,7 +47,7 @@
 
 			// Load activities if not provided
 			if (activities.length === 0) {
-				const activitiesResult = await commands.getActivities()
+				const activitiesResult = await commands.getActivities(false)
 				if (activitiesResult.status === 'ok') {
 					activities = activitiesResult.data
 				}
@@ -116,9 +116,7 @@
 
 	{#if loading}
 		<div class="space-y-4">
-			<SkeletonLoader height="120px" />
-			<SkeletonLoader height="120px" />
-			<SkeletonLoader height="120px" />
+			<SkeletonLoader type="card" count={3} />
 		</div>
 	{:else if error}
 		<div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">

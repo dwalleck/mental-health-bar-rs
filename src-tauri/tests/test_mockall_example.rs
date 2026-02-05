@@ -20,6 +20,8 @@
 mod mockall_example {
     use mockall::mock;
     use tauri_sveltekit_modern_lib::features::mood::models::{Activity, MoodCheckin, MoodError};
+    use tauri_sveltekit_modern_lib::types::activity::HexColor;
+    use tauri_sveltekit_modern_lib::types::mood::MoodRating;
 
     // ========================================================================
     // Step 1: Define a trait that represents the repository interface
@@ -103,14 +105,14 @@ mod mockall_example {
                 // Return mock data
                 Ok(MoodCheckin {
                     id: 123,
-                    mood_rating: rating,
+                    mood_rating: MoodRating::new(rating).unwrap(),
                     notes,
                     activities: vec![
                         Activity {
                             id: 1,
                             group_id: 1,
                             name: "Exercise".to_string(),
-                            color: Some("#4CAF50".to_string()),
+                            color: Some(HexColor::new("#4CAF50").unwrap()),
                             icon: Some("🏃".to_string()),
                             created_at: "2025-01-01T00:00:00Z".to_string(),
                             deleted_at: None,
@@ -119,7 +121,7 @@ mod mockall_example {
                             id: 2,
                             group_id: 1,
                             name: "Meditation".to_string(),
-                            color: Some("#2196F3".to_string()),
+                            color: Some(HexColor::new("#2196F3").unwrap()),
                             icon: Some("🧘".to_string()),
                             created_at: "2025-01-01T00:00:00Z".to_string(),
                             deleted_at: None,
@@ -137,7 +139,7 @@ mod mockall_example {
         assert!(result.is_ok());
         let checkin = result.unwrap();
         assert_eq!(checkin.id, 123);
-        assert_eq!(checkin.mood_rating, 4);
+        assert_eq!(checkin.mood_rating.value(), 4);
         assert_eq!(checkin.activities.len(), 2);
         assert_eq!(checkin.notes, Some("Feeling good today".to_string()));
     }
@@ -270,7 +272,7 @@ mod mockall_example {
             .returning(|rating, _, _| {
                 Ok(MoodCheckin {
                     id: 456,
-                    mood_rating: rating,
+                    mood_rating: MoodRating::new(rating).unwrap(),
                     notes: None,
                     activities: vec![],
                     created_at: "2025-01-01T12:00:00Z".to_string(),

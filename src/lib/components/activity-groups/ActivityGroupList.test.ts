@@ -100,15 +100,15 @@ describe('ActivityGroupList', () => {
 		// Default: no goals
 		getActivityGoalsMock.mockResolvedValue({ status: 'ok', data: [] })
 
-		// Mock localStorage
-		global.localStorage = {
+		// Mock localStorage using vi.stubGlobal for proper TypeScript support
+		vi.stubGlobal('localStorage', {
 			getItem: vi.fn(() => null),
 			setItem: vi.fn(),
 			removeItem: vi.fn(),
 			clear: vi.fn(),
 			length: 0,
 			key: vi.fn(),
-		}
+		})
 	})
 
 	afterEach(() => {
@@ -406,7 +406,7 @@ describe('ActivityGroupList', () => {
 
 			// Should persist to localStorage
 			await waitFor(() => {
-				expect(global.localStorage.setItem).toHaveBeenCalledWith(
+				expect(localStorage.setItem).toHaveBeenCalledWith(
 					'notifiedGoals',
 					expect.stringContaining('1')
 				)
@@ -415,7 +415,7 @@ describe('ActivityGroupList', () => {
 
 		it('should not display notification for already-notified goals', async () => {
 			// Mock localStorage to return already notified goal
-			global.localStorage.getItem = vi.fn(() => JSON.stringify([1]))
+			vi.mocked(localStorage.getItem).mockReturnValue(JSON.stringify([1]))
 
 			getActivityGoalsMock.mockResolvedValue({ status: 'ok', data: [mockGoal] })
 			checkGoalProgressMock.mockResolvedValue({ status: 'ok', data: mockProgressAchieved })

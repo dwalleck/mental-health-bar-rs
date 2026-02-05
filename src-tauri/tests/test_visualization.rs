@@ -12,6 +12,9 @@ use tauri_sveltekit_modern_lib::features::visualization::models::{
     TimeRange, TrendDirection, VisualizationError,
 };
 use tauri_sveltekit_modern_lib::features::visualization::repository::VisualizationRepository;
+use tauri_sveltekit_modern_lib::types::assessment::{
+    AssessmentCode, AssessmentStatus, SeverityLevel,
+};
 use tempfile::TempDir;
 
 /// Setup test environment with temporary database and default activity group
@@ -57,9 +60,16 @@ fn test_get_assessment_chart_data_with_week_range() {
         // Create assessment response (using PHQ-9 type id=1)
         let responses: Vec<i32> = vec![1; 9]; // Simple responses that sum to score
         let total_score = score as i32;
-        let severity = "mild"; // Simplified for test
+        let severity = SeverityLevel::Mild; // Simplified for test
         assessment_repo
-            .save_assessment(1, &responses, total_score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                total_score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect(&format!("Failed to create assessment {}", i));
     }
 
@@ -73,7 +83,7 @@ fn test_get_assessment_chart_data_with_week_range() {
 
     // Verify results
     assert_eq!(chart_data.data_points.len(), 5);
-    assert_eq!(chart_data.assessment_type.code, "PHQ9");
+    assert_eq!(chart_data.assessment_type.code, AssessmentCode::Phq9);
     assert_eq!(chart_data.statistics.total_assessments, 5);
     assert!(chart_data.statistics.min > 0.0);
     assert!(chart_data.statistics.max > chart_data.statistics.min);
@@ -88,9 +98,16 @@ fn test_get_assessment_chart_data_with_custom_range() {
     for i in 0..3 {
         let responses: Vec<i32> = vec![1; 9];
         let total_score = (i as i32 + 1) * 9; // Score increases each time
-        let severity = "mild";
+        let severity = SeverityLevel::Mild;
         assessment_repo
-            .save_assessment(1, &responses, total_score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                total_score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect(&format!("Failed to create assessment {}", i));
     }
 
@@ -143,15 +160,22 @@ fn test_assessment_chart_statistics_calculation() {
     for score in [5, 10, 15, 20] {
         let responses: Vec<i32> = vec![1; 9];
         let severity = match score {
-            5 => "minimal",
-            10 => "mild",
-            15 => "moderate",
-            20 => "moderate",
-            _ => "mild",
+            5 => SeverityLevel::Minimal,
+            10 => SeverityLevel::Mild,
+            15 => SeverityLevel::Moderate,
+            20 => SeverityLevel::Moderate,
+            _ => SeverityLevel::Mild,
         };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect("Failed to create assessment");
     }
 
@@ -176,10 +200,21 @@ fn test_assessment_chart_trend_improving() {
     // 20 -> 10 is 50% reduction (> 20% threshold)
     for score in [20, 18, 15, 12, 10] {
         let responses: Vec<i32> = vec![1; 9];
-        let severity = if score >= 15 { "moderate" } else { "mild" };
+        let severity = if score >= 15 {
+            SeverityLevel::Moderate
+        } else {
+            SeverityLevel::Mild
+        };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect("Failed to create assessment");
     }
 
@@ -202,10 +237,21 @@ fn test_assessment_chart_trend_worsening() {
     // 5 -> 15 is 200% increase (> 20% threshold)
     for score in [5, 7, 10, 12, 15] {
         let responses: Vec<i32> = vec![1; 9];
-        let severity = if score >= 10 { "moderate" } else { "minimal" };
+        let severity = if score >= 10 {
+            SeverityLevel::Moderate
+        } else {
+            SeverityLevel::Minimal
+        };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect("Failed to create assessment");
     }
 
@@ -228,10 +274,17 @@ fn test_assessment_chart_trend_stable() {
     // 10 -> 11 is 10% change (< 20% threshold)
     for score in [10, 10, 11, 10, 11] {
         let responses: Vec<i32> = vec![1; 9];
-        let severity = "mild";
+        let severity = SeverityLevel::Mild;
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect("Failed to create assessment");
     }
 
@@ -253,9 +306,16 @@ fn test_assessment_chart_thresholds_included() {
     // Create one assessment
     let responses: Vec<i32> = vec![1; 9];
     let total_score = 9;
-    let severity = "mild";
+    let severity = SeverityLevel::Mild;
     assessment_repo
-        .save_assessment(1, &responses, total_score, severity, None)
+        .save_assessment(
+            1,
+            &responses,
+            total_score,
+            severity,
+            None,
+            AssessmentStatus::Completed,
+        )
         .expect("Failed to create assessment");
 
     let chart_data = viz_repo
@@ -285,15 +345,22 @@ fn test_chart_data_aggregation_large_dataset() {
         let score = (i % 27) as i32; // Cycle through possible scores
         let responses: Vec<i32> = vec![1; 9];
         let severity = match score {
-            0..=4 => "minimal",
-            5..=9 => "mild",
-            10..=14 => "moderate",
-            15..=19 => "moderately_severe",
-            _ => "severe",
+            0..=4 => SeverityLevel::Minimal,
+            5..=9 => SeverityLevel::Mild,
+            10..=14 => SeverityLevel::Moderate,
+            15..=19 => SeverityLevel::ModeratelySevere,
+            _ => SeverityLevel::Severe,
         };
 
         assessment_repo
-            .save_assessment(1, &responses, score, severity, None)
+            .save_assessment(
+                1,
+                &responses,
+                score,
+                severity,
+                None,
+                AssessmentStatus::Completed,
+            )
             .expect(&format!("Failed to create assessment {}", i));
     }
 
@@ -314,7 +381,7 @@ fn test_chart_data_aggregation_large_dataset() {
 // T136: Integration test - get_mood_chart_data query
 #[test]
 fn test_get_mood_chart_data_basic() {
-    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Create mood check-ins
     for rating in [3, 4, 5, 2, 4] {
@@ -339,7 +406,7 @@ fn test_get_mood_chart_data_basic() {
 
 #[test]
 fn test_get_mood_chart_data_with_time_range() {
-    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Create mood check-ins
     for rating in [3, 4, 5, 2, 4] {
@@ -377,7 +444,7 @@ fn test_get_mood_chart_data_no_data() {
 
 #[test]
 fn test_mood_statistics_calculation() {
-    let (viz_repo, _, mood_repo, _temp_dir, group_id) = setup_test_repo();
+    let (viz_repo, _, mood_repo, _temp_dir, _group_id) = setup_test_repo();
 
     // Create mood check-ins: 1, 2, 3, 3, 3, 4, 5
     // Mode should be 3 (appears 3 times)

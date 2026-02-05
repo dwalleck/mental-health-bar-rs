@@ -4,13 +4,13 @@ use specta::Type;
 use thiserror::Error;
 use validator::Validate;
 
-/// Severity level constants
-pub const SEVERITY_MINIMAL: &str = "minimal";
-pub const SEVERITY_MILD: &str = "mild";
-pub const SEVERITY_MODERATE: &str = "moderate";
-pub const SEVERITY_MODERATELY_SEVERE: &str = "moderately_severe";
-pub const SEVERITY_SEVERE: &str = "severe";
-pub const SEVERITY_UNKNOWN: &str = "unknown";
+// Re-export types for backward compatibility and convenience
+pub use crate::types::assessment::{AssessmentCode, AssessmentStatus, SeverityLevel};
+
+/// Sentinel value indicating a question has not been answered yet.
+/// Used in draft assessments to track partial progress.
+/// Completed assessments must not contain this value.
+pub const UNANSWERED: i32 = -1;
 
 /// Assessment error types
 #[derive(Error, Debug)]
@@ -18,11 +18,20 @@ pub enum AssessmentError {
     #[error("Invalid assessment type: {0}")]
     InvalidType(String),
 
+    #[error("Invalid assessment status: {0}")]
+    InvalidStatus(String),
+
+    #[error("Invalid severity level: {0}")]
+    InvalidSeverity(String),
+
     #[error("Incomplete responses: expected {expected}, got {actual}")]
     IncompleteResponses { expected: usize, actual: usize },
 
     #[error("Invalid response value: {0}")]
     InvalidResponse(String),
+
+    #[error("Completed assessment has unanswered questions: {count} of {total}")]
+    UnansweredQuestions { count: usize, total: usize },
 
     #[error("Assessment not found: {0}")]
     NotFound(i32),
@@ -52,6 +61,22 @@ impl ToCommandError for AssessmentError {
                     }),
                 )
             }
+            AssessmentError::InvalidStatus(status) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "status",
+                        "value": status
+                    }),
+                )
+            }
+            AssessmentError::InvalidSeverity(severity) => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "severity_level",
+                        "value": severity
+                    }),
+                )
+            }
             AssessmentError::IncompleteResponses { expected, actual } => {
                 CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
                     serde_json::json!({
@@ -66,6 +91,15 @@ impl ToCommandError for AssessmentError {
                     serde_json::json!({
                         "field": "responses",
                         "details": msg
+                    }),
+                )
+            }
+            AssessmentError::UnansweredQuestions { count, total } => {
+                CommandError::permanent(self.to_string(), ErrorType::Validation).with_details(
+                    serde_json::json!({
+                        "field": "responses",
+                        "unanswered_count": count,
+                        "total_questions": total
                     }),
                 )
             }
@@ -108,7 +142,8 @@ impl ToCommandError for AssessmentError {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AssessmentType {
     pub id: i32,
-    pub code: String,
+    /// Assessment code using typed enum for compile-time validation
+    pub code: AssessmentCode,
     pub name: String,
     pub description: Option<String>,
     pub question_count: i32,
@@ -161,6 +196,8 @@ pub struct SubmitAssessmentRequest {
     pub responses: Vec<i32>,
     #[validate(length(max = 10000), custom(function = "validate_notes_control_chars"))]
     pub notes: Option<String>,
+    #[serde(default)]
+    pub status: AssessmentStatus,
 }
 
 /// Assessment response with calculated score
@@ -170,9 +207,10 @@ pub struct AssessmentResponse {
     pub assessment_type: AssessmentType,
     pub responses: Vec<i32>,
     pub total_score: i32,
-    pub severity_level: String,
+    pub severity_level: SeverityLevel,
     pub completed_at: String,
     pub notes: Option<String>,
+    pub status: AssessmentStatus,
 }
 
 /// Calculate PHQ-9 score (0-27)
@@ -199,14 +237,14 @@ pub fn calculate_phq9_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 }
 
 /// Get PHQ-9 severity level
-pub fn get_phq9_severity(score: i32) -> &'static str {
+pub fn get_phq9_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=4 => SEVERITY_MINIMAL,
-        5..=9 => SEVERITY_MILD,
-        10..=14 => SEVERITY_MODERATE,
-        15..=19 => SEVERITY_MODERATELY_SEVERE,
-        20..=27 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=4 => SeverityLevel::Minimal,
+        5..=9 => SeverityLevel::Mild,
+        10..=14 => SeverityLevel::Moderate,
+        15..=19 => SeverityLevel::ModeratelySevere,
+        20..=27 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -233,13 +271,13 @@ pub fn calculate_gad7_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 }
 
 /// Get GAD-7 severity level
-pub fn get_gad7_severity(score: i32) -> &'static str {
+pub fn get_gad7_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=4 => SEVERITY_MINIMAL,
-        5..=9 => SEVERITY_MILD,
-        10..=14 => SEVERITY_MODERATE,
-        15..=21 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=4 => SeverityLevel::Minimal,
+        5..=9 => SeverityLevel::Mild,
+        10..=14 => SeverityLevel::Moderate,
+        15..=21 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -266,13 +304,13 @@ pub fn calculate_cesd_score(responses: &[i32]) -> Result<i32, AssessmentError> {
 }
 
 /// Get CES-D severity level
-pub fn get_cesd_severity(score: i32) -> &'static str {
+pub fn get_cesd_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=15 => SEVERITY_MINIMAL,
-        16..=21 => SEVERITY_MILD,
-        22..=36 => SEVERITY_MODERATE,
-        37..=60 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=15 => SeverityLevel::Minimal,
+        16..=21 => SeverityLevel::Mild,
+        22..=36 => SeverityLevel::Moderate,
+        37..=60 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -299,12 +337,12 @@ pub fn calculate_oasis_score(responses: &[i32]) -> Result<i32, AssessmentError> 
 }
 
 /// Get OASIS severity level
-pub fn get_oasis_severity(score: i32) -> &'static str {
+pub fn get_oasis_severity(score: i32) -> SeverityLevel {
     match score {
-        0..=7 => SEVERITY_MINIMAL,
-        8..=14 => SEVERITY_MODERATE,
-        15..=20 => SEVERITY_SEVERE,
-        _ => SEVERITY_UNKNOWN,
+        0..=7 => SeverityLevel::Minimal,
+        8..=14 => SeverityLevel::Moderate,
+        15..=20 => SeverityLevel::Severe,
+        _ => SeverityLevel::Unknown,
     }
 }
 
@@ -318,7 +356,7 @@ mod tests {
         let responses = vec![0, 0, 0, 0, 0, 0, 0, 0, 0];
         let score = calculate_phq9_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_phq9_severity(score), "minimal");
+        assert_eq!(get_phq9_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -326,7 +364,7 @@ mod tests {
         let responses = vec![3, 3, 3, 3, 3, 3, 3, 3, 3];
         let score = calculate_phq9_score(&responses).unwrap();
         assert_eq!(score, 27);
-        assert_eq!(get_phq9_severity(score), "severe");
+        assert_eq!(get_phq9_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -334,7 +372,7 @@ mod tests {
         let responses = vec![1, 1, 0, 2, 1, 0, 1, 0, 1];
         let score = calculate_phq9_score(&responses).unwrap();
         assert_eq!(score, 7);
-        assert_eq!(get_phq9_severity(score), "mild");
+        assert_eq!(get_phq9_severity(score), SeverityLevel::Mild);
     }
 
     #[test]
@@ -357,7 +395,7 @@ mod tests {
         let responses = vec![0, 0, 0, 0, 0, 0, 0];
         let score = calculate_gad7_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_gad7_severity(score), "minimal");
+        assert_eq!(get_gad7_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -365,7 +403,7 @@ mod tests {
         let responses = vec![3, 3, 3, 3, 3, 3, 3];
         let score = calculate_gad7_score(&responses).unwrap();
         assert_eq!(score, 21);
-        assert_eq!(get_gad7_severity(score), "severe");
+        assert_eq!(get_gad7_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -373,7 +411,7 @@ mod tests {
         let responses = vec![2, 2, 1, 2, 1, 2, 1];
         let score = calculate_gad7_score(&responses).unwrap();
         assert_eq!(score, 11);
-        assert_eq!(get_gad7_severity(score), "moderate");
+        assert_eq!(get_gad7_severity(score), SeverityLevel::Moderate);
     }
 
     // T023: CES-D scoring algorithm tests
@@ -382,7 +420,7 @@ mod tests {
         let responses = vec![0; 20];
         let score = calculate_cesd_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_cesd_severity(score), "minimal");
+        assert_eq!(get_cesd_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -390,7 +428,7 @@ mod tests {
         let responses = vec![3; 20];
         let score = calculate_cesd_score(&responses).unwrap();
         assert_eq!(score, 60);
-        assert_eq!(get_cesd_severity(score), "severe");
+        assert_eq!(get_cesd_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -398,7 +436,7 @@ mod tests {
         let responses = vec![1; 20];
         let score = calculate_cesd_score(&responses).unwrap();
         assert_eq!(score, 20);
-        assert_eq!(get_cesd_severity(score), "mild");
+        assert_eq!(get_cesd_severity(score), SeverityLevel::Mild);
     }
 
     // T024: OASIS scoring algorithm tests
@@ -407,7 +445,7 @@ mod tests {
         let responses = vec![0, 0, 0, 0, 0];
         let score = calculate_oasis_score(&responses).unwrap();
         assert_eq!(score, 0);
-        assert_eq!(get_oasis_severity(score), "minimal");
+        assert_eq!(get_oasis_severity(score), SeverityLevel::Minimal);
     }
 
     #[test]
@@ -415,7 +453,7 @@ mod tests {
         let responses = vec![4, 4, 4, 4, 4];
         let score = calculate_oasis_score(&responses).unwrap();
         assert_eq!(score, 20);
-        assert_eq!(get_oasis_severity(score), "severe");
+        assert_eq!(get_oasis_severity(score), SeverityLevel::Severe);
     }
 
     #[test]
@@ -423,20 +461,20 @@ mod tests {
         let responses = vec![2, 2, 2, 2, 2];
         let score = calculate_oasis_score(&responses).unwrap();
         assert_eq!(score, 10);
-        assert_eq!(get_oasis_severity(score), "moderate");
+        assert_eq!(get_oasis_severity(score), SeverityLevel::Moderate);
     }
 
     // T025: Severity level calculation tests
     #[test]
     fn test_severity_boundaries_phq9() {
-        assert_eq!(get_phq9_severity(4), "minimal");
-        assert_eq!(get_phq9_severity(5), "mild");
-        assert_eq!(get_phq9_severity(9), "mild");
-        assert_eq!(get_phq9_severity(10), "moderate");
-        assert_eq!(get_phq9_severity(14), "moderate");
-        assert_eq!(get_phq9_severity(15), "moderately_severe");
-        assert_eq!(get_phq9_severity(19), "moderately_severe");
-        assert_eq!(get_phq9_severity(20), "severe");
+        assert_eq!(get_phq9_severity(4), SeverityLevel::Minimal);
+        assert_eq!(get_phq9_severity(5), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(9), SeverityLevel::Mild);
+        assert_eq!(get_phq9_severity(10), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(14), SeverityLevel::Moderate);
+        assert_eq!(get_phq9_severity(15), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(19), SeverityLevel::ModeratelySevere);
+        assert_eq!(get_phq9_severity(20), SeverityLevel::Severe);
     }
 
     // T026: Response validation tests
@@ -453,5 +491,51 @@ mod tests {
         assert!(calculate_phq9_score(&vec![0, 1, 2, 3, 4, 0, 0, 0, 0]).is_err());
         assert!(calculate_gad7_score(&vec![0, 1, 2, 3, -1, 0, 0]).is_err());
         assert!(calculate_oasis_score(&vec![0, 1, 2, 3, 5]).is_err());
+    }
+
+    // T027: Deserialization validation tests
+    #[test]
+    fn test_submit_assessment_request_invalid_status_deserialization() {
+        let json =
+            r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1],"status":"invalid"}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json);
+        assert!(
+            result.is_err(),
+            "Deserialization should fail for invalid status value"
+        );
+    }
+
+    #[test]
+    fn test_submit_assessment_request_valid_status_deserialization() {
+        // Test valid draft status
+        let json_draft =
+            r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1],"status":"draft"}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json_draft);
+        assert!(
+            result.is_ok(),
+            "Deserialization should succeed for valid draft status"
+        );
+        assert_eq!(result.unwrap().status, AssessmentStatus::Draft);
+
+        // Test valid completed status
+        let json_completed = r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1],"status":"completed"}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json_completed);
+        assert!(
+            result.is_ok(),
+            "Deserialization should succeed for valid completed status"
+        );
+        assert_eq!(result.unwrap().status, AssessmentStatus::Completed);
+    }
+
+    #[test]
+    fn test_submit_assessment_request_default_status() {
+        // Test that missing status defaults to Completed
+        let json = r#"{"assessment_type_code":"PHQ9","responses":[0,1,2,0,1,0,1,0,1]}"#;
+        let result: Result<SubmitAssessmentRequest, _> = serde_json::from_str(json);
+        assert!(
+            result.is_ok(),
+            "Deserialization should succeed when status is missing"
+        );
+        assert_eq!(result.unwrap().status, AssessmentStatus::Completed);
     }
 }

@@ -2,7 +2,7 @@
 	// T4.1: Activity Report Card - Days/week display with bar chart
 	import { Chart, type ChartConfiguration } from 'chart.js'
 	import type { Activity, ActivityFrequency } from '$lib/bindings'
-	import { defaultChartOptions } from '$lib/utils/chart-config'
+	import { defaultBarChartOptions } from '$lib/utils/chart-config'
 	import SkeletonLoader from '$lib/components/ui/SkeletonLoader.svelte'
 
 	interface Props {
@@ -57,10 +57,10 @@
 				],
 			},
 			options: {
-				...defaultChartOptions,
+				...defaultBarChartOptions,
 				indexAxis: 'y', // Horizontal bar
 				plugins: {
-					...defaultChartOptions.plugins,
+					...defaultBarChartOptions.plugins,
 					title: {
 						display: false,
 					},
@@ -68,10 +68,11 @@
 						display: false,
 					},
 					tooltip: {
-						...defaultChartOptions.plugins?.tooltip,
+						...defaultBarChartOptions.plugins?.tooltip,
 						callbacks: {
 							label: function (context) {
-								return `${context.parsed.x.toFixed(1)} days/week`
+								const value = context.parsed.x ?? 0
+								return `${value.toFixed(1)} days/week`
 							},
 						},
 					},
@@ -129,7 +130,7 @@
 	</div>
 
 	{#if loading}
-		<SkeletonLoader height="200px" />
+		<SkeletonLoader type="chart" />
 	{:else if !hasData}
 		<!-- Empty State -->
 		<div class="text-center py-12">

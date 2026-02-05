@@ -76,6 +76,7 @@ describe('DashboardScores', () => {
 		severity_level: 'mild',
 		completed_at: '2025-10-28T10:00:00Z',
 		notes: null,
+		status: 'completed',
 	})
 
 	describe('T213: Fetches latest assessments for all 4 types on mount', () => {

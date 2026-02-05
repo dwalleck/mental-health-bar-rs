@@ -1,1 +1,7 @@
 npx lint-staged
+
+# Run svelte-check only when Svelte or TypeScript files are staged
+if git diff --cached --name-only | grep -qE '\.(svelte|ts)$'; then
+  echo "Running svelte-check..."
+  npm run check
+fi

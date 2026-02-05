@@ -20,6 +20,8 @@
 use super::models::*;
 use super::repository_trait::MoodRepositoryTrait;
 use crate::db::Database;
+use crate::types::activity::HexColor;
+use crate::types::mood::MoodRating;
 use crate::MAX_QUERY_LIMIT;
 use std::sync::Arc;
 use tracing::info;
@@ -30,7 +32,7 @@ const MIN_CORRELATION_SAMPLE_SIZE: i32 = 3;
 /// Type alias for activity INSERT RETURNING query result
 /// Tuple: (id, name, color, icon, created_at)
 type ActivityInsertResult =
-    Result<(i32, String, Option<String>, Option<String>, String), rusqlite::Error>;
+    Result<(i32, String, Option<HexColor>, Option<String>, String), rusqlite::Error>;
 
 pub struct MoodRepository {
     db: Arc<Database>,
@@ -146,6 +148,9 @@ impl MoodRepository {
         let activities = self.get_activities_for_checkin_with_conn(&tx, mood_checkin_id)?;
 
         // Build the created mood check-in
+        // Convert i32 to MoodRating (already validated above)
+        let mood_rating =
+            MoodRating::new(mood_rating).map_err(|_| MoodError::InvalidRating(mood_rating))?;
         let mood_checkin = MoodCheckin {
             id: mood_checkin_id,
             mood_rating,
@@ -208,7 +213,7 @@ impl MoodRepository {
         let mood_rows = stmt.query_map(params.as_slice(), |row| {
             Ok((
                 row.get::<_, i32>(0)?,            // id
-                row.get::<_, i32>(1)?,            // mood_rating
+                row.get::<_, MoodRating>(1)?,     // mood_rating (validated newtype)
                 row.get::<_, Option<String>>(2)?, // notes
                 row.get::<_, String>(3)?,         // created_at
             ))
@@ -242,7 +247,7 @@ impl MoodRepository {
             |row| {
                 Ok((
                     row.get::<_, i32>(0)?,
-                    row.get::<_, i32>(1)?,
+                    row.get::<_, MoodRating>(1)?,  // validated newtype
                     row.get::<_, Option<String>>(2)?,
                     row.get::<_, String>(3)?,
                 ))
@@ -285,7 +290,7 @@ impl MoodRepository {
                 id: row.get(0)?,
                 group_id: row.get(1)?,
                 name: row.get(2)?,
-                color: row.get(3)?,
+                color: row.get::<_, Option<HexColor>>(3)?,
                 icon: row.get(4)?,
                 created_at: row.get(5)?,
                 deleted_at: row.get(6)?,
@@ -412,7 +417,7 @@ impl MoodRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -463,12 +468,8 @@ impl MoodRepository {
     ) -> Result<Activity, MoodError> {
         let trimmed_name = validate_activity_name(name)?;
 
-        // Validate color if provided
-        if let Some(c) = color {
-            validate_color(c)?;
-        }
-
-        // Validate icon if provided
+        // Color validation happens via HexColor newtype at deserialization time
+        // Icon validation still needed here
         if let Some(i) = icon {
             validate_icon(i)?;
         }
@@ -481,7 +482,7 @@ impl MoodRepository {
         let result: ActivityInsertResult = conn.query_row(
             "INSERT INTO activities (name, color, icon, group_id) VALUES (?, ?, ?, ?) RETURNING id, name, color, icon, CAST(created_at AS VARCHAR)",
             rusqlite::params![trimmed_name, color, icon, group_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get::<_, Option<HexColor>>(2)?, row.get(3)?, row.get(4)?)),
         );
 
         // Handle constraint violation with proper error
@@ -525,7 +526,7 @@ impl MoodRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -602,9 +603,8 @@ impl MoodRepository {
             }
         }
 
-        // Update color if provided
+        // Update color if provided (validation via HexColor newtype at deserialization)
         if let Some(c) = color {
-            validate_color(c)?;
             conn.execute(
                 "UPDATE activities SET color = ? WHERE id = ?",
                 rusqlite::params![c, id],
@@ -631,7 +631,7 @@ impl MoodRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -711,7 +711,7 @@ impl MoodRepository {
                 id: row.get(0)?,
                 group_id: row.get(1)?,
                 name: row.get(2)?,
-                color: row.get(3)?,
+                color: row.get::<_, Option<HexColor>>(3)?,
                 icon: row.get(4)?,
                 created_at: row.get(5)?,
                 deleted_at: row.get(6)?,

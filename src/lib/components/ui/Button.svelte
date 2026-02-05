@@ -1,4 +1,12 @@
 <script lang="ts">
+	import type { HTMLButtonAttributes } from 'svelte/elements'
+
+	interface ButtonProps extends HTMLButtonAttributes {
+		variant?: 'primary' | 'secondary' | 'danger'
+		fullWidth?: boolean
+		children?: import('svelte').Snippet
+	}
+
 	let {
 		variant = 'primary',
 		type = 'button',
@@ -6,14 +14,8 @@
 		fullWidth = false,
 		onclick,
 		children,
-	}: {
-		variant?: 'primary' | 'secondary' | 'danger'
-		type?: 'button' | 'submit' | 'reset'
-		disabled?: boolean
-		fullWidth?: boolean
-		onclick?: (event: MouseEvent) => void
-		children?: import('svelte').Snippet
-	} = $props()
+		...restProps
+	}: ButtonProps = $props()
 
 	const variantClasses = {
 		primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-300',
@@ -30,6 +32,7 @@
 	class="px-4 py-2 rounded-lg font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed {variantClasses[
 		variant
 	]} {fullWidth ? 'w-full' : ''}"
+	{...restProps}
 >
 	{@render children?.()}
 </button>

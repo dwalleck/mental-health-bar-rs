@@ -5,6 +5,7 @@
 use quickcheck::{quickcheck, TestResult};
 use tauri_sveltekit_modern_lib::features::assessments::models::*;
 use tauri_sveltekit_modern_lib::features::mood::models::*;
+use tauri_sveltekit_modern_lib::types::HexColor;
 
 // ============================================================================
 // Mood Validation Property Tests
@@ -62,25 +63,25 @@ fn prop_activity_name_trimming() {
     quickcheck(test as fn(u8, u8, String) -> TestResult);
 }
 
-/// Property: validate_color accepts only valid hex color formats
+/// Property: HexColor::new accepts only valid hex color formats
 #[test]
 fn prop_hex_color_format() {
     fn test(r: u8, g: u8, b: u8) -> bool {
         // Generate valid hex color
         let color = format!("#{:02X}{:02X}{:02X}", r, g, b);
-        validate_color(&color).is_ok()
+        HexColor::new(&color).is_ok()
     }
     quickcheck(test as fn(u8, u8, u8) -> bool);
 }
 
-/// Property: validate_color rejects strings without # prefix
+/// Property: HexColor::new rejects strings without # prefix
 #[test]
 fn prop_hex_color_requires_hash() {
     fn test(s: String) -> TestResult {
         if s.is_empty() || s.starts_with('#') {
             return TestResult::discard();
         }
-        TestResult::from_bool(validate_color(&s).is_err())
+        TestResult::from_bool(HexColor::new(&s).is_err())
     }
     quickcheck(test as fn(String) -> TestResult);
 }
@@ -239,8 +240,8 @@ fn prop_validators_handle_empty_strings() {
     // Empty notes should succeed (it's optional)
     assert!(validate_notes("").is_ok());
 
-    // Empty color should fail
-    assert!(validate_color("").is_err());
+    // Empty color should fail (HexColor requires valid hex format)
+    assert!(HexColor::new("").is_err());
 
     // Empty icon should succeed (length 0 < 20)
     assert!(validate_icon("").is_ok());

@@ -139,7 +139,7 @@
 	// T4.4: Activities reporting data loading
 	async function loadActivities() {
 		try {
-			const result = await commands.getActivities()
+			const result = await commands.getActivities(false)
 			if (result.status === 'error') {
 				throw new Error(result.error.message)
 			}
@@ -162,7 +162,7 @@
 
 		try {
 			// Calculate date range based on timeRange
-			 
+
 			const endDate = new Date()
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			let startDate = new Date()

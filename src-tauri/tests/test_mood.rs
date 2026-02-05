@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use tauri_sveltekit_modern_lib::db::Database;
 use tauri_sveltekit_modern_lib::features::mood::repository::MoodRepository;
+use tauri_sveltekit_modern_lib::types::mood::MoodRating;
 use tempfile::TempDir;
 
 /// Setup test environment with temporary database and default activity group
@@ -53,7 +54,7 @@ fn test_log_mood_end_to_end() {
         .expect("Failed to create mood check-in");
 
     // Verify mood check-in
-    assert_eq!(mood_checkin.mood_rating, 4);
+    assert_eq!(mood_checkin.mood_rating.value(), 4);
     assert_eq!(mood_checkin.activities.len(), 2);
     assert!(mood_checkin.notes.is_some());
     assert_eq!(
@@ -80,14 +81,14 @@ fn test_log_mood_without_activities() {
         .create_mood_checkin(3, vec![], None)
         .expect("Failed to create mood check-in");
 
-    assert_eq!(mood_checkin.mood_rating, 3);
+    assert_eq!(mood_checkin.mood_rating.value(), 3);
     assert_eq!(mood_checkin.activities.len(), 0);
     assert!(mood_checkin.notes.is_none());
 }
 
 #[test]
 fn test_log_mood_invalid_rating() {
-    let (repo, _temp_dir, _group_id) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Try to log mood with invalid rating
     let result = repo.create_mood_checkin(0, vec![], None);
@@ -201,7 +202,7 @@ fn test_mood_checkin_with_multiple_activities() {
         )
         .expect("Failed to create mood check-in");
 
-    assert_eq!(mood_checkin.mood_rating, 5);
+    assert_eq!(mood_checkin.mood_rating.value(), 5);
     assert_eq!(mood_checkin.activities.len(), 5);
 
     // Verify all activities are present
@@ -263,7 +264,7 @@ fn test_get_mood_checkin_by_id() {
         .expect("Failed to get mood check-in");
 
     assert_eq!(fetched.id, created.id);
-    assert_eq!(fetched.mood_rating, 4);
+    assert_eq!(fetched.mood_rating.value(), 4);
     assert_eq!(fetched.activities.len(), 1);
     assert_eq!(fetched.activities[0].name, "Reading");
 }
@@ -358,7 +359,7 @@ fn test_log_mood_notes_at_exact_limit() {
 // T150j: Test log_mood with boundary ratings (0, 8, -1, 100) for 1-7 scale
 #[test]
 fn test_log_mood_with_invalid_boundary_ratings() {
-    let (repo, _temp_dir, _group_id) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Test rating 0 (below minimum of 1)
     let result = repo.create_mood_checkin(0, vec![], None);
@@ -384,17 +385,17 @@ fn test_log_mood_with_invalid_boundary_ratings() {
 // T150j continued: Test valid boundary ratings (1 and 7) for 1-7 scale
 #[test]
 fn test_log_mood_with_valid_boundary_ratings() {
-    let (repo, _temp_dir, _group_id) = setup_test_repo();
+    let (repo, _temp_dir, group_id) = setup_test_repo();
 
     // Test rating 1 (minimum valid - Terrible)
     let result = repo.create_mood_checkin(1, vec![], None);
     assert!(result.is_ok(), "Rating 1 should be valid");
-    assert_eq!(result.unwrap().mood_rating, 1);
+    assert_eq!(result.unwrap().mood_rating.value(), 1);
 
     // Test rating 7 (maximum valid - Excellent)
     let result = repo.create_mood_checkin(7, vec![], None);
     assert!(result.is_ok(), "Rating 7 should be valid");
-    assert_eq!(result.unwrap().mood_rating, 7);
+    assert_eq!(result.unwrap().mood_rating.value(), 7);
 }
 
 // T150k: Test log_mood with very large activity_ids array (50+ ids)
@@ -428,7 +429,7 @@ fn test_log_mood_with_large_activity_array() {
                 60,
                 "All 60 activities should be linked"
             );
-            assert_eq!(mood.mood_rating, 4);
+            assert_eq!(mood.mood_rating.value(), 4);
         }
         Err(e) => {
             let error_msg = format!("{}", e);
