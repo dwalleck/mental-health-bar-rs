@@ -4,7 +4,7 @@ use crate::db::Database;
 use crate::types::{AssessmentStatus, SeverityLevel};
 use crate::utils::sanitize_optional_text;
 use crate::MAX_QUERY_LIMIT;
-use rusqlite::{OptionalExtension, Row};
+use rusqlite::Row;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -128,68 +128,42 @@ impl AssessmentRepository {
         let severity_str = severity_level.as_str();
 
         let id = if status == AssessmentStatus::Draft {
-            // For drafts: check if existing draft exists for this assessment type
-            let existing_draft_id: Option<i32> = tx
-                .query_row(
-                    "SELECT id FROM assessment_responses
-                     WHERE assessment_type_id = ? AND status = ?
-                     ORDER BY completed_at DESC
-                     LIMIT 1",
-                    rusqlite::params![&assessment_type_id, &AssessmentStatus::Draft],
-                    |row| row.get(0),
-                )
-                .optional()?;
-
-            if let Some(draft_id) = existing_draft_id {
-                // Update existing draft
-                tx.execute(
-                    "UPDATE assessment_responses
-                     SET responses = ?, total_score = ?, severity_level = ?, notes = ?, completed_at = datetime('now')
-                     WHERE id = ?",
-                    [
-                        &responses_json as &dyn rusqlite::ToSql,
-                        &total_score as &dyn rusqlite::ToSql,
-                        &severity_str as &dyn rusqlite::ToSql,
-                        &notes as &dyn rusqlite::ToSql,
-                        &draft_id as &dyn rusqlite::ToSql,
-                    ],
-                )?;
-                info!(
-                    assessment_id = draft_id,
-                    assessment_type_id = assessment_type_id,
-                    "Updated existing draft"
-                );
-                draft_id
-            } else {
-                // Insert new draft
-                tx.query_row(
-                    "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
-                     VALUES (?, ?, ?, ?, ?, ?)
-                     RETURNING id",
-                    [
-                        &assessment_type_id as &dyn rusqlite::ToSql,
-                        &responses_json as &dyn rusqlite::ToSql,
-                        &total_score as &dyn rusqlite::ToSql,
-                        &severity_str as &dyn rusqlite::ToSql,
-                        &notes as &dyn rusqlite::ToSql,
-                        &status_str as &dyn rusqlite::ToSql,
-                    ],
-                    |row| row.get(0),
-                )?
-            }
+            // For drafts: use atomic UPSERT to prevent TOCTOU race condition
+            // The partial unique index (idx_one_draft_per_type) ensures only one draft per assessment type
+            tx.query_row(
+                "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT (assessment_type_id) WHERE status = 'draft'
+                 DO UPDATE SET
+                     responses = excluded.responses,
+                     total_score = excluded.total_score,
+                     severity_level = excluded.severity_level,
+                     notes = excluded.notes,
+                     completed_at = datetime('now')
+                 RETURNING id",
+                rusqlite::params![
+                    &assessment_type_id,
+                    &responses_json,
+                    &total_score,
+                    &severity_str,
+                    &notes,
+                    &status_str,
+                ],
+                |row| row.get(0),
+            )?
         } else {
             // For completed: always insert new record (historical data)
             tx.query_row(
                 "INSERT INTO assessment_responses (assessment_type_id, responses, total_score, severity_level, notes, status)
-                 VALUES (?, ?, ?, ?, ?, ?)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                  RETURNING id",
-                [
-                    &assessment_type_id as &dyn rusqlite::ToSql,
-                    &responses_json as &dyn rusqlite::ToSql,
-                    &total_score as &dyn rusqlite::ToSql,
-                    &severity_str as &dyn rusqlite::ToSql,
-                    &notes as &dyn rusqlite::ToSql,
-                    &status_str as &dyn rusqlite::ToSql,
+                rusqlite::params![
+                    &assessment_type_id,
+                    &responses_json,
+                    &total_score,
+                    &severity_str,
+                    &notes,
+                    &status_str,
                 ],
                 |row| row.get(0),
             )?
@@ -301,11 +275,20 @@ impl AssessmentRepository {
 
         // ✅ FIXED: Use parameterized query for LIMIT (prevents SQL injection)
         // Enforce reasonable bounds to prevent excessive queries
-        // Design choice: Using clamp() for silent correction rather than validation error
+        // Design choice: Using clamp() for correction rather than validation error
         // This provides better UX (automatically corrects invalid limits) rather than rejecting requests
         let safe_limit;
         if let Some(lim) = limit {
             safe_limit = lim.clamp(MIN_QUERY_LIMIT, MAX_QUERY_LIMIT);
+            if safe_limit != lim {
+                tracing::warn!(
+                    requested_limit = lim,
+                    actual_limit = safe_limit,
+                    min = MIN_QUERY_LIMIT,
+                    max = MAX_QUERY_LIMIT,
+                    "Query limit clamped to valid range"
+                );
+            }
             query.push_str(" LIMIT ?");
             params.push(&safe_limit);
         }

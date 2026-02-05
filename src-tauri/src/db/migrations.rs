@@ -51,6 +51,12 @@ pub fn run_migrations(db: &Database) -> Result<()> {
         info!("Applied migration 005: Add status column to assessment_responses");
     }
 
+    if current_version < 6 {
+        apply_migration_006(db)?;
+        record_migration(db, 6)?;
+        info!("Applied migration 006: Add partial unique constraint for drafts");
+    }
+
     info!("All migrations applied successfully");
     Ok(())
 }
@@ -195,6 +201,30 @@ fn apply_migration_005(db: &Database) -> Result<()> {
 
     tx.commit()
         .context("Failed to commit migration 005 transaction")?;
+
+    Ok(())
+}
+
+/// Migration 006: Add partial unique constraint for drafts
+///
+/// This migration adds a partial unique index to enforce "one draft per assessment type".
+/// This enables atomic UPSERT operations to prevent TOCTOU race conditions.
+fn apply_migration_006(db: &Database) -> Result<()> {
+    let schema_sql = include_str!("migrations/006_draft_unique_constraint.sql");
+
+    let conn = db.get_connection();
+    let mut conn = conn.lock();
+
+    // Wrap migration in explicit transaction for atomicity
+    let tx = conn
+        .transaction()
+        .context("Failed to begin transaction for migration 006")?;
+
+    tx.execute_batch(schema_sql)
+        .context("Failed to execute migration 006 DDL statements")?;
+
+    tx.commit()
+        .context("Failed to commit migration 006 transaction")?;
 
     Ok(())
 }

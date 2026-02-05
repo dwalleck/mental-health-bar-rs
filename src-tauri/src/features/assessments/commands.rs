@@ -35,6 +35,35 @@ pub async fn submit_assessment(
     })
 }
 
+/// Calculate score based on assessment status (draft vs completed)
+///
+/// For drafts: returns partial score from answered questions with Unknown severity
+/// For completed: uses the full scoring function and severity calculation
+fn calculate_score_for_status<F, S>(
+    status: AssessmentStatus,
+    valid_responses: &[i32],
+    all_responses: &[i32],
+    score_fn: F,
+    severity_fn: S,
+) -> Result<(i32, SeverityLevel), AssessmentError>
+where
+    F: FnOnce(&[i32]) -> Result<i32, AssessmentError>,
+    S: FnOnce(i32) -> SeverityLevel,
+{
+    if status == AssessmentStatus::Draft {
+        if valid_responses.is_empty() {
+            Ok((0, SeverityLevel::Unknown))
+        } else {
+            // Calculate partial score from answered questions only
+            let partial_score: i32 = valid_responses.iter().sum();
+            Ok((partial_score, SeverityLevel::Unknown))
+        }
+    } else {
+        let score = score_fn(all_responses)?;
+        Ok((score, severity_fn(score)))
+    }
+}
+
 /// Business logic for submitting assessment - uses trait bound for testability
 fn submit_assessment_impl(
     repo: &impl AssessmentRepositoryTrait,
@@ -74,51 +103,34 @@ fn submit_assessment_impl(
     };
 
     let (total_score, severity_level) = match assessment_type.code.as_str() {
-        "PHQ9" => {
-            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
-                (0, SeverityLevel::Unknown)
-            } else if request.status == AssessmentStatus::Draft {
-                // For drafts, calculate partial score from answered questions only
-                let partial_score: i32 = valid_responses.iter().sum();
-                (partial_score, SeverityLevel::Unknown) // Unknown severity for incomplete
-            } else {
-                let score = calculate_phq9_score(&request.responses)?;
-                (score, get_phq9_severity(score))
-            }
-        }
-        "GAD7" => {
-            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
-                (0, SeverityLevel::Unknown)
-            } else if request.status == AssessmentStatus::Draft {
-                let partial_score: i32 = valid_responses.iter().sum();
-                (partial_score, SeverityLevel::Unknown)
-            } else {
-                let score = calculate_gad7_score(&request.responses)?;
-                (score, get_gad7_severity(score))
-            }
-        }
-        "CESD" => {
-            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
-                (0, SeverityLevel::Unknown)
-            } else if request.status == AssessmentStatus::Draft {
-                let partial_score: i32 = valid_responses.iter().sum();
-                (partial_score, SeverityLevel::Unknown)
-            } else {
-                let score = calculate_cesd_score(&request.responses)?;
-                (score, get_cesd_severity(score))
-            }
-        }
-        "OASIS" => {
-            if request.status == AssessmentStatus::Draft && valid_responses.is_empty() {
-                (0, SeverityLevel::Unknown)
-            } else if request.status == AssessmentStatus::Draft {
-                let partial_score: i32 = valid_responses.iter().sum();
-                (partial_score, SeverityLevel::Unknown)
-            } else {
-                let score = calculate_oasis_score(&request.responses)?;
-                (score, get_oasis_severity(score))
-            }
-        }
+        "PHQ9" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_phq9_score,
+            get_phq9_severity,
+        )?,
+        "GAD7" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_gad7_score,
+            get_gad7_severity,
+        )?,
+        "CESD" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_cesd_score,
+            get_cesd_severity,
+        )?,
+        "OASIS" => calculate_score_for_status(
+            request.status,
+            &valid_responses,
+            &request.responses,
+            calculate_oasis_score,
+            get_oasis_severity,
+        )?,
         _ => return Err(AssessmentError::InvalidType(assessment_type.code.clone())),
     };
 
