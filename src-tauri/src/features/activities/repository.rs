@@ -15,7 +15,7 @@
 
 use super::models::*;
 use crate::db::Database;
-use crate::types::activity::GoalType;
+use crate::types::activity::{GoalType, HexColor};
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use tracing::info;
@@ -590,11 +590,17 @@ impl ActivityRepository {
             "Created activity"
         );
 
+        // Convert color string to HexColor (validation already done at request layer)
+        let color = color
+            .map(HexColor::new)
+            .transpose()
+            .map_err(|_| ActivityError::Database(rusqlite::Error::InvalidQuery))?;
+
         Ok(Activity {
             id,
             group_id,
             name: name.to_string(),
-            color: color.map(|s| s.to_string()),
+            color,
             icon: icon.map(|s| s.to_string()),
             created_at,
             deleted_at: None,
@@ -626,7 +632,7 @@ impl ActivityRepository {
                     id: row.get(0)?,
                     group_id: row.get(1)?,
                     name: row.get(2)?,
-                    color: row.get(3)?,
+                    color: row.get::<_, Option<HexColor>>(3)?,
                     icon: row.get(4)?,
                     created_at: row.get(5)?,
                     deleted_at: row.get(6)?,
@@ -1495,7 +1501,7 @@ mod tests {
 
         assert_eq!(activity.name, "Running");
         assert_eq!(activity.group_id, group.id);
-        assert_eq!(activity.color, Some("#FF0000".to_string()));
+        assert_eq!(activity.color, Some(HexColor::new("#FF0000").unwrap()));
         assert_eq!(activity.icon, Some("fire".to_string()));
         assert!(activity.id > 0);
     }

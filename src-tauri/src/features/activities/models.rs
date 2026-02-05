@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
 
+// Re-export Activity from types for backwards compatibility
+// (previously defined in this module, now consolidated in types/activity.rs)
+pub use crate::types::Activity;
+
 /// Activities feature errors
 #[derive(Error, Debug)]
 pub enum ActivityError {
@@ -180,17 +184,8 @@ pub struct ActivityGroup {
     pub deleted_at: Option<String>,
 }
 
-/// Activity model (updated with group_id)
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-pub struct Activity {
-    pub id: i32,
-    pub group_id: i32,
-    pub name: String,
-    pub color: Option<String>,
-    pub icon: Option<String>,
-    pub created_at: String,
-    pub deleted_at: Option<String>,
-}
+// Note: Activity struct has been moved to types/activity.rs to avoid duplication
+// across features/mood and features/activities modules. It is re-exported above.
 
 /// Activity Log model
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

@@ -221,6 +221,25 @@ impl FromSql for HexColor {
     }
 }
 
+/// Activity model
+///
+/// Represents an activity that can be associated with mood check-ins or tracked
+/// independently via activity logging. This is the single source of truth for
+/// the Activity type across all features (mood, activities, visualization).
+///
+/// The `HexColor` newtype ensures color values are always valid hex format.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct Activity {
+    pub id: i32,
+    pub group_id: i32,
+    pub name: String,
+    /// Optional color in validated hex format (#RGB, #RRGGBB, or #RRGGBBAA)
+    pub color: Option<HexColor>,
+    pub icon: Option<String>,
+    pub created_at: String,
+    pub deleted_at: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

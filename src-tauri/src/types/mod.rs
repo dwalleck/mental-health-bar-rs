@@ -8,6 +8,6 @@ pub mod assessment;
 pub mod mood;
 
 // Re-export commonly used types
-pub use activity::{GoalTarget, GoalType, HexColor};
+pub use activity::{Activity, GoalTarget, GoalType, HexColor};
 pub use assessment::{AssessmentCode, AssessmentStatus, SeverityLevel};
 pub use mood::MoodRating;

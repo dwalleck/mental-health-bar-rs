@@ -1,12 +1,15 @@
 use crate::{
     errors::{CommandError, ErrorType, ToCommandError},
-    types::activity::HexColor,
-    types::mood::MoodRating,
+    types::MoodRating,
     MAX_NOTES_LENGTH,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use validator::Validate;
+
+// Re-export Activity from types for backwards compatibility
+// (previously defined in this module, now consolidated in types/activity.rs)
+pub use crate::types::Activity;
 
 /// Mood feature errors
 #[derive(Error, Debug)]
@@ -111,21 +114,8 @@ impl ToCommandError for MoodError {
     }
 }
 
-/// Activity model
-///
-/// Represents an activity that can be associated with mood check-ins.
-/// The `HexColor` newtype ensures color values are always valid hex format.
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-pub struct Activity {
-    pub id: i32,
-    pub group_id: i32,
-    pub name: String,
-    /// Optional color in validated hex format (#RGB, #RRGGBB, or #RRGGBBAA)
-    pub color: Option<HexColor>,
-    pub icon: Option<String>,
-    pub created_at: String,
-    pub deleted_at: Option<String>,
-}
+// Note: Activity struct has been moved to types/activity.rs to avoid duplication
+// across features/mood and features/activities modules. It is re-exported below.
 
 /// Mood check-in model
 ///
